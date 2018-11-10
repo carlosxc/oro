@@ -72,10 +72,10 @@ services:
             - %oro_translation.api.oro_service.endpoint%
         lazy: true
 
-    oro_translation.uploader.crowdin_adapter:
-        class: %oro_translation.crowdin.adapter.class%
-        arguments:
-            - '@oro_translation.guzzle_crowdin_client'
+#    oro_translation.uploader.crowdin_adapter:
+#        class: %oro_translation.crowdin.adapter.class%
+#        arguments:
+#            - '@oro_translation.guzzle_crowdin_client'
 
     oro_translation.oro_translation_adapter:
         class: %oro_translation.oro_translation.adapter.class%

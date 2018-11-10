@@ -161,7 +161,7 @@ class OroTranslationPackCommandTest extends \PHPUnit_Framework_TestCase
                 ->method($commandName);
         }
 
-        $kernel->getContainer()->set('oro_translation.uploader.crowdin_adapter', $adapterMock);
+//        $kernel->getContainer()->set('oro_translation.uploader.crowdin_adapter', $adapterMock);
         $kernel->getContainer()->set('oro_translation.service_provider', $uploaderMock);
 
         $app         = new Application($kernel);
