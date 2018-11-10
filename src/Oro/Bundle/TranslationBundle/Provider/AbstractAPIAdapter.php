@@ -22,9 +22,9 @@ abstract class AbstractAPIAdapter implements APIAdapterInterface
     /** @var Client */
     protected $client;
 
-    public function __construct(Client $client)
+    public function __construct()
     {
-        $this->client = $client;
+        $this->client = new Client();
         $this->setLogger(new NullLogger());
     }
 
