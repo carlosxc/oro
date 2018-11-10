@@ -1,0 +1,20 @@
+<script>
+    require(['jquery'], function ($) {
+        $(function () {
+            var options = {
+                dataType: 'script',
+                cache:     true,
+                url:       '{{ data|default(constant('Oro\\Bundle\\PlatformBundle\\Form\\UrlGenerator::URL') ~ constant('Oro\\Bundle\\PlatformBundle\\Form\\UrlGenerator::FORM_JS')) }}',
+                timeout:   2000
+            };
+
+            $.ajax(options).done(function() {
+                new ORO.EmbedRequestForm(options);
+            }).error(function() {
+                if (typeof(console) != 'undefined' && console.hasOwnProperty('error')) {
+                    console.error('Unable to load external script.');
+                }
+            });
+        });
+    });
+</script>

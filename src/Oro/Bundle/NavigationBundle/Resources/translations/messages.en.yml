@@ -1,0 +1,24 @@
+oro:
+    navigation:
+        help:
+            title: How To Use Pinbar
+            message: Use pin icon on the right top corner of page to create fast access link in the pinbar.
+        menu:
+            pinbar.label: Pinbar
+            history.label: History
+            favorite.label: Favorites
+            mostviewed.label: Most Viewed
+        messages:
+            no_items: You have no items yet
+        shortcuts:
+            title: Shortcuts
+            example: "Example: Create user, Users list"
+            see_all: See full list
+            most_used: Most Used Actions
+            placeholder: Enter shortcut action
+        favorites:
+            button: Favorites
+            button.title: Mark/unmark the page as favorite
+        pins:
+            button: Minimize
+            button.title: Pin/unpin the page

@@ -1,0 +1,12 @@
+layout:
+    actions:
+        - '@add':
+            id:        embedded_form
+            parentId:  content
+            blockType: form_fields
+            options:
+                form_name: embedded_form
+                split_to_fields: true
+
+    conditions: 'context["embedded_form_custom_layout"]==""'
+

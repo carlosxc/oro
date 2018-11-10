@@ -1,0 +1,305 @@
+<?php
+
+namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Entity;
+
+use Doctrine\Common\Collections\ArrayCollection;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowEntityAcl;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowRestriction;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
+
+/**
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
+ */
+class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
+{
+    /**
+     * @var WorkflowDefinition
+     */
+    protected $workflowDefinition;
+
+    protected function setUp()
+    {
+        $this->workflowDefinition = new WorkflowDefinition();
+    }
+
+    protected function tearDown()
+    {
+        unset($this->workflowDefinition);
+    }
+
+    public function testName()
+    {
+        $this->assertNull($this->workflowDefinition->getName());
+        $value = 'example_workflow';
+        $this->workflowDefinition->setName($value);
+        $this->assertEquals($value, $this->workflowDefinition->getName());
+    }
+
+    public function testLabel()
+    {
+        $this->assertNull($this->workflowDefinition->getLabel());
+        $value = 'Example Workflow';
+        $this->workflowDefinition->setLabel($value);
+        $this->assertEquals($value, $this->workflowDefinition->getLabel());
+    }
+
+    public function testStartStep()
+    {
+        $this->assertNull($this->workflowDefinition->getStartStep());
+        $startStep = new WorkflowStep();
+        $startStep->setName('start_step');
+        $this->workflowDefinition->setSteps([$startStep]);
+        $this->workflowDefinition->setStartStep($startStep);
+        $this->assertEquals($startStep, $this->workflowDefinition->getStartStep());
+        $this->workflowDefinition->setStartStep(null);
+        $this->assertNull($this->workflowDefinition->getStartStep());
+    }
+
+    public function testActive()
+    {
+        $this->assertFalse($this->workflowDefinition->isActive());
+        $this->workflowDefinition->setActive(true);
+        $this->assertTrue($this->workflowDefinition->isActive());
+    }
+
+    public function testPriority()
+    {
+        $this->assertEquals(0, $this->workflowDefinition->getPriority());
+        $this->workflowDefinition->setPriority(42);
+        $this->assertEquals(42, $this->workflowDefinition->getPriority());
+    }
+
+    /**
+     * @param array $groups
+     * @dataProvider groupsData
+     */
+    public function testGroups(array $groups)
+    {
+        $this->assertEquals([], $this->workflowDefinition->getExclusiveActiveGroups());
+        $this->assertFalse($this->workflowDefinition->hasExclusiveActiveGroups());
+        $this->assertEquals([], $this->workflowDefinition->getExclusiveRecordGroups());
+        $this->assertFalse($this->workflowDefinition->hasExclusiveRecordGroups());
+
+        $this->workflowDefinition->setGroups($groups);
+
+        $this->assertEquals(
+            array_key_exists(10, $groups)? $groups[10] : [],
+            $this->workflowDefinition->getExclusiveActiveGroups()
+        );
+
+        $this->assertEquals(
+            !empty($groups[10]),
+            $this->workflowDefinition->hasExclusiveActiveGroups()
+        );
+
+        $this->assertEquals(
+            array_key_exists(20, $groups)? $groups[20] : [],
+            $this->workflowDefinition->getExclusiveRecordGroups()
+        );
+
+        $this->assertEquals(
+            !empty($groups[20]),
+            $this->workflowDefinition->hasExclusiveRecordGroups()
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public function groupsData()
+    {
+        return [
+            [
+                [
+                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => ['active1', 'active2'],
+                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => ['record1', 'record2'],
+                ]
+            ],
+            [
+                [
+                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => [],
+                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => [],
+                ]
+            ],
+            [
+                []
+            ]
+        ];
+    }
+
+    /**
+     * @expectedException \Oro\Bundle\WorkflowBundle\Exception\WorkflowException
+     * @expectedExceptionMessage Workflow "test" does not contain step "start_step"
+     */
+    public function testStartStepNoStep()
+    {
+        $this->workflowDefinition->setName('test');
+        $this->assertNull($this->workflowDefinition->getStartStep());
+        $startStep = new WorkflowStep();
+        $startStep->setName('start_step');
+        $this->workflowDefinition->setStartStep($startStep);
+        $this->assertEquals($startStep, $this->workflowDefinition->getStartStep());
+    }
+
+    public function testConfiguration()
+    {
+        $this->assertEmpty($this->workflowDefinition->getConfiguration());
+        $value = ['some', 'configuration', 'array'];
+        $this->workflowDefinition->setConfiguration($value);
+        $this->assertEquals($value, $this->workflowDefinition->getConfiguration());
+    }
+
+    public function testImport()
+    {
+        $startStep = new WorkflowStep();
+        $startStep->setName('start');
+        $expectedData = [
+            'name' => 'test_name',
+            'label' => 'test_label',
+            'steps' => new ArrayCollection([$startStep]),
+            'start_step' => $startStep,
+            'configuration' => ['test', 'configuration'],
+            'active_groups' => ['active1', 'active2'],
+            'record_groups' => ['record1', 'record2'],
+        ];
+
+        $this->assertNotEquals($expectedData, $this->getDefinitionAsArray($this->workflowDefinition));
+
+        $groups = [
+            WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => ['active1', 'active2'],
+            WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => ['record1', 'record2'],
+        ];
+
+        $newDefinition = new WorkflowDefinition();
+        $newDefinition->setName($expectedData['name'])
+            ->setSteps($expectedData['steps'])
+            ->setLabel($expectedData['label'])
+            ->setStartStep($expectedData['start_step'])
+            ->setConfiguration($expectedData['configuration'])
+            ->setGroups($groups);
+
+        $this->assertEquals($this->workflowDefinition, $this->workflowDefinition->import($newDefinition));
+        $this->assertEquals($expectedData, $this->getDefinitionAsArray($this->workflowDefinition));
+    }
+
+    public function testSetSteps()
+    {
+        $stepOne = new WorkflowStep();
+        $stepOne->setName('step1');
+        $this->workflowDefinition->addStep($stepOne);
+
+        $stepTwo = new WorkflowStep();
+        $stepTwo->setName('step2');
+        $this->workflowDefinition->addStep($stepTwo);
+
+        $stepThree = new WorkflowStep();
+        $stepThree->setName('step3');
+        $this->workflowDefinition->addStep($stepThree);
+
+        $this->assertCount(3, $this->workflowDefinition->getSteps());
+
+        $this->assertTrue($this->workflowDefinition->hasStepByName('step3'));
+        $this->workflowDefinition->removeStep($stepThree);
+        $this->assertFalse($this->workflowDefinition->hasStepByName('step3'));
+
+        $this->assertCount(2, $this->workflowDefinition->getSteps());
+        $this->workflowDefinition->setSteps(new ArrayCollection([$stepOne]));
+        $actualSteps = $this->workflowDefinition->getSteps();
+        $this->assertCount(1, $actualSteps);
+        $this->assertEquals($stepOne, $actualSteps[0]);
+    }
+
+    public function testSetGetAclIdentities()
+    {
+        $firstStep = new WorkflowStep();
+        $firstStep->setName('first_step');
+        $secondStep = new WorkflowStep();
+        $secondStep->setName('second_step');
+        $this->workflowDefinition->setSteps([$firstStep, $secondStep]);
+
+        $firstEntityAcl = new WorkflowEntityAcl();
+        $firstEntityAcl->setStep($firstStep)->setAttribute('first_attribute');
+        $secondEntityAcl = new WorkflowEntityAcl();
+        $secondEntityAcl->setStep($secondStep)->setAttribute('second_attribute');
+
+        // default
+        $this->assertEmpty($this->workflowDefinition->getEntityAcls()->toArray());
+
+        // adding
+        $this->workflowDefinition->setEntityAcls([$firstEntityAcl]);
+        $this->assertCount(1, $this->workflowDefinition->getEntityAcls());
+        $this->assertEquals($firstEntityAcl, $this->workflowDefinition->getEntityAcls()->first());
+
+        // merging
+        $this->workflowDefinition->setEntityAcls([$firstEntityAcl, $secondEntityAcl]);
+        $this->assertCount(2, $this->workflowDefinition->getEntityAcls());
+        $entityAcls = array_values($this->workflowDefinition->getEntityAcls()->toArray());
+        $this->assertEquals($firstEntityAcl, $entityAcls[0]);
+        $this->assertEquals($secondEntityAcl, $entityAcls[1]);
+
+        // removing
+        $this->workflowDefinition->setEntityAcls([$secondEntityAcl]);
+        $this->assertCount(1, $this->workflowDefinition->getEntityAcls());
+        $this->assertEquals($secondEntityAcl, $this->workflowDefinition->getEntityAcls()->first());
+
+        // resetting
+        $this->workflowDefinition->setEntityAcls([]);
+        $this->assertEmpty($this->workflowDefinition->getEntityAcls()->toArray());
+    }
+
+    public function testSetGetEntityRestrictions()
+    {
+        $firstStep = new WorkflowStep();
+        $firstStep->setName('first_step');
+        $secondStep = new WorkflowStep();
+        $secondStep->setName('second_step');
+        $this->workflowDefinition->setSteps([$firstStep, $secondStep]);
+
+        $firstRestriction = new WorkflowRestriction();
+        $firstRestriction->setStep($firstStep)->setAttribute('first_attribute');
+        $secondRestriction = new WorkflowRestriction();
+        $secondRestriction->setStep($secondStep)->setAttribute('second_attribute');
+
+        // default
+        $this->assertEmpty($this->workflowDefinition->getRestrictions()->toArray());
+
+        // adding
+        $this->workflowDefinition->setRestrictions([$firstRestriction]);
+        $this->assertCount(1, $this->workflowDefinition->getRestrictions());
+        $this->assertEquals($firstRestriction, $this->workflowDefinition->getRestrictions()->first());
+
+        // merging
+        $this->workflowDefinition->setRestrictions([$firstRestriction, $secondRestriction]);
+        $this->assertCount(2, $this->workflowDefinition->getRestrictions());
+        $restrictions = array_values($this->workflowDefinition->getRestrictions()->toArray());
+        $this->assertEquals($firstRestriction, $restrictions[0]);
+        $this->assertEquals($secondRestriction, $restrictions[1]);
+
+        // removing
+        $this->workflowDefinition->setRestrictions([$secondRestriction]);
+        $this->assertCount(1, $this->workflowDefinition->getRestrictions());
+        $this->assertEquals($secondRestriction, $this->workflowDefinition->getRestrictions()->first());
+
+        // resetting
+        $this->workflowDefinition->setRestrictions([]);
+        $this->assertEmpty($this->workflowDefinition->getRestrictions()->toArray());
+    }
+
+    /**
+     * @param WorkflowDefinition $definition
+     * @return array
+     */
+    protected function getDefinitionAsArray(WorkflowDefinition $definition)
+    {
+        return [
+            'name' => $definition->getName(),
+            'label' => $definition->getLabel(),
+            'steps' => $definition->getSteps(),
+            'start_step' => $definition->getStartStep(),
+            'configuration' => $definition->getConfiguration(),
+            'active_groups' => $definition->getExclusiveActiveGroups(),
+            'record_groups' => $definition->getExclusiveRecordGroups(),
+        ];
+    }
+}

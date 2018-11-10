@@ -1,0 +1,34 @@
+{
+    "name": "oro/ui-bundle",
+    "type": "symfony-bundle",
+    "description": "BAP User Interface Bundle",
+    "keywords": ["BAP", "UI", "User Interface"],
+    "homepage": "https://github.com/laboro/UIBundle",
+    "license": "MIT",
+    "require": {
+        "php": ">=5.5.9",
+        "symfony/framework-bundle": "2.8.*",
+        "kriswallsmith/assetic": "1.1.*@dev",
+        "symfony/assetic-bundle": "2.1.*",
+        "leafo/lessphp": "dev-master",
+        "liip/imagine-bundle": "0.17.*",
+        "oro/config": "dev-master",
+        "oro/requirejs-bundle": "dev-master",
+        "oro/locale-bundle": "dev-master",
+        "oro/theme-bundle": "dev-master",
+        "components/jquery": "2.1.*",
+        "components/underscore": "1.7.*",
+        "components/backbone": "1.1.*",
+        "vakata/jstree": "^3.2"
+    },
+    "autoload": {
+        "psr-0": { "Oro\\Bundle\\UIBundle": "" }
+    },
+    "minimum-stability": "dev",
+    "target-dir": "Oro/Bundle/UIBundle",
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.0-alpha"
+        }
+    }
+}

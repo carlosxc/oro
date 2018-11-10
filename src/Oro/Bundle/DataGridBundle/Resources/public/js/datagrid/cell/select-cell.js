@@ -1,0 +1,75 @@
+define([
+    'underscore',
+    'backgrid',
+    'orodatagrid/js/datagrid/editor/select-cell-radio-editor',
+    'oroui/js/tools/text-util'
+], function(_, Backgrid, SelectCellRadioEditor, textUtil) {
+    'use strict';
+
+    var SelectCell;
+
+    /**
+     * Select column cell. Added missing behaviour.
+     *
+     * @export  oro/datagrid/cell/select-cell
+     * @class   oro.datagrid.cell.SelectCell
+     * @extends Backgrid.SelectCell
+     */
+    SelectCell = Backgrid.SelectCell.extend({
+        /**
+         * @inheritDoc
+         */
+        initialize: function(options) {
+            if (this.expanded && !this.multiple) {
+                this.editor = SelectCellRadioEditor;
+            }
+
+            if (options.column.get('metadata').choices) {
+                this.optionValues = [];
+                _.each(options.column.get('metadata').choices, function(value, key) {
+                    this.optionValues.push([textUtil.prepareText(value), key]);
+                }, this);
+            } else {
+                throw new Error('Column metadata must have choices specified');
+            }
+            SelectCell.__super__.initialize.apply(this, arguments);
+
+            this.listenTo(this.model, 'change:' + this.column.get('name'), function() {
+                this.enterEditMode();
+
+                this.$el.find('select').inputWidget('create');
+            });
+        },
+
+        /**
+         * @inheritDoc
+         */
+        render: function() {
+            var render = SelectCell.__super__.render.apply(this, arguments);
+
+            this.enterEditMode();
+
+            return render;
+        },
+
+        /**
+         * @inheritDoc
+         */
+        enterEditMode: function() {
+            if (this.column.get('editable')) {
+                SelectCell.__super__.enterEditMode.apply(this, arguments);
+            }
+        },
+
+        /**
+         * @inheritDoc
+         */
+        exitEditMode: function() {
+            this.$el.removeClass('error');
+            this.stopListening(this.currentEditor);
+            delete this.currentEditor;
+        }
+    });
+
+    return SelectCell;
+});

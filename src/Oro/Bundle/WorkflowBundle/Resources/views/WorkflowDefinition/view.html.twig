@@ -1,0 +1,276 @@
+{% extends 'OroUIBundle:actions:view.html.twig' %}
+{% import 'OroUIBundle::macros.html.twig' as macros %}
+
+{% oro_title_set({params : {"%workflow_definition.label%": entity.label} }) %}
+
+{% set isActive = entity.isActive %}
+
+{% set pageComponent = {
+        module: 'oroworkflow/js/app/components/workflow-viewer-component',
+        options: {
+            entity: {
+                configuration: workflowConfiguration,
+                name: entity.name,
+                label: entity.label,
+                entity: entity.relatedEntity,
+                entity_attribute: entity.entityAttributeName | default('entity'),
+                startStep: entity.startStep.name | default(null),
+                stepsDisplayOrdered: entity.stepsDisplayOrdered,
+            },
+            system_entities: system_entities,
+            chartOptions: {
+                Endpoint: ['Blank', {}]
+            },
+            connectionOptions: {
+                detachable: false
+            }
+        }
+    }
+%}
+
+{% block navButtons %}
+    {{ parent() }}
+    {% if resource_granted('oro_workflow') %}
+        {% if isActive %}
+            {% set idButton = entity.name ~ '-workflow-deactivate-btn' %}
+
+            <span
+                data-page-component-module="oroui/js/app/components/view-component"
+                data-page-component-options="{{ {
+                    view: 'oroworkflow/js/app/views/workflow-deactivate-btn-view',
+                    selectors: {
+                        button: '#' ~ idButton
+                    }
+                }|json_encode }}">
+
+                {{ UI.button({
+                    'aCss':  'no-hash btn-danger',
+                    'iCss':  'icon-remove',
+                    'id':    idButton,
+                    'label': 'oro.workflow.workflowdefinition.datagrid.deactivate'|trans,
+                    'path':  path('oro_api_workflow_deactivate', {'workflowDefinition': entity.name}),
+                    'title': 'oro.workflow.workflowdefinition.datagrid.deactivate'|trans,
+                    'data': {
+                        'name': entity.name,
+                        'label': entity.label
+                    }
+                }) }}
+            </span>
+        {% else %}
+            {% set idButton = entity.name ~ '-workflow-activate-btn' %}
+
+            <span
+                data-page-component-module="oroui/js/app/components/view-component"
+                data-page-component-options="{{ {
+                    view: 'oroworkflow/js/app/views/workflow-activate-btn-view',
+                    selectors: {
+                        button: '#' ~ idButton
+                    }
+                }|json_encode }}">
+
+                {{ UI.button({
+                    'aCss': 'no-hash btn-success',
+                    'iCss': 'icon-ok',
+                    'id': idButton,
+                    'label': 'oro.workflow.workflowdefinition.datagrid.activate'|trans,
+                    'path': path('oro_api_workflow_activate', {'workflowDefinition': entity.name}),
+                    'title': 'oro.workflow.workflowdefinition.datagrid.activate'|trans,
+                    'data': {
+                        'name': entity.name,
+                        'label': entity.label
+                    }
+                }) }}
+            </span>
+        {% endif %}
+    {% endif %}
+    {% if not entity.system %}
+        {% if resource_granted('EDIT', entity) %}
+            {{ UI.editButton({
+                'path' : path('oro_workflow_definition_update', { 'name': entity.name }),
+                'entity_label': 'oro.workflow.workflowdefinition.entity_label'|trans
+            }) }}
+        {% endif %}
+        {% if resource_granted('DELETE', entity) %}
+            {{ UI.deleteButton({
+                'dataUrl': path('oro_api_workflow_definition_delete', {'workflowDefinition': entity.name}),
+                'dataRedirect': path('oro_workflow_definition_index'),
+                'aCss': 'no-hash remove-button',
+                'id': 'btn-remove-workflow-definition',
+                'dataId': entity.name,
+                'entity_label': 'oro.workflow.workflowdefinition.entity_label'|trans
+            }) }}
+        {% endif %}
+    {% endif %}
+{% endblock navButtons %}
+
+{% block stats %}
+    <li>{{ 'oro.ui.created_at'|trans }}: {{ entity.createdAt ? entity.createdAt|oro_format_datetime : 'N/A' }}</li>
+    <li>{{ 'oro.ui.updated_at'|trans }}: {{ entity.updatedAt ? entity.updatedAt|oro_format_datetime : 'N/A' }}</li>
+{% endblock stats %}
+
+{% block pageHeader %}
+    {% set breadcrumbs = {
+        'entity': entity,
+        'indexPath': path('oro_workflow_definition_index'),
+        'indexLabel': 'oro.workflow.workflowdefinition.entity_plural_label'|trans,
+        'entityTitle': entity.label
+    } %}
+    {{ parent() }}
+{% endblock pageHeader %}
+
+{% block breadcrumbs %}
+    {{ parent() }}
+
+    <div class="pull-left">
+        {% if isActive %}
+            <div class="badge badge-enabled status-enabled"><i class="icon-status-enabled icon-circle"></i>{{ 'Active'|trans }}</div>
+        {% else %}
+            <div class="badge badge-disabled status-disabled"><i class="icon-status-disabled icon-circle"></i>{{ 'Inactive'|trans }}</div>
+        {% endif %}
+    </div>
+{% endblock breadcrumbs %}
+
+{% macro view_step_row(stepData, entity) %}
+    <tr>
+        <td class="step-name">
+            {{ stepData.label }}
+            {% if stepData.is_final %}
+                <strong title="{{ "oro.workflow.workflowdefinition.step.is_final.tooltip"|trans({}, "tooltips") }}">
+                    ({{ "Final"|trans }})
+                </strong>
+            {% endif %}
+        </td>
+        <td class="step-transitions">
+            {% if stepData.allowed_transitions is not empty %}
+                <ul class="transitions-list-short">
+                    {% for transitionName in stepData.allowed_transitions %}
+                        {% set currentTransition = entity.configuration.transitions[transitionName] %}
+                        {% set toStep = entity.configuration.steps[currentTransition.step_to] %}
+                        <li>
+                            <span>{{ currentTransition.label }}</span>
+                            <i class="icon-long-arrow-right"></i>
+                            <span title="{{ "oro.workflow.workflowdefinition.transition.step_to.tooltip"|trans({}, "tooltips") }}">{{ toStep.label }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </td>
+        <td>
+            <span title="{{ "oro.workflow.workflowdefinition.step.order.tooltip"|trans({}, "tooltips") }}">
+                {{ stepData.order }}
+            </span>
+        </td>
+    </tr>
+{% endmacro %}
+
+{% macro view_start_step_row(entity) %}
+    {% set startTransitionNames = [] %}
+    {% for transitionName, transitionConfig in entity.configuration.transitions %}
+        {% if transitionConfig.is_start %}
+            {% set startTransitionNames = startTransitionNames|merge([transitionName]) %}
+        {% endif %}
+    {% endfor %}
+    {{-
+        _self.view_step_row({
+            'label': '(' ~ 'Start'|trans ~ ')',
+            'order': -1,
+            'is_final': false,
+            'allowed_transitions': startTransitionNames
+        }, entity)
+    -}}
+{% endmacro %}
+
+{% block content_data %}
+    {% set workflowDefinitionInfo %}
+        {{ oro_widget_render({
+            'widgetType': 'block',
+            'url': path('oro_workflow_definition_info', {name: entity.name}),
+        }) }}
+    {% endset %}
+
+    {% set workflowStepsAndTransitions %}
+        <style type="text/css">
+            .transitions-list-short {
+                margin-left: 0;
+            }
+
+            .transitions-list-short li {
+                list-style: none;
+            }
+        </style>
+        <div class="workflow-step-viewer row-fluid clearfix">
+            <div class="{% if isMobileVersion() %}span12{% else %}span5{% endif %}">
+                <div class="workflow-table-container">
+                    <div class="workflow-definition-steps-list-container clearfix">
+                        <div class="grid-container steps-list">
+                            <table class="grid table-hover table table-bordered table-condensed" style="margin-bottom: 10px">
+                                <thead>
+                                    <tr>
+                                        <th class="label-column"><span>{{ "Step"|trans }}</span></th>
+                                        <th><span>{{ "Transitions"|trans }}</span></th>
+                                        <th>
+                                            <span title="{{ "oro.workflow.workflowdefinition.step.order.tooltip"|trans({}, "tooltips") }}">
+                                                {{ "Position"|trans }}
+                                            </span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="item-container">
+                                {%- for stepData in entity.configuration.steps -%}
+                                    {#
+                                        System workflows wont have (Start) step stored into database.
+                                        So we need to force show it for UI.
+                                    #}
+                                    {% if loop.first and entity.isSystem %}
+                                        {{ _self.view_start_step_row(entity) }}
+                                    {% endif %}
+
+                                    {{ _self.view_step_row(stepData, entity) }}
+                                {%- else -%}
+                                    {{ _self.view_start_step_row(entity) }}
+                                {%- endfor -%}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% if not isMobileVersion() %}
+            <div class="span7">
+                <div class="workflow-flowchart-container">
+                    <div class="workflow-flowchart-controls clearfix"></div>
+                    <div class="workflow-flowchart-wrapper" {{ UI.renderPageComponentAttributes({
+                            'module': 'oroui/js/app/components/view-component',
+                            'options': {'view': 'oroui/js/app/views/zoomable-area-view', 'autozoom': 'true'}
+                        }) }}
+                    >
+                        <div class="workflow-flowchart clearfix"></div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    {% endset %}
+
+    {% set dataBlocks = [
+        {
+            'title': 'General Information'|trans,
+            'class': 'active',
+            'subblocks': [
+                {'data' : [workflowDefinitionInfo] },
+            ]
+        },
+        {
+            'title': 'Configuration'|trans,
+            'subblocks': [
+                {
+                    'data':  [workflowStepsAndTransitions]
+                },
+            ]
+        },
+    ] %}
+
+    {% set id = 'workflowDefinitionView' %}
+    {% set data = {'dataBlocks': dataBlocks} %}
+    {{ parent() }}
+{% endblock content_data %}

@@ -1,0 +1,19 @@
+oro:
+    user:
+        update_status.label: Update status
+        suggest_password.label: Suggest password
+        show_hide_password.label: Show/hide password
+        reset_password:
+            flash:
+                success: Reset password email has been sent to user
+        change_password:
+            flash:
+                success: The password has been changed
+    role:
+        tabs:
+            all.label: All
+            system_capabilities.label: System Capabilities
+        capability_block:
+            label: Capabilities
+            select_all: Select All
+            no_capabilities_available: This group has no capabilities

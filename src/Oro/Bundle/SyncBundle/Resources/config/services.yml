@@ -1,0 +1,41 @@
+parameters:
+    # the time in milliseconds determines how often a ping service being called
+    # set 0 or false to disable a pinging
+    oro_wamp.ping.interval: 60000 # 1 minute
+
+    oro_wamp.publisher.class:             Oro\Bundle\SyncBundle\Wamp\TopicPublisher
+    oro_wamp.twig.class:                  Oro\Bundle\SyncBundle\Twig\OroSyncExtension
+    oro_wamp.listener.maintenance.class:  Oro\Bundle\SyncBundle\EventListener\MaintenanceListener
+
+services:
+    oro_wamp.publisher:
+        class:                            %oro_wamp.publisher.class%
+        arguments:
+            - %websocket_backend_host%
+            - %websocket_backend_port%
+
+    # this service is used as a workaround for "2006 MySQL server has gone away" error
+    # do not rename it because "oro_wamp.ping.{session_handler_type}" naming convention
+    # is used by ClankSessionHandlerConfigurationPass to add it to a list of periodic services
+    # in case if PdoSessionHandler is configured as a session storage handler
+    oro_wamp.ping.pdo:
+        class: Oro\Bundle\SyncBundle\Wamp\DbPing
+        arguments:
+            - "@?doctrine.dbal.session_connection.wrapped"
+
+    oro_wamp.twig.sync_extension:
+        class:                            %oro_wamp.twig.class%
+        arguments:
+            - "@oro_wamp.publisher"
+        tags:
+            - { name: twig.extension }
+
+    kernel.listener.maintenance.event:
+        class:                            %oro_wamp.listener.maintenance.class%
+        arguments:
+            - "@oro_wamp.publisher"
+            - "@oro_security.security_facade"
+            - "@logger"
+        tags:
+            - { name: kernel.event_listener, event: maintenance.on, method: onModeOn }
+            - { name: kernel.event_listener, event: maintenance.off, method: onModeOff }

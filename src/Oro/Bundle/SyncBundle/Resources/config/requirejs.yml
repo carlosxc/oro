@@ -1,0 +1,24 @@
+config:
+    shim:
+        'autobahn':
+            deps:
+                - 'when'
+                - 'cryptojs/core'
+                - 'cryptojs/enc-base64'
+                - 'cryptojs/hmac'
+                - 'cryptojs/sha256'
+                - 'cryptojs/pbkdf2'
+            exports: 'ab'
+    map:
+        'autobahn':
+            'when': 'orosync/js/extend/when'
+    paths:
+        'when': 'bundles/orosync/lib/when.js'
+        'autobahn': 'bundles/orosync/lib/autobahn.js'
+
+        'orosync/js/sync': 'bundles/orosync/js/sync.js'
+        'orosync/js/sync/wamp': 'bundles/orosync/js/sync/wamp.js'
+
+build:
+    paths:
+        'autobahn': 'empty:'

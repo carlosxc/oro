@@ -1,0 +1,10 @@
+{% import 'OroUIBundle::macros.html.twig' as UI %}
+{% set widgetComponentOptions = {
+    'type' : widgetType,
+    'options' : options
+} %}
+<div id="{{ elementId }}" {{ UI.renderWidgetAttributes(widgetComponentOptions) }} data-layout="separate">
+    {% if options.elementFirst %}
+        {% render options.url %}
+    {% endif %}
+</div>

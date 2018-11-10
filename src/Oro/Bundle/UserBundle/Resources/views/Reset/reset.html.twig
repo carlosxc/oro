@@ -1,0 +1,26 @@
+{% extends 'OroUserBundle::layout.html.twig' %}
+
+{% block bodyClass %}login-page{% endblock %}
+
+{% block content %}
+<div class="container">
+    <form action="{{ path('oro_user_reset_reset', { token: token }) }}" {{ form_enctype(form) }} method="post" class="form-signin">
+        <div class="title-box">
+            {% if oro_theme_logo() %}
+                <h1 class="oro-title logo-{{ oro_theme_logo() ? 'image' : 'text' }}">
+                    <img src="{{ asset(oro_theme_logo()) }}">
+                </h1>
+                <span class="divider-vertical"></span>
+            {% endif %}
+            <h2 class="title">{{ 'Password Reset'|trans }}</h2>
+        </div>
+        <fieldset>
+            {{ form_widget(form) }}
+            <div>
+                <button class="btn btn-large extra-submit btn-primary" type="submit">{{ 'Reset'|trans }}</button>
+                <a href="{{ path('oro_user_security_login') }}" class="btn btn-large extra-btn-large">{{ 'Cancel'|trans }}</a>
+            </div>
+        </fieldset>
+    </form>
+</div>
+{% endblock %}
