@@ -1,5 +1,0 @@
-oro_entity:
-    entity_alias_exclusions:
-        - Oro\Bundle\ImapBundle\Entity\ImapEmail
-        - Oro\Bundle\ImapBundle\Entity\ImapEmailFolder
-        - Oro\Bundle\ImapBundle\Entity\UserEmailOrigin

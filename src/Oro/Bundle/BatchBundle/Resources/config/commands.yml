@@ -1,6 +1,0 @@
-services:
-    Oro\Bundle\BatchBundle\Command\CleanupCommand:
-        public: false
-        class: Oro\Bundle\BatchBundle\Command\CleanupCommand
-        tags:
-            - { name: console.command }

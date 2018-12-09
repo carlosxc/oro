@@ -1,2 +1,0 @@
-bundles:
-    - { name: Oro\Bundle\CommentBundle\OroCommentBundle, priority: 1 }

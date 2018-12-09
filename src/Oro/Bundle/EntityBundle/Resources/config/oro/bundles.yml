@@ -1,2 +1,0 @@
-bundles:
-    - {name: Oro\Bundle\EntityBundle\OroEntityBundle, kernel: true, priority: -70 }

@@ -1,5 +1,0 @@
-doctrine:
-    dbal:
-        types:
-            currency: Oro\Bundle\CurrencyBundle\DoctrineExtension\Dbal\Types\CurrencyType
-            money_value: Oro\Bundle\CurrencyBundle\DoctrineExtension\Dbal\Types\MoneyValueType

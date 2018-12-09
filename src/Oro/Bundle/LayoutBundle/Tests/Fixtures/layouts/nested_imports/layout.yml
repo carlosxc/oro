@@ -1,8 +1,0 @@
-layout:
-    actions: []
-
-    imports:
-        -
-            id: first_level
-            namespace: first
-            root: wrapper

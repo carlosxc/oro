@@ -1,6 +1,0 @@
-title: Foo
-icon: foo.ico
-module: widget/foo
-placement: left
-settings:
-    test: Hello

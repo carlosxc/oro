@@ -1,6 +1,0 @@
-services:
-    Oro\Bundle\ThemeBundle\Command\ThemeCommand:
-        public: false
-        class: Oro\Bundle\ThemeBundle\Command\ThemeCommand
-        tags:
-            - { name: console.command }

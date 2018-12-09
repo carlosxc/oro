@@ -1,4 +1,0 @@
-oro:
-    cron:
-        validators:
-            schedule_intervals_overlap.message: 'Schedule intervals should not overlap'

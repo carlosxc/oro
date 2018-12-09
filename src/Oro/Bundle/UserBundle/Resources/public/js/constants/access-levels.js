@@ -1,3 +1,0 @@
-define({
-    NONE: 0
-});

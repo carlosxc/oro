@@ -1,4 +1,0 @@
-assets:
-    css:
-        inputs:
-            - 'bundles/oroscope/css/scss/main.scss'

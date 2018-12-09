@@ -1,7 +1,0 @@
-{% set settings = record.getValue('processSettings') %}
-{% if settings is null %}
-    {{ 'None'|trans }}
-{% else %}
-    {% set type = record.getValue('processSettings.type') %}
-    {{ oro_get_mailbox_process_label(type)|trans }}
-{% endif %}

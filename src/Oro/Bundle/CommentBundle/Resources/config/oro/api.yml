@@ -1,8 +1,0 @@
-api:
-    entities:
-        Oro\Bundle\CommentBundle\Entity\Comment:
-            documentation_resource: '@OroCommentBundle/Resources/doc/api/comment.md'
-            fields:
-                target:
-                    data_type: association:manyToOne
-

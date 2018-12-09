@@ -1,2 +1,0 @@
-bundles:
-    - {name: Oro\Bundle\DataGridBundle\OroDataGridBundle, priority: -75 }

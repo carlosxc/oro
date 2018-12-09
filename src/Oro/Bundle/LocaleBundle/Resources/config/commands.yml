@@ -1,6 +1,0 @@
-services:
-    Oro\Bundle\LocaleBundle\Command\OroLocalizationDumpCommand:
-        public: false
-        class: Oro\Bundle\LocaleBundle\Command\OroLocalizationDumpCommand
-        tags:
-            - { name: console.command }
