@@ -57,6 +57,7 @@
         "knplabs/knp-gaufrette-bundle": "0.3.*",
         "oro/doctrine-extensions": "1.2.*",
         "tinymce/tinymce": "4.6.*",
+        "ezyang/htmlpurifier": "4.10.*",
         "hwi/oauth-bundle": "0.5.*",
         "kriswallsmith/buzz": "0.16.*",
         "components/jquery": "3.1.*",
@@ -67,6 +68,7 @@
         "components/jqueryui": "1.12.*",
         "robloach/component-installer": "0.2.*",
         "jms/cg": "1.2.*",
+        "oro/redis-config": "3.1.*",
         "brick/math": "0.5.*"
     },
     "require-dev": {
