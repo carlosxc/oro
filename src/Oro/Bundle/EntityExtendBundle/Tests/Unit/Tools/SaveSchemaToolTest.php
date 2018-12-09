@@ -3,44 +3,42 @@
 namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Tools;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\MySqlPlatform;
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\Configuration;
-use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\DBAL\Platforms\MySqlPlatform;
-
 use Oro\Bundle\EntityExtendBundle\Tools\SaveSchemaTool;
 
-class SaveSchemaToolTest extends \PHPUnit_Framework_TestCase
+class SaveSchemaToolTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var EntityManagerInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var EntityManagerInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var Connection|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var Connection|\PHPUnit\Framework\MockObject\MockObject */
     protected $connection;
 
-    /** @var Configuration|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var Configuration|\PHPUnit\Framework\MockObject\MockObject */
     protected $configuration;
 
-    /** @var SaveSchemaTool|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var SaveSchemaTool|\PHPUnit\Framework\MockObject\MockObject */
     protected $schemaTool;
 
     protected function setUp()
     {
-        $this->connection    = $this->getMock('Doctrine\DBAL\Connection', [], [], '', false);
-        $this->configuration = $this->getMock('Doctrine\ORM\Configuration');
-        $this->em            = $this->getMock('Doctrine\ORM\EntityManagerInterface');
+        $this->connection    = $this->createMock('Doctrine\DBAL\Connection');
+        $this->configuration = $this->createMock('Doctrine\ORM\Configuration');
+        $this->em            = $this->createMock('Doctrine\ORM\EntityManagerInterface');
 
         $this->em->expects($this->any())->method('getConnection')->willReturn($this->connection);
         $this->em->expects($this->any())->method('getConfiguration')->willReturn($this->configuration);
 
         $this->connection->expects($this->any())->method('getDatabasePlatform')->willReturn(new MySqlPlatform());
 
-        $this->schemaTool = $this->getMock(
-            'Oro\Bundle\EntityExtendBundle\Tools\SaveSchemaTool',
-            ['getSchemaFromMetadata'],
-            [$this->em]
-        );
+        $this->schemaTool = $this->getMockBuilder('Oro\Bundle\EntityExtendBundle\Tools\SaveSchemaTool')
+            ->setMethods(['getSchemaFromMetadata'])
+            ->setConstructorArgs([$this->em])
+            ->getMock();
     }
 
     protected function tearDown()

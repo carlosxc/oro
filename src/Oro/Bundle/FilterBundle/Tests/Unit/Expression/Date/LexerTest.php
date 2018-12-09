@@ -5,15 +5,15 @@ namespace Oro\Bundle\FilterBundle\Tests\Unit\Expression\Date;
 use Oro\Bundle\FilterBundle\Expression\Date\Lexer;
 use Oro\Bundle\FilterBundle\Expression\Date\Token;
 
-class LexerTest extends \PHPUnit_Framework_TestCase
+class LexerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Lexer */
     protected $lexer;
 
     protected function setUp()
     {
-        $translatorMock = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
-        $providerMock   = $this->getMock('Oro\Bundle\FilterBundle\Provider\DateModifierProvider');
+        $translatorMock = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
+        $providerMock   = $this->createMock('Oro\Bundle\FilterBundle\Provider\DateModifierProvider');
         $this->lexer    = new Lexer($translatorMock, $providerMock);
     }
 
@@ -32,7 +32,7 @@ class LexerTest extends \PHPUnit_Framework_TestCase
     public function testTokenize($input, array $expectedTokens, $expectedException = null)
     {
         if (null !== $expectedException) {
-            $this->setExpectedException($expectedException);
+            $this->expectException($expectedException);
         }
 
         $result = $this->lexer->tokenize($input);

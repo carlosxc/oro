@@ -4,7 +4,17 @@
 {% set config_extend %}
     require({
         baseUrl: {{ baseAssetParts[0]|json_encode|raw }},
-        urlArgs: '{{ baseAssetParts[1] is defined ? baseAssetParts[1] : '' }}'
+        {% if baseAssetParts[1] is defined %}
+        urlArgs: function(id, url) {
+            var absoluteUrlRegexp = /^https?:\/\/|^\/\//i;
+            if (absoluteUrlRegexp.test(url) && url.indexOf('{{ app.request.host }}') === -1) {
+                return '';
+            } else {
+                var delimiter = url.indexOf('?') === -1 ? '?' : '&';
+                return delimiter + '{{ baseAssetParts[1] }}';
+            }
+        }
+        {% endif %}
     });
     {{ config_extend|default('') }}
 {% endset %}
@@ -20,7 +30,7 @@
     </script>
     <script type="text/javascript" src="{{ asset(get_requirejs_build_path(provider_alias)) }}"></script>
 {% else %}
-    <script type="text/javascript" src="{{ asset('bundles/ororequirejs/lib/require.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('bundles/npmassets/requirejs/require.js') }}"></script>
     <script type="text/javascript">
         {{ get_requirejs_config(provider_alias) }}
     </script>
@@ -28,6 +38,8 @@
         {{ config_extend|raw }}
     </script>
     <script type="text/javascript">
-         require(['requirejs-asap-init']);
+        require(['requirejs-asap-init']);
     </script>
 {% endif %}
+
+{{ requirejs_build_logger(provider_alias)|raw }}

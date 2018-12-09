@@ -3,14 +3,12 @@
 namespace Oro\Bundle\TranslationBundle\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
-
+use Oro\Bundle\TranslationBundle\Entity\Translation;
+use Oro\Bundle\TranslationBundle\Translation\EmptyArrayLoader;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
-use Oro\Bundle\TranslationBundle\Entity\Translation;
-use Oro\Bundle\TranslationBundle\Translation\EmptyArrayLoader;
 
 class OroTranslationResetCommand extends ContainerAwareCommand
 {
@@ -42,7 +40,7 @@ class OroTranslationResetCommand extends ContainerAwareCommand
     {
         $locale                = $this->getContainer()->getParameter('kernel.default_locale');
         $container             = $this->getContainer();
-        $translationRepository = $this->getEntityManager()->getRepository(Translation::ENTITY_NAME);
+        $translationRepository = $this->getEntityManager()->getRepository(Translation::class);
         /**
          * disable database loader to not get translations from database
          */
@@ -78,11 +76,12 @@ class OroTranslationResetCommand extends ContainerAwareCommand
     protected function doResetCustomTranslations(array $customTranslations, array $translations)
     {
         $updated = 0;
-        $em      = $this->getEntityManager();
+        $em = $this->getEntityManager();
         foreach ($customTranslations as $customTranslation) {
-            if (isset($translations[$customTranslation->getDomain()][$customTranslation->getKey()])) {
+            $key = $customTranslation->getTranslationKey();
+            if (isset($translations[$key->getDomain()][$key->getKey()])) {
                 $customTranslation->setValue(
-                    $translations[$customTranslation->getDomain()][$customTranslation->getKey()]
+                    $translations[$key->getDomain()][$key->getKey()]
                 );
                 $updated++;
                 if (($updated % self::BATCH_SIZE) === 0) {
@@ -107,7 +106,8 @@ class OroTranslationResetCommand extends ContainerAwareCommand
     {
         $updated = 0;
         foreach ($customTranslations as $customTranslation) {
-            if (isset($translations[$customTranslation->getDomain()][$customTranslation->getKey()])) {
+            $key = $customTranslation->getTranslationKey();
+            if (isset($translations[$key->getDomain()][$key->getKey()])) {
                 $updated++;
             }
         }

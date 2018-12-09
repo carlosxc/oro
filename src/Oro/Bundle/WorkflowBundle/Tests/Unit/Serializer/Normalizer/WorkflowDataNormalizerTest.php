@@ -3,34 +3,33 @@
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Serializer\Normalizer;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\WorkflowBundle\Serializer\Normalizer\WorkflowDataNormalizer;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowData;
+use Oro\Bundle\WorkflowBundle\Serializer\Normalizer\WorkflowDataNormalizer;
 
-class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
+class WorkflowDataNormalizerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $attributeNormalizer;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $serializer;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $workflow;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $attribute;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $attributeManager;
 
@@ -41,10 +40,10 @@ class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->attributeNormalizer = $this->getMock(
+        $this->attributeNormalizer = $this->createMock(
             'Oro\Bundle\WorkflowBundle\Serializer\Normalizer\AttributeNormalizer'
         );
-        $this->serializer = $this->getMock('Oro\Bundle\WorkflowBundle\Serializer\WorkflowAwareSerializer');
+        $this->serializer = $this->createMock('Oro\Bundle\WorkflowBundle\Serializer\WorkflowAwareSerializer');
         $this->attributeManager = $this->getMockBuilder('Oro\Bundle\ActionBundle\Model\AttributeManager')
             ->disableOriginalConstructor()
             ->getMock();
@@ -57,12 +56,34 @@ class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
         $restrictionManager = $this->getMockBuilder('Oro\Bundle\WorkflowBundle\Restriction\RestrictionManager')
             ->disableOriginalConstructor()
             ->getMock();
-        $this->workflow = $this->getMock(
-            'Oro\Bundle\WorkflowBundle\Model\Workflow',
-            array('getName'),
-            array($doctrineHelper, $aclManager, $restrictionManager, null, $this->attributeManager, null)
-        );
-        $this->attribute = $this->getMock('Oro\Bundle\ActionBundle\Model\Attribute');
+        $variableManager = $this->getMockBuilder('Oro\Bundle\WorkflowBundle\Model\VariableManager')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->workflow = $this->getMockBuilder('Oro\Bundle\WorkflowBundle\Model\Workflow')
+            ->setMethods(['getName', 'getVariables', 'getDefinition'])
+            ->setConstructorArgs([
+                $doctrineHelper,
+                $aclManager,
+                $restrictionManager,
+                null,
+                $this->attributeManager,
+                null,
+                $variableManager
+            ])->getMock();
+
+        $workflowDefinition = $this->createMock('Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition');
+        $workflowDefinition->expects($this->any())
+            ->method('getConfiguration')
+            ->willReturn([]);
+
+        $this->workflow->expects($this->any())
+            ->method('getVariables')
+            ->will($this->returnValue(new ArrayCollection()));
+        $this->workflow->expects($this->any())
+            ->method('getDefinition')
+            ->will($this->returnValue($workflowDefinition));
+
+        $this->attribute = $this->createMock('Oro\Bundle\ActionBundle\Model\Attribute');
         $this->normalizer = new WorkflowDataNormalizer();
     }
 
@@ -109,10 +130,8 @@ class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
         if ($direction == 'normalization') {
             $this->workflow->expects($this->once())->method('getName')->will($this->returnValue($workflowName));
             $this->attribute->expects($this->any())->method('getName')->will($this->returnValue('foo'));
-            $this->setExpectedException(
-                'Oro\Bundle\WorkflowBundle\Exception\SerializerException',
-                'Workflow "test_workflow" has no attribute "foo"'
-            );
+            $this->expectException('Oro\Bundle\WorkflowBundle\Exception\SerializerException');
+            $this->expectExceptionMessage('Workflow "test_workflow" has no attribute "foo"');
             $this->normalizer->normalize($data);
         } else {
             $this->attributeManager->expects($this->any())->method('getAttributes')->will(
@@ -146,8 +165,8 @@ class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
 
         $this->attribute->expects($this->once())->method('getName')->will($this->returnValue($attributeName));
 
-        $this->setExpectedException(
-            'Oro\Bundle\WorkflowBundle\Exception\SerializerException',
+        $this->expectException('Oro\Bundle\WorkflowBundle\Exception\SerializerException');
+        $this->expectExceptionMessage(
             sprintf('Cannot handle "%s" of attribute "test_attribute" of workflow "test_workflow"', $direction)
         );
 
@@ -280,7 +299,7 @@ class WorkflowDataNormalizerTest extends \PHPUnit_Framework_TestCase
             array('scalar', false),
             array(new \DateTime(), false),
             array(new WorkflowData(), true),
-            array($this->getMock('Oro\Bundle\WorkflowBundle\Model\WorkflowData'), true),
+            array($this->createMock('Oro\Bundle\WorkflowBundle\Model\WorkflowData'), true),
         );
     }
 

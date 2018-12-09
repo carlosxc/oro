@@ -2,12 +2,12 @@
 
 namespace Oro\Bundle\SearchBundle\Command;
 
+use Oro\Bundle\SearchBundle\Engine\IndexerInterface;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
-use Oro\Bundle\SearchBundle\Engine\EngineInterface;
 
 /**
  * Update and reindex (automatically) fulltext-indexed table(s).
@@ -22,26 +22,22 @@ class ReindexCommand extends ContainerAwareCommand
      */
     protected function configure()
     {
-        $this->setName(self::COMMAND_NAME)
+        $this
+            ->setName(self::COMMAND_NAME)
             ->addArgument(
                 'class',
                 InputArgument::OPTIONAL,
                 'Full or compact class name of entity which should be reindexed' .
                 '(f.e. Oro\Bundle\UserBundle\Entity\User or OroUserBundle:User)'
             )
-            ->addArgument(
-                'offset',
-                InputArgument::OPTIONAL,
-                'INTEGER. Tells indexer to start indexation from given entity number.',
-                null
+            ->addOption(
+                'scheduled',
+                null,
+                InputOption::VALUE_NONE,
+                'Enforces a scheduled (background) reindexation'
             )
-            ->addArgument(
-                'limit',
-                InputArgument::OPTIONAL,
-                'INTEGER. Limit indexation of entity by given number. ',
-                null
-            )
-            ->setDescription('Rebuild search index');
+            ->setDescription('Rebuild search index')
+        ;
     }
 
     /**
@@ -49,32 +45,39 @@ class ReindexCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $class  = $input->getArgument('class');
-        $offset = null;
-        $limit  = null;
-        if ($class) {
-            // convert from short format to FQСN
-            $class = $this->getContainer()->get('doctrine')
-                ->getManagerForClass($class)->getClassMetadata($class)->getName();
+        $class = $input->getArgument('class');
+        $isScheduled = $input->getOption('scheduled');
 
-            $offsetArg = $input->getArgument('offset');
-            $limitArg  = $input->getArgument('limit');
-            if (null !== $offsetArg && null !== $limitArg) {
-                $offset = (int) $offsetArg;
-                $limit  = (int) $limitArg;
-            }
+        // convert short class name to FQCN
+        if ($class) {
+            $class = $this->getContainer()->get('oro_entity.doctrine_helper')->getEntityClass($class);
         }
 
-        $placeholder = $class ? '"' . $class . '" entity' : 'all mapped entities';
+        $message = $class
+            ? sprintf('Started reindex task for "%s" entity', $class)
+            : 'Started reindex task for all mapped entities'
+        ;
 
-        $output->writeln('Starting reindex task for ' . $placeholder);
+        $output->writeln($message);
 
-        /** @var $searchEngine EngineInterface */
-        $searchEngine = $this->getContainer()->get('oro_search.search.engine');
+        $this->getSearchIndexer($isScheduled)->reindex($class);
 
+        if (false === $isScheduled) {
+            $output->writeln('Reindex finished successfully.');
+        }
+    }
 
-        $recordsCount = $searchEngine->reindex($class, $offset, $limit);
+    /**
+     * @param bool $asyncIndexer False means regular, true async indexer
+     *
+     * @return IndexerInterface
+     */
+    protected function getSearchIndexer($asyncIndexer = false)
+    {
+        if (true === $asyncIndexer) {
+            return $this->getContainer()->get('oro_search.async.indexer');
+        }
 
-        $output->writeln(sprintf('Total indexed items: %u', $recordsCount));
+        return $this->getContainer()->get('oro_search.search.engine.indexer');
     }
 }

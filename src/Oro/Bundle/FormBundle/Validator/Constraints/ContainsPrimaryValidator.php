@@ -2,11 +2,11 @@
 
 namespace Oro\Bundle\FormBundle\Validator\Constraints;
 
+use Doctrine\Common\Collections\AbstractLazyCollection;
+use Oro\Bundle\FormBundle\Entity\PrimaryItem;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
-
-use Oro\Bundle\FormBundle\Entity\PrimaryItem;
 
 class ContainsPrimaryValidator extends ConstraintValidator
 {
@@ -14,6 +14,9 @@ class ContainsPrimaryValidator extends ConstraintValidator
     {
         if (!is_array($value) && !($value instanceof \Traversable && $value instanceof \ArrayAccess)) {
             throw new UnexpectedTypeException($value, 'array or Traversable and ArrayAccess');
+        }
+        if ($value instanceof AbstractLazyCollection && !$value->isInitialized()) {
+            return;
         }
 
         $primaryItemsNumber = 0;

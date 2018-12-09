@@ -6,15 +6,15 @@ use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
 use Oro\Bundle\DataGridBundle\Event\BuildAfter;
 use Oro\Bundle\EmailBundle\EventListener\Datagrid\ActivityGridListener;
 
-class ActivityGridListenerTest extends \PHPUnit_Framework_TestCase
+class ActivityGridListenerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ActivityGridListener */
     private $listener;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $emailGridHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $entityRoutingHelper;
 
     protected function setUp()
@@ -42,7 +42,7 @@ class ActivityGridListenerTest extends \PHPUnit_Framework_TestCase
         $datasource = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource')
             ->disableOriginalConstructor()
             ->getMock();
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $datagrid->expects($this->once())
             ->method('getDatasource')
             ->will($this->returnValue($datasource));
@@ -82,7 +82,7 @@ class ActivityGridListenerTest extends \PHPUnit_Framework_TestCase
         $datasource = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource')
             ->disableOriginalConstructor()
             ->getMock();
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $datagrid->expects($this->once())
             ->method('getDatasource')
             ->will($this->returnValue($datasource));

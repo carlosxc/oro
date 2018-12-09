@@ -28,6 +28,7 @@ class InsertFromSelectQueryExecutor
      * @param string $className
      * @param array $fields
      * @param QueryBuilder $selectQueryBuilder
+     * @return int
      */
     public function execute($className, array $fields, QueryBuilder $selectQueryBuilder)
     {
@@ -38,13 +39,13 @@ class InsertFromSelectQueryExecutor
         $sql = sprintf('insert into %s (%s) %s', $insertToTableName, implode(', ', $columns), $selectQuery->getSQL());
         list($params, $types) = $this->helper->processParameterMappings($selectQuery);
         // No possibility to use createNativeQuery with rsm http://www.doctrine-project.org/jira/browse/DDC-962
-        $this->helper->getManager($className)->getConnection()->executeUpdate($sql, $params, $types);
+        return $this->helper->getManager($className)->getConnection()->executeUpdate($sql, $params, $types);
     }
 
     /**
      * @param string $className
      * @param array $fields
-     * @return string
+     * @return array
      */
     protected function getColumns($className, array $fields)
     {

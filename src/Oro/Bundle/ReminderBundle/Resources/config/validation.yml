@@ -3,7 +3,7 @@ Oro\Bundle\ReminderBundle\Entity\Reminder:
         method:
             - NotBlank: ~
         interval:
-            - NotBlank: ~
+            - Valid: ~
 
 Oro\Bundle\ReminderBundle\Model\ReminderInterval:
     properties:

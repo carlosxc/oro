@@ -2,18 +2,20 @@
 
 namespace Oro\Bundle\DataGridBundle\Tests\Unit\Extension\Pager;
 
+use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
 use Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface;
+use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Extension\Mode\ModeExtension;
 use Oro\Bundle\DataGridBundle\Extension\Pager\Orm\Pager;
 use Oro\Bundle\DataGridBundle\Extension\Pager\OrmPagerExtension;
 use Oro\Bundle\DataGridBundle\Extension\Pager\PagerInterface;
 
-class OrmPagerExtensionTest extends \PHPUnit_Framework_TestCase
+class OrmPagerExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|Pager
+     * @var \PHPUnit\Framework\MockObject\MockObject|Pager
      */
     protected $pager;
 
@@ -135,9 +137,18 @@ class OrmPagerExtensionTest extends \PHPUnit_Framework_TestCase
             ->method('setMaxPerPage')
             ->with($maxPerPage);
 
-        /** @var DatasourceInterface $dataSource */
-        $dataSource = $this->getMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
+        /** @var DatasourceInterface|\PHPUnit\Framework\MockObject\MockObject $dataSource */
+        $dataSource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()->getMock();
+
         $configObject = DatagridConfiguration::create($config);
+
+        $queryBuilder = $this->getMockBuilder(QueryBuilder::class)
+            ->disableOriginalConstructor()->getMock();
+
+        $dataSource
+            ->method('getQueryBuilder')->withAnyParameters()->willReturn($queryBuilder);
+        $dataSource->method('getCountQueryHints')->willReturn([]);
 
         $this->extension->setParameters(new ParameterBag());
         $this->extension->visitDatasource($configObject, $dataSource);
@@ -161,13 +172,45 @@ class OrmPagerExtensionTest extends \PHPUnit_Framework_TestCase
                 ->with($count);
         }
 
-        /** @var DatasourceInterface $dataSource */
-        $dataSource = $this->getMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
+        /** @var DatasourceInterface|\PHPUnit\Framework\MockObject\MockObject $dataSource */
+        $dataSource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()->getMock();
+
+        $queryBuilder = $this->getMockBuilder(QueryBuilder::class)
+            ->disableOriginalConstructor()->getMock();
+
+        $dataSource
+            ->method('getQueryBuilder')->withAnyParameters()->willReturn($queryBuilder);
+        $dataSource->method('getCountQueryHints')->willReturn([]);
         $configObject = DatagridConfiguration::create([]);
         $parameters = [];
         if (null !== $count) {
             $parameters[PagerInterface::PAGER_ROOT_PARAM] = [PagerInterface::ADJUSTED_COUNT => $count];
         }
+        $this->extension->setParameters(new ParameterBag($parameters));
+        $this->extension->visitDatasource($configObject, $dataSource);
+    }
+
+    public function testHintCount()
+    {
+        $hints = ['HINT'];
+        $this->pager->expects($this->once())
+            ->method('setCountQueryHints')
+            ->with($hints);
+
+        /** @var DatasourceInterface|\PHPUnit\Framework\MockObject\MockObject $dataSource */
+        $dataSource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()->getMock();
+
+        $queryBuilder = $this->getMockBuilder(QueryBuilder::class)
+            ->disableOriginalConstructor()->getMock();
+
+        $dataSource
+            ->method('getQueryBuilder')->withAnyParameters()->willReturn($queryBuilder);
+        $dataSource->method('getCountQueryHints')->willReturn($hints);
+        $configObject = DatagridConfiguration::create([]);
+        $parameters = [];
+
         $this->extension->setParameters(new ParameterBag($parameters));
         $this->extension->visitDatasource($configObject, $dataSource);
     }

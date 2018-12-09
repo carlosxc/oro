@@ -2,25 +2,28 @@
 
 namespace Oro\Bundle\WorkflowBundle\Entity;
 
-use Symfony\Component\Security\Acl\Model\DomainObjectInterface;
-
-use Doctrine\ORM\Mapping as ORM;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\WorkflowBundle\Exception\WorkflowException;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+use JMS\Serializer\Annotation as JMS;
+use Oro\Bundle\ActionBundle\Provider\CurrentApplicationProviderInterface;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
+use Oro\Bundle\ScopeBundle\Entity\Scope;
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
+use Oro\Bundle\WorkflowBundle\Exception\WorkflowException;
+use Symfony\Component\Security\Acl\Model\DomainObjectInterface;
 
 /**
  * @ORM\Table(name="oro_workflow_definition")
  * @ORM\Entity(repositoryClass="Oro\Bundle\WorkflowBundle\Entity\Repository\WorkflowDefinitionRepository")
  * @Config(
+ *      mode="hidden",
  *      routeName="oro_workflow_definition_index",
  *      routeView="oro_workflow_definition_view",
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-exchange"
+ *              "icon"="fa-exchange"
  *          },
  *          "security"={
  *              "type"="ACL",
@@ -48,8 +51,9 @@ use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
  */
 class WorkflowDefinition implements DomainObjectInterface
 {
-    const GROUP_TYPE_EXCLUSIVE_ACTIVE = 10;
-    const GROUP_TYPE_EXCLUSIVE_RECORD = 20;
+    const CONFIG_SCOPES = 'scopes';
+    const CONFIG_DATAGRIDS = 'datagrids';
+    const CONFIG_FORCE_AUTOSTART = 'force_autostart';
 
     /**
      * @var string
@@ -115,6 +119,22 @@ class WorkflowDefinition implements DomainObjectInterface
     protected $configuration = [];
 
     /**
+     * @var Scope[]|Collection
+     *
+     * @ORM\ManyToMany(targetEntity="Oro\Bundle\ScopeBundle\Entity\Scope")
+     * @ORM\JoinTable(
+     *      name="oro_workflow_scopes",
+     *      joinColumns={
+     *          @ORM\JoinColumn(name="workflow_name", referencedColumnName="name", onDelete="CASCADE")
+     *      },
+     *      inverseJoinColumns={
+     *          @ORM\JoinColumn(name="scope_id", referencedColumnName="id", onDelete="CASCADE")
+     *      }
+     * )
+     */
+    protected $scopes;
+
+    /**
      * @var WorkflowStep[]|Collection
      *
      * @ORM\OneToMany(
@@ -155,15 +175,23 @@ class WorkflowDefinition implements DomainObjectInterface
      *      orphanRemoval=true,
      *      cascade={"all"}
      * )
+     * @JMS\Exclude
      */
     protected $restrictions;
 
     /**
      * @var array
      *
-     * @ORM\Column(name="groups", type="array")
+     * @ORM\Column(name="exclusive_active_groups", type="simple_array", nullable=true)
      */
-    protected $groups = [];
+    protected $exclusiveActiveGroups = [];
+
+    /**
+     * @var array
+     *
+     * @ORM\Column(name="exclusive_record_groups", type="simple_array", nullable=true)
+     */
+    protected $exclusiveRecordGroups = [];
 
     /**
      * @var \DateTime $created
@@ -194,10 +222,18 @@ class WorkflowDefinition implements DomainObjectInterface
     protected $updatedAt;
 
     /**
+     * @var array
+     *
+     * @ORM\Column(name="applications", type="simple_array", nullable=false)
+     */
+    protected $applications = [CurrentApplicationProviderInterface::DEFAULT_APPLICATION];
+
+    /**
      * Constructor
      */
     public function __construct()
     {
+        $this->scopes = new ArrayCollection();
         $this->steps = new ArrayCollection();
         $this->entityAcls = new ArrayCollection();
         $this->restrictions = new ArrayCollection();
@@ -206,7 +242,7 @@ class WorkflowDefinition implements DomainObjectInterface
     public function __clone()
     {
         if ($this->name) {
-            $this->setName($this->getName() . uniqid('_clone_'));
+            $this->setName($this->getName() . uniqid('_clone_', false));
             $this->setSystem(false);
         }
     }
@@ -217,6 +253,80 @@ class WorkflowDefinition implements DomainObjectInterface
     public function __toString()
     {
         return (string)$this->getLabel();
+    }
+
+    /**
+     * @return bool
+     */
+    public function isForceAutostart()
+    {
+        return array_key_exists(self::CONFIG_FORCE_AUTOSTART, $this->configuration)
+            ? (bool)$this->configuration[self::CONFIG_FORCE_AUTOSTART]
+            : false;
+    }
+
+    /**
+     * @param array $scopesConfig
+     * @return $this
+     */
+    public function setScopesConfig(array $scopesConfig)
+    {
+        $this->configuration[self::CONFIG_SCOPES] = $scopesConfig;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getScopesConfig()
+    {
+        return array_key_exists(self::CONFIG_SCOPES, $this->configuration) ?
+            (array)$this->configuration[self::CONFIG_SCOPES] : [];
+    }
+
+    /**
+     * @return boolean
+     */
+    public function hasScopesConfig()
+    {
+        return !empty($this->configuration[self::CONFIG_SCOPES]);
+    }
+
+    /**
+     * @return array
+     */
+    public function getDisabledOperations()
+    {
+        return array_key_exists(WorkflowConfiguration::NODE_DISABLE_OPERATIONS, $this->configuration) ?
+            $this->configuration[WorkflowConfiguration::NODE_DISABLE_OPERATIONS] : [];
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasDisabledOperations()
+    {
+        return !empty($this->configuration[WorkflowConfiguration::NODE_DISABLE_OPERATIONS]);
+    }
+
+    /**
+     * @return array
+     */
+    public function getVirtualAttributes()
+    {
+        $virtualAttributes = [];
+
+        $attributes = $this->getConfiguration()['attributes'];
+        foreach ($attributes as $attributeName => $attributeOptions) {
+            if (!isset($attributeOptions['options']['virtual']) || !$attributeOptions['options']['virtual']) {
+                continue;
+            }
+
+            $virtualAttributes[$attributeName] = $attributeOptions;
+        }
+
+        return $virtualAttributes;
     }
 
     /**
@@ -318,6 +428,40 @@ class WorkflowDefinition implements DomainObjectInterface
     public function setStepsDisplayOrdered($stepsDisplayOrdered)
     {
         $this->stepsDisplayOrdered = $stepsDisplayOrdered;
+
+        return $this;
+    }
+
+    /**
+     * @return Scope[]|Collection
+     */
+    public function getScopes()
+    {
+        return $this->scopes;
+    }
+
+    /**
+     * @param Scope $scope
+     * @return $this
+     */
+    public function addScope(Scope $scope)
+    {
+        if (!$this->scopes->contains($scope)) {
+            $this->scopes->add($scope);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param Scope $scope
+     * @return $this
+     */
+    public function removeScope(Scope $scope)
+    {
+        if ($this->scopes->contains($scope)) {
+            $this->scopes->removeElement($scope);
+        }
 
         return $this;
     }
@@ -614,29 +758,6 @@ class WorkflowDefinition implements DomainObjectInterface
     }
 
     /**
-     * @param WorkflowDefinition $definition
-     * @return WorkflowDefinition
-     */
-    public function import(WorkflowDefinition $definition)
-    {
-        $this->setName($definition->getName())
-            ->setLabel($definition->getLabel())
-            ->setRelatedEntity($definition->getRelatedEntity())
-            ->setEntityAttributeName($definition->getEntityAttributeName())
-            ->setConfiguration($definition->getConfiguration())
-            ->setSteps($definition->getSteps())
-            ->setStartStep($definition->getStartStep())
-            ->setStepsDisplayOrdered($definition->isStepsDisplayOrdered())
-            ->setEntityAcls($definition->getEntityAcls())
-            ->setRestrictions($definition->getRestrictions())
-            ->setSystem($definition->isSystem())
-            ->setPriority($definition->getPriority())
-            ->setGroups($definition->groups);
-
-        return $this;
-    }
-
-    /**
      * @return boolean
      */
     public function isSystem()
@@ -768,22 +889,11 @@ class WorkflowDefinition implements DomainObjectInterface
     }
 
     /**
-     * @param array $groups
-     * @return $this
-     */
-    public function setGroups(array $groups)
-    {
-        $this->groups = $groups;
-
-        return $this;
-    }
-
-    /**
      * @return bool
      */
     public function hasExclusiveActiveGroups()
     {
-        return !empty($this->groups[self::GROUP_TYPE_EXCLUSIVE_ACTIVE]);
+        return !empty($this->exclusiveActiveGroups);
     }
 
     /**
@@ -791,9 +901,18 @@ class WorkflowDefinition implements DomainObjectInterface
      */
     public function getExclusiveActiveGroups()
     {
-        return isset($this->groups[self::GROUP_TYPE_EXCLUSIVE_ACTIVE])
-            ? $this->groups[self::GROUP_TYPE_EXCLUSIVE_ACTIVE]
-            : [];
+        return $this->exclusiveActiveGroups;
+    }
+
+    /**
+     * @param array $groups
+     * @return $this
+     */
+    public function setExclusiveActiveGroups(array $groups)
+    {
+        $this->exclusiveActiveGroups = $groups;
+
+        return $this;
     }
 
     /**
@@ -801,7 +920,7 @@ class WorkflowDefinition implements DomainObjectInterface
      */
     public function hasExclusiveRecordGroups()
     {
-        return !empty($this->groups[self::GROUP_TYPE_EXCLUSIVE_RECORD]);
+        return !empty($this->exclusiveRecordGroups);
     }
 
     /**
@@ -809,8 +928,46 @@ class WorkflowDefinition implements DomainObjectInterface
      */
     public function getExclusiveRecordGroups()
     {
-        return isset($this->groups[self::GROUP_TYPE_EXCLUSIVE_RECORD])
-            ? $this->groups[self::GROUP_TYPE_EXCLUSIVE_RECORD]
+        return $this->exclusiveRecordGroups;
+    }
+
+    /**
+     * @param array $groups
+     * @return $this
+     */
+    public function setExclusiveRecordGroups(array $groups)
+    {
+        $this->exclusiveRecordGroups = $groups;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getDatagrids()
+    {
+        return array_key_exists(self::CONFIG_DATAGRIDS, $this->configuration)
+            ? (array)$this->configuration[self::CONFIG_DATAGRIDS]
             : [];
+    }
+    /**
+     * @return array
+     */
+    public function getApplications()
+    {
+        return $this->applications;
+    }
+
+    /**
+     * @param array $applications
+     *
+     * @return $this
+     */
+    public function setApplications(array $applications)
+    {
+        $this->applications = array_map('strtolower', $applications);
+
+        return $this;
     }
 }

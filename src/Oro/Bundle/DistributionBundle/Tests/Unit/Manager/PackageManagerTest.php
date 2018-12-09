@@ -4,6 +4,7 @@ namespace Oro\Bundle\DistributionBundle\Tests\Unit\Manager;
 
 use Composer\Composer;
 use Composer\Installer;
+use Composer\Installer\InstallationManager;
 use Composer\IO\BufferIO;
 use Composer\Package\Link;
 use Composer\Package\Package;
@@ -16,26 +17,27 @@ use Composer\Repository\PlatformRepository;
 use Composer\Repository\RepositoryManager;
 use Composer\Repository\WritableArrayRepository;
 use Composer\Repository\WritableRepositoryInterface;
-use Composer\Installer\InstallationManager;
 use Oro\Bundle\DistributionBundle\Entity\PackageRequirement;
 use Oro\Bundle\DistributionBundle\Entity\PackageUpdate;
 use Oro\Bundle\DistributionBundle\Exception\VerboseException;
 use Oro\Bundle\DistributionBundle\Manager\PackageManager;
-use Oro\Bundle\DistributionBundle\Test\PhpUnit\Helper\MockHelperTrait;
 use Oro\Bundle\DistributionBundle\Script\Runner;
+use Oro\Bundle\DistributionBundle\Test\PhpUnit\Helper\MockHelperTrait;
 use Oro\Bundle\DistributionBundle\Test\PhpUnit\Helper\ReflectionHelperTrait;
 use Oro\Bundle\PlatformBundle\Maintenance\Mode as MaintenanceMode;
 use Oro\Bundle\PlatformBundle\OroPlatformBundle;
+use Oro\Component\Testing\TempDirExtension;
 use Psr\Log\LoggerInterface;
 
 /**
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
-class PackageManagerTest extends \PHPUnit_Framework_TestCase
+class PackageManagerTest extends \PHPUnit\Framework\TestCase
 {
     use MockHelperTrait;
     use ReflectionHelperTrait;
+    use TempDirExtension;
 
     /**
      * @test
@@ -285,7 +287,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
         $expectedJsonData = $composerJsonData;
         $expectedJsonData['require'][$newPackageName] = $newPackageVersion;
 
-        $tempComposerJson = tempnam(sys_get_temp_dir(), 'composer.json');
+        $tempComposerJson = tempnam($this->getTempDir('package_manager'), 'composer.json');
         file_put_contents($tempComposerJson, json_encode($composerJsonData));
 
         // composer and repository
@@ -325,7 +327,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ->method('runInstallScripts')
             ->with($this->isInstanceOf('Composer\Package\PackageInterface'));
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject $rootPackageMock */
+        /** @var \PHPUnit\Framework\MockObject\MockObject $rootPackageMock */
         $rootPackageMock = $composer->getPackage();
         $rootPackageMock->expects($this->once())
             ->method('setRequires');
@@ -452,7 +454,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ]
         ];
 
-        $tempComposerJson = tempnam(sys_get_temp_dir(), 'composer.json');
+        $tempComposerJson = tempnam($this->getTempDir('package_manager'), 'composer.json');
         file_put_contents($tempComposerJson, json_encode($composerJsonData));
 
         // composer and repository
@@ -471,7 +473,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ->method('getRepositories')
             ->will($this->returnValue([$localRepository]));
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject $rootPackageMock */
+        /** @var \PHPUnit\Framework\MockObject\MockObject $rootPackageMock */
         $rootPackageMock = $composer->getPackage();
 
         $composer->expects($this->once())
@@ -543,13 +545,13 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ]
         ];
 
-        $tempComposerJson = tempnam(sys_get_temp_dir(), 'composer.json');
+        $tempComposerJson = tempnam($this->getTempDir('package_manager'), 'composer.json');
         file_put_contents($tempComposerJson, json_encode($composerJsonData));
 
         // composer and repository
         $composer = $this->createComposerMock();
         $repositoryManager = $this->createRepositoryManagerMock();
-        $localRepository = $this->getMock('Composer\Repository\WritableArrayRepository');
+        $localRepository = $this->createMock('Composer\Repository\WritableArrayRepository');
 
         $composer->expects($this->any())
             ->method('getRepositoryManager')
@@ -578,7 +580,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ->method('getRepositories')
             ->will($this->returnValue([new WritableArrayRepository($installedPackages)]));
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject $rootPackageMock */
+        /** @var \PHPUnit\Framework\MockObject\MockObject $rootPackageMock */
         $rootPackageMock = $composer->getPackage();
 
         $composer->expects($this->once())
@@ -778,7 +780,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
         unset($expectedJsonData['require'][$packageNamesToBeRemoved[0]]);
         unset($expectedJsonData['require'][$packageNamesToBeRemoved[1]]);
 
-        $tempComposerJson = tempnam(sys_get_temp_dir(), 'composer.json');
+        $tempComposerJson = tempnam($this->getTempDir('package_manager'), 'composer.json');
         file_put_contents($tempComposerJson, json_encode($composerJsonData));
 
         // composer and repository
@@ -1107,7 +1109,8 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
         $logger->expects($this->never())
             ->method('error');
 
-        $pathToComposerJson = $this->getPathToComposerJson(uniqid());
+        $pathToComposerJson = $this->getTempFile('package_manager');
+        file_put_contents($pathToComposerJson, '{}');
 
         $manager = $this->createPackageManager(
             $composer,
@@ -1163,7 +1166,8 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             ->method('error')
             ->with($bufferOutput);
 
-        $pathToComposerJson = $this->getPathToComposerJson(uniqid());
+        $pathToComposerJson = $this->getTempFile('package_manager');
+        file_put_contents($pathToComposerJson, '{}');
 
         $manager = $this->createPackageManager(
             $composer,
@@ -1209,7 +1213,6 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
 
         $manager = $this->createPackageManager($composer);
         $this->assertTrue($manager->isUpdateAvailable($packageName));
-
     }
 
     /**
@@ -1257,11 +1260,11 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             $parser = new VersionParser();
         }
 
-        return new $class($name, $parser->normalize($version), $version);
+        return new $class($name, $parser->normalize($version), (string)$version);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Composer
+     * @return \PHPUnit\Framework\MockObject\MockObject|Composer
      */
     protected function createComposerMock()
     {
@@ -1278,7 +1281,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|RepositoryManager
+     * @return \PHPUnit\Framework\MockObject\MockObject|RepositoryManager
      */
     protected function createRepositoryManagerMock()
     {
@@ -1286,7 +1289,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|ComposerRepository
+     * @return \PHPUnit\Framework\MockObject\MockObject|ComposerRepository
      */
     protected function createComposerRepositoryMock()
     {
@@ -1294,7 +1297,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Installer
+     * @return \PHPUnit\Framework\MockObject\MockObject|Installer
      */
     protected function createComposerInstallerMock()
     {
@@ -1302,7 +1305,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Link
+     * @return \PHPUnit\Framework\MockObject\MockObject|Link
      */
     protected function createComposerPackageLinkMock()
     {
@@ -1310,7 +1313,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|RootPackageInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|RootPackageInterface
      */
     protected function createRootPackageMock()
     {
@@ -1318,7 +1321,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|BufferIO
+     * @return \PHPUnit\Framework\MockObject\MockObject|BufferIO
      */
     protected function createComposerIO()
     {
@@ -1326,7 +1329,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Runner
+     * @return \PHPUnit\Framework\MockObject\MockObject|Runner
      */
     protected function createScriptRunnerMock()
     {
@@ -1334,7 +1337,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|InstallationManager
+     * @return \PHPUnit\Framework\MockObject\MockObject|InstallationManager
      */
     protected function createInstallationManagerMock()
     {
@@ -1380,8 +1383,10 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
             $logger = $this->createLoggerMock();
         }
         if (!$pathToComposerJson) {
-            $pathToComposerJson = $this->getPathToComposerJson();
+            $pathToComposerJson = $this->getTempFile('package_manager');
+            file_put_contents($pathToComposerJson, '{}');
         }
+
         return new PackageManager(
             $composer,
             $installer,
@@ -1397,7 +1402,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
      * @param string $packageName
      * @param bool $runReturnValue
      *
-     * @return Installer|\PHPUnit_Framework_MockObject_MockObject
+     * @return Installer|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function prepareInstallerMock($packageName, $runReturnValue)
     {
@@ -1439,12 +1444,12 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param $name
-     * @return PackageInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return PackageInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function createPackageMock($name)
     {
-        /** @var \PHPUnit_Framework_MockObject_MockObject|Package $package */
-        $package = $this->getMock('Composer\Package\PackageInterface');
+        /** @var \PHPUnit\Framework\MockObject\MockObject|Package $package */
+        $package = $this->createMock('Composer\Package\PackageInterface');
         $package->id = $name . uniqid();
 
         $package->expects($this->any())
@@ -1455,7 +1460,7 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MaintenanceMode
+     * @return \PHPUnit\Framework\MockObject\MockObject|MaintenanceMode
      */
     protected function createMaintenanceMock()
     {
@@ -1465,16 +1470,16 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|LoggerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|LoggerInterface
      */
     protected function createLoggerMock()
     {
-        return $this->getMock('Psr\Log\LoggerInterface');
+        return $this->createMock('Psr\Log\LoggerInterface');
     }
 
     /**
      * @param $bufferOutput
-     * @return BufferIO|\PHPUnit_Framework_MockObject_MockObject
+     * @return BufferIO|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function createBufferIoMock($bufferOutput)
     {
@@ -1487,15 +1492,15 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|WritableRepositoryInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|WritableRepositoryInterface
      */
     protected function createLocalRepositoryMock()
     {
-        return $this->getMock('Composer\Repository\WritableRepositoryInterface');
+        return $this->createMock('Composer\Repository\WritableRepositoryInterface');
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MaintenanceMode
+     * @return \PHPUnit\Framework\MockObject\MockObject|MaintenanceMode
      */
     protected function getEnableMaintenanceMock()
     {
@@ -1503,17 +1508,5 @@ class PackageManagerTest extends \PHPUnit_Framework_TestCase
         $maintenance->expects($this->once())->method('activate');
 
         return $maintenance;
-    }
-
-    /**
-     * @param   string $filename
-     * @return  string
-     */
-    protected function getPathToComposerJson($filename = 'composer.json')
-    {
-        $pathToComposerJson = tempnam(sys_get_temp_dir(), $filename);
-        file_put_contents($pathToComposerJson, '{}');
-
-        return $pathToComposerJson;
     }
 }

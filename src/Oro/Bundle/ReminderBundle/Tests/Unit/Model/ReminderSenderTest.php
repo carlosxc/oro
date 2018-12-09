@@ -2,13 +2,13 @@
 
 namespace Oro\Bundle\ReminderBundle\Tests\Unit\Model;
 
-use Oro\Bundle\ReminderBundle\Model\ReminderSender;
 use Oro\Bundle\ReminderBundle\Entity\Reminder;
+use Oro\Bundle\ReminderBundle\Model\ReminderSender;
 
-class ReminderSenderTest extends \PHPUnit_Framework_TestCase
+class ReminderSenderTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $registry;
 
@@ -30,13 +30,13 @@ class ReminderSenderTest extends \PHPUnit_Framework_TestCase
     {
         $method = 'foo_method';
 
-        $reminder = $this->getMock('Oro\\Bundle\\ReminderBundle\\Entity\\Reminder');
+        $reminder = $this->createMock('Oro\\Bundle\\ReminderBundle\\Entity\\Reminder');
 
         $reminder->expects($this->at(0))
             ->method('getMethod')
             ->will($this->returnValue($method));
 
-        $processor = $this->getMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
+        $processor = $this->createMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
 
         $this->registry->expects($this->once())
             ->method('getProcessor')
@@ -52,8 +52,8 @@ class ReminderSenderTest extends \PHPUnit_Framework_TestCase
 
     public function testSend()
     {
-        $fooProcessor = $this->getMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
-        $barProcessor = $this->getMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
+        $fooProcessor = $this->createMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
+        $barProcessor = $this->createMock('Oro\\Bundle\\ReminderBundle\\Model\\SendProcessorInterface');
 
         $this->registry->expects($this->once())
             ->method('getProcessors')

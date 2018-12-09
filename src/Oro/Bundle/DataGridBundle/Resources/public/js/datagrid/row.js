@@ -27,7 +27,9 @@ define([
      */
     Row = Chaplin.CollectionView.extend({
         tagName: 'tr',
+
         autoRender: false,
+
         animationDuration: 0,
 
         /**
@@ -35,25 +37,27 @@ define([
          * This code supports perfomance fix.
          */
         delegateEvents: Backbone.View.prototype.delegateEvents,
+
         events: function() {
             var resultEvents = {};
 
-            var events = this.cellEvents.getEventsMap();
+            var events = this.collection.getCellEventList().getEventsMap();
             // prevent CS error 'cause we must completely repeat Backbone behaviour
-            for (var key in events) { // jshint forin:false
+            // eslint-disable-next-line guard-for-in
+            for (var key in events) {
                 var match = key.match(delegateEventSplitter);
                 var eventName = match[1];
                 var selector = match[2];
-                resultEvents[eventName + ' ' + 'td' + (selector ? ' ' + selector : '')] =
+                resultEvents[eventName + ' td' + (selector ? ' ' + selector : '')] =
                     _.partial(this.delegateEventToCell, key);
             }
 
             // the order is important, please do not move up
             _.extend(resultEvents, {
-                'mousedown': 'onMouseDown',
-                'mouseleave': 'onMouseLeave',
-                'mouseup': 'onMouseUp',
-                'click': 'onClick'
+                mousedown: 'onMouseDown',
+                mouseleave: 'onMouseLeave',
+                mouseup: 'onMouseUp',
+                click: 'onClick'
             });
             return resultEvents;
         },
@@ -72,6 +76,13 @@ define([
         /**
          * @inheritDoc
          */
+        constructor: function Row() {
+            Row.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             // itemView function is called as new this.itemView
             // it is placed here to pass THIS within closure
@@ -85,6 +96,9 @@ define([
                     cellOptions.model = _this.model;
                     var Cell = column.get('cell');
                     var cell = new Cell(cellOptions);
+                    cell.$el.attr({
+                        'data-column-label': column.get('label')
+                    });
                     if (column.has('align')) {
                         cell.$el.removeClass('align-left align-center align-right');
                         cell.$el.addClass('align-' + column.get('align'));
@@ -97,10 +111,11 @@ define([
             }
 
             // code related to simplified event binding
-            this.cellEvents = this.collection.getCellEventList();
-            this.listenTo(this.cellEvents, 'change', this.delegateEvents);
+            var cellEvents = this.collection.getCellEventList();
+            this.listenTo(cellEvents, 'change', this.delegateEvents);
 
             this.listenTo(this.model, 'backgrid:selected', this.onBackgridSelected);
+            this.listenTo(this.model, 'change:row_class_name', this.onRowClassNameChanged);
 
             this.columnRenderer = new ColumnRendererComponent(options);
 
@@ -172,7 +187,22 @@ define([
          * @param isSelected
          */
         onBackgridSelected: function(model, isSelected) {
+            if (_.isUndefined(isSelected)) {
+                isSelected = false;
+            }
+
             this.$el.toggleClass('row-selected', isSelected);
+        },
+
+        onRowClassNameChanged: function(model) {
+            var previousClass = model.previous('row_class_name');
+            var newClass = _.result(this, 'className');
+            if (previousClass) {
+                this.$el.removeClass(previousClass);
+            }
+            if (newClass) {
+                this.$el.addClass(newClass);
+            }
         },
 
         className: function() {
@@ -255,7 +285,12 @@ define([
                 if (_this.disposed) {
                     return;
                 }
+
                 _this.trigger('clicked', _this, options);
+                if (_this.disposed) {
+                    return;
+                }
+
                 for (var i = 0; i < _this.subviews.length; i++) {
                     var cell = _this.subviews[i];
                     if (cell.listenRowClick && _.isFunction(cell.onRowClicked)) {
@@ -294,11 +329,7 @@ define([
 
         render: function() {
             this._deferredRender();
-            if (this.template) {
-                this.renderCustomTemplate();
-            } else {
-                Row.__super__.render.apply(this, arguments);
-            }
+            Row.__super__.render.apply(this, arguments);
             var state = {selected: false};
             this.model.trigger('backgrid:isSelected', this.model, state);
             this.$el.toggleClass('row-selected', state.selected);
@@ -316,6 +347,14 @@ define([
             }
 
             return this;
+        },
+
+        renderAllItems: function() {
+            if (this.template) {
+                this.renderCustomTemplate();
+            } else {
+                return Row.__super__.renderAllItems.apply(this, arguments);
+            }
         },
 
         renderCustomTemplate: function() {

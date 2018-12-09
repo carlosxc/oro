@@ -5,8 +5,8 @@
     "keywords": ["BAP"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "oro/ui-bundle": "dev-master",
         "oro/user-bundle": "dev-master",
         "oro/form-bundle": "dev-master"
@@ -15,7 +15,6 @@
         "psr-0": { "Oro\\Bundle\\OrganizationBundle": "" }
     },
     "target-dir": "Oro/Bundle/OrganizationBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

@@ -3,7 +3,6 @@
 namespace Oro\Bundle\TestFrameworkBundle\Migrations\Schema;
 
 use Doctrine\DBAL\Schema\Schema;
-
 use Oro\Bundle\ActivityBundle\Migration\Extension\ActivityExtension;
 use Oro\Bundle\ActivityBundle\Migration\Extension\ActivityExtensionAwareInterface;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
@@ -12,16 +11,25 @@ use Oro\Bundle\EntityExtendBundle\Migration\Extension\ExtendExtensionAwareInterf
 use Oro\Bundle\EntityExtendBundle\Migration\OroOptions;
 use Oro\Bundle\MigrationBundle\Migration\Installation;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
+use Oro\Bundle\ScopeBundle\Migration\Extension\ScopeExtensionAwareInterface;
+use Oro\Bundle\ScopeBundle\Migration\Extension\ScopeExtensionAwareTrait;
 
 /**
+ * IMPORTANT!!!
+ * Please, do not create new migrations in `Migrations/Schema` folder!
+ * Add new schema migrations to this installer instead.
+ *
  * @SuppressWarnings(PHPMD.TooManyMethods)
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)
  */
 class OroTestFrameworkBundleInstaller implements
     Installation,
     ActivityExtensionAwareInterface,
-    ExtendExtensionAwareInterface
+    ExtendExtensionAwareInterface,
+    ScopeExtensionAwareInterface
 {
+    use ScopeExtensionAwareTrait;
+
     /** @var ActivityExtension */
     protected $activityExtension;
 
@@ -49,7 +57,7 @@ class OroTestFrameworkBundleInstaller implements
      */
     public function getMigrationVersion()
     {
-        return 'v1_1';
+        return 'v1_0';
     }
 
     /**
@@ -61,24 +69,49 @@ class OroTestFrameworkBundleInstaller implements
         $this->createTestActivityTargetTable($schema);
         $this->createTestWorkflowAwareEntityTable($schema);
         $this->createTestSearchItemTable($schema);
+        $this->createTestSearchItem2Table($schema);
         $this->createTestSearchItemValueTable($schema);
         $this->createTestSearchProductTable($schema);
         $this->createTestActivityTable($schema);
         $this->createTestCustomEntityTables($schema);
+        $this->createTestCustomEntityTablesWithCascadeOption($schema);
         $this->createTestDepartmentTable($schema);
-        $this->createTestPersonTable($schema);
+        $this->createTestEmployeeTable($schema);
         $this->createTestProductTable($schema);
         $this->createTestProductTypeTable($schema);
+        $this->createTestUserOwnershipTable($schema);
+
+        /** Entity extensions generation */
+        $this->extendScopeForTestActivity($schema);
 
         /** Foreign keys generation **/
         $this->addTestSearchItemForeignKeys($schema);
         $this->addTestSearchItemValueForeignKeys($schema);
         $this->addTestActivityForeignKeys($schema);
-        $this->addTestPersonForeignKeys($schema);
+        $this->addTestEmployeeForeignKeys($schema);
         $this->addTestProductForeignKeys($schema);
+        $this->addTestUserOwnershipForeignKeys($schema);
 
         $this->activityExtension->addActivityAssociation($schema, 'test_activity', 'test_activity_target', true);
-        $this->activityExtension->addActivityAssociation($schema, 'oro_calendar_event', 'test_activity_target', true);
+
+        $this->activityExtension->addActivityAssociation(
+            $schema,
+            'oro_note',
+            'test_activity_target',
+            true
+        );
+
+        // add activity association if calendar package is installed
+        if ($schema->hasTable('oro_calendar_event')) {
+            $this->activityExtension->addActivityAssociation(
+                $schema,
+                'oro_calendar_event',
+                'test_activity_target',
+                true
+            );
+        }
+
+        $this->addAttributeFamilyRelationForTestActivityTarget($schema);
     }
 
     /**
@@ -90,6 +123,7 @@ class OroTestFrameworkBundleInstaller implements
     {
         $table = $schema->createTable('test_activity_target');
         $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('string', 'string', ['notnull' => false, 'length' => 255]);
         $table->setPrimaryKey(['id']);
     }
 
@@ -120,17 +154,16 @@ class OroTestFrameworkBundleInstaller implements
     }
 
     /**
-     * Create test_person table
+     * Create test_employee table
      *
      * @param Schema $schema
      */
-    protected function createTestPersonTable(Schema $schema)
+    protected function createTestEmployeeTable(Schema $schema)
     {
-        $table = $schema->createTable('test_person');
+        $table = $schema->createTable('test_employee');
         $table->addColumn('id', 'integer', ['autoincrement' => true]);
         $table->addColumn('department_id', 'integer', ['notnull' => false]);
         $table->addColumn('name', 'string', ['length' => 255]);
-        $table->addColumn('type', 'string', ['length' => 255]);
         $table->addColumn('position', 'string', ['notnull' => false, 'length' => 255]);
         $table->setPrimaryKey(['id']);
         $table->addIndex(['department_id'], 'IDX_A305D658AE80F5DF', []);
@@ -190,6 +223,18 @@ class OroTestFrameworkBundleInstaller implements
     }
 
     /**
+     * Create test_search_item2 table
+     *
+     * @param Schema $schema
+     */
+    protected function createTestSearchItem2Table(Schema $schema)
+    {
+        $table = $schema->createTable('test_search_item2');
+        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->setPrimaryKey(['id']);
+    }
+
+    /**
      * Create test_search_item_value table
      *
      * @param Schema $schema
@@ -241,6 +286,13 @@ class OroTestFrameworkBundleInstaller implements
      */
     protected function createTestCustomEntityTables(Schema $schema)
     {
+        $extendFields = [
+            'owner' => ExtendScope::OWNER_CUSTOM,
+            'target_title' => ['id'],
+            'target_detailed' => ['id'],
+            'target_grid' => ['id']
+        ];
+        
         $table1 = $this->extendExtension->createCustomEntityTable($schema, 'TestEntity1');
         $table1->addColumn(
             'name',
@@ -267,7 +319,7 @@ class OroTestFrameworkBundleInstaller implements
             'uniM2OTarget',
             $table2,
             'name',
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ['extend' => $extendFields]
         );
         // bidirectional many-to-one
         $this->extendExtension->addManyToOneRelation(
@@ -276,7 +328,7 @@ class OroTestFrameworkBundleInstaller implements
             'biM2OTarget',
             $table2,
             'name',
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ['extend' => $extendFields]
         );
         $this->extendExtension->addManyToOneInverseRelation(
             $schema,
@@ -299,7 +351,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ['extend' => $extendFields]
         );
         // unidirectional many-to-many without default
         $this->extendExtension->addManyToManyRelation(
@@ -310,7 +362,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'without_default' => true]]
+            ['extend' => array_merge($extendFields, ['without_default' => true])]
         );
         // bidirectional many-to-many
         $this->extendExtension->addManyToManyRelation(
@@ -321,7 +373,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ['extend' => $extendFields]
         );
         $this->extendExtension->addManyToManyInverseRelation(
             $schema,
@@ -343,7 +395,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'without_default' => true]]
+            ['extend' => array_merge($extendFields, ['without_default' => true])]
         );
         $this->extendExtension->addManyToManyInverseRelation(
             $schema,
@@ -366,7 +418,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ['extend' => $extendFields]
         );
         // unidirectional one-to-many without default
         $this->extendExtension->addOneToManyRelation(
@@ -377,7 +429,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'without_default' => true]]
+            ['extend' => array_merge($extendFields, ['without_default' => true])]
         );
         // bidirectional one-to-many
         $this->extendExtension->addOneToManyRelation(
@@ -408,7 +460,7 @@ class OroTestFrameworkBundleInstaller implements
             ['name'],
             ['name'],
             ['name'],
-            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'without_default' => true]]
+            ['extend' => array_merge($extendFields, ['without_default' => true])]
         );
         $this->extendExtension->addOneToManyInverseRelation(
             $schema,
@@ -422,19 +474,160 @@ class OroTestFrameworkBundleInstaller implements
     }
 
     /**
-     * Add test_person foreign keys.
+     * Create custom entity tables that have associations with "cascade"=['all'] option
+     *
+     * @param Schema $schema
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     */
+    protected function createTestCustomEntityTablesWithCascadeOption(Schema $schema)
+    {
+        $extendFields = [
+            'owner' => ExtendScope::OWNER_CUSTOM,
+            'target_title' => ['id'],
+            'target_detailed' => ['id'],
+            'target_grid' => ['id']
+        ];
+
+        $table1 = $this->extendExtension->createCustomEntityTable($schema, 'TestEntity3');
+        $table1->addColumn(
+            'name',
+            'string',
+            [
+                'length'        => 255,
+                OroOptions::KEY => ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ]
+        );
+        $table2 = $this->extendExtension->createCustomEntityTable($schema, 'TestEntity4');
+        $table2->addColumn(
+            'name',
+            'string',
+            [
+                'length'        => 255,
+                OroOptions::KEY => ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM]]
+            ]
+        );
+
+        // unidirectional many-to-one
+        $this->extendExtension->addManyToOneRelation(
+            $schema,
+            $table1,
+            'uniM2OTarget',
+            $table2,
+            'name',
+            ['extend' => array_merge($extendFields, ['cascade' => ['all']])]
+        );
+        // bidirectional many-to-one
+        $this->extendExtension->addManyToOneRelation(
+            $schema,
+            $table1,
+            'biM2OTarget',
+            $table2,
+            'name',
+            ['extend' => array_merge($extendFields, ['cascade' => ['all']])]
+        );
+        $this->extendExtension->addManyToOneInverseRelation(
+            $schema,
+            $table1,
+            'biM2OTarget',
+            $table2,
+            'biM2OOwners',
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'cascade' => ['all']]]
+        );
+
+        // unidirectional many-to-many
+        $this->extendExtension->addManyToManyRelation(
+            $schema,
+            $table1,
+            'uniM2MTargets',
+            $table2,
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => array_merge($extendFields, ['cascade' => ['all']])]
+        );
+        // bidirectional many-to-many
+        $this->extendExtension->addManyToManyRelation(
+            $schema,
+            $table1,
+            'biM2MTargets',
+            $table2,
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => array_merge($extendFields, ['cascade' => ['all']])]
+        );
+        $this->extendExtension->addManyToManyInverseRelation(
+            $schema,
+            $table1,
+            'biM2MTargets',
+            $table2,
+            'biM2MOwners',
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'cascade' => ['all']]]
+        );
+
+        // unidirectional one-to-many
+        $this->extendExtension->addOneToManyRelation(
+            $schema,
+            $table1,
+            'uniO2MTargets',
+            $table2,
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => array_merge($extendFields, ['cascade' => ['all']])]
+        );
+        // bidirectional one-to-many
+        $this->extendExtension->addOneToManyRelation(
+            $schema,
+            $table1,
+            'biO2MTargets',
+            $table2,
+            ['name'],
+            ['name'],
+            ['name'],
+            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'cascade' => ['all']]]
+        );
+        $this->extendExtension->addOneToManyInverseRelation(
+            $schema,
+            $table1,
+            'biO2MTargets',
+            $table2,
+            'biO2MOwner',
+            'name',
+            ['extend' => ['owner' => ExtendScope::OWNER_CUSTOM, 'cascade' => ['all']]]
+        );
+    }
+
+    /**
+     * Create test_user_ownership table
      *
      * @param Schema $schema
      */
-    protected function addTestPersonForeignKeys(Schema $schema)
+    protected function createTestUserOwnershipTable(Schema $schema)
     {
-        $table = $schema->getTable('test_person');
-        $table->addForeignKeyConstraint(
-            $schema->getTable('test_department'),
-            ['department_id'],
-            ['id'],
-            ['onDelete' => null, 'onUpdate' => null]
-        );
+        $table = $schema->createTable('test_user_ownership');
+        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('owner_id', 'integer', ['notnull' => false]);
+        $table->addColumn('organization_id', 'integer', ['notnull' => false]);
+        $table->addColumn('name', 'string', ['notnull' => false, 'length' => 255]);
+        $table->setPrimaryKey(['id']);
+        $table->addIndex(['organization_id'], 'IDX_673C997D32C8A3DE', []);
+        $table->addIndex(['owner_id'], 'IDX_673C997D7E3C61F9', []);
+    }
+
+    /**
+     * @param Schema $schema
+     */
+    private function extendScopeForTestActivity($schema)
+    {
+        $this->scopeExtension->addScopeAssociation($schema, 'test_activity', 'test_activity', 'id');
     }
 
     /**
@@ -498,6 +691,22 @@ class OroTestFrameworkBundleInstaller implements
     }
 
     /**
+     * Add test_employee foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addTestEmployeeForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('test_employee');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('test_department'),
+            ['department_id'],
+            ['id'],
+            ['onDelete' => null, 'onUpdate' => null]
+        );
+    }
+
+    /**
      * Add test_product foreign keys.
      *
      * @param Schema $schema
@@ -510,6 +719,46 @@ class OroTestFrameworkBundleInstaller implements
             ['product_type'],
             ['name'],
             ['onDelete' => 'SET NULL', 'onUpdate' => null]
+        );
+    }
+
+    /**
+     * Add test_user_ownership foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addTestUserOwnershipForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('test_user_ownership');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_user'),
+            ['owner_id'],
+            ['id'],
+            ['onDelete' => 'SET NULL', 'onUpdate' => null]
+        );
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_organization'),
+            ['organization_id'],
+            ['id'],
+            ['onDelete' => 'SET NULL', 'onUpdate' => null]
+        );
+    }
+
+    /**
+     * @param Schema $schema
+     */
+    public function addAttributeFamilyRelationForTestActivityTarget(Schema $schema)
+    {
+        $table = $schema->getTable('test_activity_target');
+
+        $table->addColumn('attribute_family_id', 'integer', ['notnull' => false]);
+        $table->addIndex(['attribute_family_id']);
+
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_attribute_family'),
+            ['attribute_family_id'],
+            ['id'],
+            ['onUpdate' => null, 'onDelete' => 'RESTRICT']
         );
     }
 }

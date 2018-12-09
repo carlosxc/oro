@@ -2,65 +2,65 @@
 
 namespace Oro\Component\EntitySerializer;
 
+/**
+ * Prepares a configuration to be used by EntitySerializer.
+ */
 class ConfigNormalizer
 {
     /**
-     * Normalizes a configuration of the EntitySerializer
+     * Prepares a configuration to be used by EntitySerializer
      *
-     * @param array       $config
-     * @param string|null $parentField
+     * @param array $config
      *
      * @return array
      */
-    public function normalizeConfig(array $config, $parentField = null)
+    public function normalizeConfig(array $config)
     {
-        // @deprecated since 1.9. Use 'exclude' attribute for a field instead of 'excluded_fields' for an entity
-        if (array_key_exists('excluded_fields', $config)) {
-            $config = $this->applyExcludedFieldsConfig($config);
-        }
+        $config = $this->preNormalizeConfig($config);
 
-        // @deprecated since 1.9. Use 'order_by' attribute instead of 'orderBy'
-        if (array_key_exists('orderBy', $config)) {
-            $config[ConfigUtil::ORDER_BY] = $config['orderBy'];
-            unset($config['orderBy']);
-        }
+        return $this->doNormalizeConfig($config);
+    }
 
+    /**
+     * Remembers the current config state before it will be normalized
+     *
+     * @param array $config
+     *
+     * @return array
+     */
+    protected function preNormalizeConfig(array $config)
+    {
         if (array_key_exists(ConfigUtil::FIELDS, $config)) {
             if (is_string($config[ConfigUtil::FIELDS])) {
-                $this->applySingleFieldConfig($config, $parentField);
+                // expands 'fields' => 'field_name' to its full definition
+                $this->applySingleFieldConfig($config);
             } elseif (!empty($config[ConfigUtil::FIELDS])) {
+                // remember the field name of the collapsed association because
+                // additional fields can be added during config normalization
+                // it is required to return a correct representation of serialized data
+                if (ConfigUtil::isCollapse($config)) {
+                    $collapseField = $this->getCollapseField($config);
+                    if ($collapseField) {
+                        $config[ConfigUtil::COLLAPSE_FIELD] = $collapseField;
+                    }
+                }
+
+                $excludedFields = [];
                 $fields = array_keys($config[ConfigUtil::FIELDS]);
                 foreach ($fields as $field) {
                     $fieldConfig = $config[ConfigUtil::FIELDS][$field];
                     if (null !== $fieldConfig) {
-                        // @deprecated since 1.9. Use `property_path` attribute instead of 'result_name'
-                        if (isset($fieldConfig['result_name'])) {
-                            $field = $this->applyResultNameConfig($config, $fieldConfig, $field);
+                        if (ConfigUtil::isExclude($fieldConfig)) {
+                            $excludedFields[] = $field;
                         }
-
-                        if (isset($fieldConfig[ConfigUtil::PROPERTY_PATH])) {
-                            if (isset($fieldConfig[ConfigUtil::FIELDS])) {
-                                $config[ConfigUtil::FIELDS][$field] = $this->applyPropertyPathConfig(
-                                    $fieldConfig,
-                                    $fieldConfig[ConfigUtil::PROPERTY_PATH],
-                                    $fieldConfig,
-                                    $parentField
-                                );
-                            } else {
-                                $config = $this->applyPropertyPathConfig(
-                                    $config,
-                                    $fieldConfig[ConfigUtil::PROPERTY_PATH],
-                                    $fieldConfig,
-                                    $parentField
-                                );
-                            }
-                        } elseif ($this->isCollapsedWithoutPropertyPath($fieldConfig)) {
-                            $targetFields = array_keys($fieldConfig[ConfigUtil::FIELDS]);
-                            $fieldConfig[ConfigUtil::PROPERTY_PATH] = $field . '.' . reset($targetFields);
-                        }
-
-                        $config[ConfigUtil::FIELDS][$field] = $this->normalizeConfig($fieldConfig, $field);
+                        $config[ConfigUtil::FIELDS][$field] = $this->preNormalizeConfig($fieldConfig);
                     }
+                }
+                // remember the list of excluded fields, because the 'exclude' option
+                // can be removed during config normalization
+                // it is required to return a correct representation of serialized data
+                if (!empty($excludedFields)) {
+                    $config[ConfigUtil::EXCLUDED_FIELDS] = $excludedFields;
                 }
             }
         }
@@ -69,21 +69,39 @@ class ConfigNormalizer
     }
 
     /**
+     * Performs the normalization of a configuration
+     *
      * @param array $config
      *
      * @return array
-     *
-     * @deprecated since 1.9. Use 'exclude' attribute for a field instead of 'excluded_fields' for an entity
      */
-    protected function applyExcludedFieldsConfig(array $config)
+    protected function doNormalizeConfig(array $config)
     {
-        $excludedFields = ConfigUtil::getArrayValue($config, 'excluded_fields');
-        unset($config['excluded_fields']);
-        foreach ($excludedFields as $field) {
-            $fieldConfig = ConfigUtil::getFieldConfig($config, $field);
-            if (!ConfigUtil::isExclude($fieldConfig)) {
-                $fieldConfig[ConfigUtil::EXCLUDE]   = true;
-                $config[ConfigUtil::FIELDS][$field] = $fieldConfig;
+        if (array_key_exists(ConfigUtil::FIELDS, $config) && !empty($config[ConfigUtil::FIELDS])) {
+            $renamedFields = [];
+            $fields = array_keys($config[ConfigUtil::FIELDS]);
+            foreach ($fields as $field) {
+                $fieldConfig = $config[ConfigUtil::FIELDS][$field];
+                if (null !== $fieldConfig) {
+                    if (isset($fieldConfig[ConfigUtil::PROPERTY_PATH])) {
+                        $propertyPath = $fieldConfig[ConfigUtil::PROPERTY_PATH];
+                        if ($propertyPath) {
+                            $path = ConfigUtil::explodePropertyPath($propertyPath);
+                            if (count($path) === 1) {
+                                $renamedFields[$propertyPath] = $field;
+                            } else {
+                                $config = $this->applyPropertyPathConfig($config, $path);
+                            }
+                        } else {
+                            unset($config[ConfigUtil::FIELDS][$field][ConfigUtil::PROPERTY_PATH]);
+                        }
+                    }
+                    $config[ConfigUtil::FIELDS][$field] = $this->doNormalizeConfig($fieldConfig);
+                }
+            }
+            // remember the map of renamed fields to speed up the serialization
+            if (!empty($renamedFields)) {
+                $config[ConfigUtil::RENAMED_FIELDS] = $renamedFields;
             }
         }
 
@@ -91,117 +109,113 @@ class ConfigNormalizer
     }
 
     /**
-     * @param array  $config
-     * @param array  $fieldConfig
-     * @param string $field
+     * Checks that all fields from the given property path exist in the config
+     * and add them if needed
      *
-     * @return mixed
+     * @param array    $config
+     * @param string[] $propertyPath
      *
-     * @deprecated since 1.9. Use `property_path` attribute instead of 'result_name'
+     * @return array
      */
-    protected function applyResultNameConfig(array &$config, array &$fieldConfig, $field)
+    protected function applyPropertyPathConfig(array $config, array $propertyPath)
     {
-        $fieldConfig[ConfigUtil::PROPERTY_PATH] = $field;
-        unset($config[ConfigUtil::FIELDS][$field]);
+        // set a reference to the root config
+        $currentConfig = &$config;
 
-        $field = $fieldConfig['result_name'];
-        unset($fieldConfig['result_name']);
+        foreach ($propertyPath as $property) {
+            if (empty($currentConfig[ConfigUtil::FIELDS])) {
+                $currentConfig[ConfigUtil::FIELDS] = [$property => null];
+            } else {
+                $field = $this->findField($currentConfig[ConfigUtil::FIELDS], $property);
+                if (!$field) {
+                    $currentConfig[ConfigUtil::FIELDS][$property] = null;
+                } else {
+                    $property = $field;
+                    // remove 'exclude' option if it is TRUE, because there is another field
+                    // that uses data from this association and as result the association should be loaded
+                    if (is_array($currentConfig[ConfigUtil::FIELDS][$property])
+                        && ConfigUtil::isExclude($currentConfig[ConfigUtil::FIELDS][$property])
+                    ) {
+                        unset($currentConfig[ConfigUtil::FIELDS][$property][ConfigUtil::EXCLUDE]);
+                        // set 'exclusion_policy'='all' if it not defined yet,
+                        // it is required to prevent loading of not used fields
+                        if (!isset($currentConfig[ConfigUtil::FIELDS][$property][ConfigUtil::EXCLUSION_POLICY])) {
+                            $currentConfig[ConfigUtil::FIELDS][$property][ConfigUtil::EXCLUSION_POLICY] =
+                                ConfigUtil::EXCLUSION_POLICY_ALL;
+                        }
+                    }
+                }
+            }
+
+            // set a reference to the next child config
+            $currentConfig = &$currentConfig[ConfigUtil::FIELDS][$property];
+        }
+
+        return $config;
+    }
+
+    /**
+     * Expands simplified definition of collapsed association to its full definition
+     *
+     * @param array $config
+     */
+    protected function applySingleFieldConfig(array &$config)
+    {
+        $field = $config[ConfigUtil::FIELDS];
+
+        $config[ConfigUtil::EXCLUSION_POLICY] = ConfigUtil::EXCLUSION_POLICY_ALL;
+        $config[ConfigUtil::COLLAPSE] = true;
+        $config[ConfigUtil::COLLAPSE_FIELD] = $field;
+        $config[ConfigUtil::FIELDS] = [$field => null];
+    }
+
+    /**
+     * Finds a field by its property path or name
+     *
+     * @param array  $fields
+     * @param string $property
+     *
+     * @return string|null The name of the found field; otherwise, NULL
+     */
+    protected function findField(array $fields, $property)
+    {
+        $field = null;
+        // at the first try to find a field by the property path,
+        // it is a case when a field was renamed
+        foreach ($fields as $fieldName => $fieldConfig) {
+            if (is_array($fieldConfig)
+                && isset($fieldConfig[ConfigUtil::PROPERTY_PATH])
+                && $fieldConfig[ConfigUtil::PROPERTY_PATH] === $property
+            ) {
+                $field = $fieldName;
+            }
+        }
+        // if a renamed field was not found, check if a field with the specifies name exists in the config
+        if (!$field && array_key_exists($property, $fields)) {
+            $field = $property;
+        }
 
         return $field;
     }
 
     /**
-     * @param array  $config
-     * @param string $propertyPath
-     * @param array  $fieldConfig
-     * @param string $parentField
+     * @param array $config
      *
-     * @return array
+     * @return string|null
      */
-    protected function applyPropertyPathConfig(array $config, $propertyPath, array &$fieldConfig, $parentField)
+    protected function getCollapseField(array $config)
     {
-        $properties = ConfigUtil::explodePropertyPath($propertyPath);
-
-        $currentConfig   = &$config;
-        $currentProperty = $properties[0];
-
-        $this->applyPropertyConfig($currentConfig, $currentProperty, $parentField);
-
-        $count = count($properties);
-        if ($count > 1) {
-            $i = 1;
-            while ($i < $count) {
-                $currentConfig = &$currentConfig[ConfigUtil::FIELDS][$properties[$i - 1]];
-                if (null === $currentConfig) {
-                    $currentConfig = [];
+        $result = null;
+        foreach ($config[ConfigUtil::FIELDS] as $field => $fieldConfig) {
+            if (!is_array($fieldConfig) || !ConfigUtil::isExclude($fieldConfig)) {
+                if ($result) {
+                    $result = null;
+                    break;
                 }
-                $currentProperty = $properties[$i];
-                $this->applyPropertyConfig($currentConfig, $currentProperty, $properties[$i - 1]);
-                $i++;
+                $result = $field;
             }
         }
 
-        if (array_key_exists(ConfigUtil::DATA_TRANSFORMER, $fieldConfig)) {
-            $currentConfig[ConfigUtil::FIELDS][$currentProperty][ConfigUtil::DATA_TRANSFORMER] =
-                $fieldConfig[ConfigUtil::DATA_TRANSFORMER];
-            unset($fieldConfig[ConfigUtil::DATA_TRANSFORMER]);
-        }
-
-        return $config;
-    }
-
-    /**
-     * @param array  $config
-     * @param string $property
-     * @param string $parentField
-     */
-    protected function applyPropertyConfig(array &$config, $property, $parentField)
-    {
-        if (!isset($config[ConfigUtil::FIELDS])) {
-            $config[ConfigUtil::FIELDS][$property] = null;
-            if (isset($config[ConfigUtil::EXCLUDE]) && $config[ConfigUtil::EXCLUDE]) {
-                $config[ConfigUtil::EXCLUSION_POLICY] = ConfigUtil::EXCLUSION_POLICY_ALL;
-                unset($config[ConfigUtil::EXCLUDE]);
-            }
-        } elseif (is_string($config[ConfigUtil::FIELDS])) {
-            $this->applySingleFieldConfig($config, $parentField);
-            $config[ConfigUtil::FIELDS][$property] = null;
-        } elseif (!array_key_exists($property, $config[ConfigUtil::FIELDS])) {
-            $config[ConfigUtil::FIELDS][$property] = null;
-        } elseif (is_array($config[ConfigUtil::FIELDS][$property])
-            && ConfigUtil::isExclude($config[ConfigUtil::FIELDS][$property])
-        ) {
-            $config[ConfigUtil::FIELDS][$property][ConfigUtil::EXCLUDE] = false;
-        }
-    }
-
-    /**
-     * @param array  $config
-     * @param string $parentField
-     */
-    protected function applySingleFieldConfig(array &$config, $parentField)
-    {
-        $field = $config[ConfigUtil::FIELDS];
-
-        $config[ConfigUtil::COLLAPSE]         = true;
-        $config[ConfigUtil::EXCLUSION_POLICY] = ConfigUtil::EXCLUSION_POLICY_ALL;
-        $config[ConfigUtil::PROPERTY_PATH]    = $parentField ? $parentField . '.' . $field : $field;
-        $config[ConfigUtil::FIELDS]           = [$field => null];
-    }
-
-    /**
-     * @param array $fieldConfig
-     *
-     * @return bool
-     */
-    protected function isCollapsedWithoutPropertyPath(array $fieldConfig)
-    {
-        return
-            isset($fieldConfig[ConfigUtil::COLLAPSE])
-            && $fieldConfig[ConfigUtil::COLLAPSE]
-            && ConfigUtil::isExcludeAll($fieldConfig)
-            && isset($fieldConfig[ConfigUtil::FIELDS])
-            && is_array($fieldConfig[ConfigUtil::FIELDS])
-            && count($fieldConfig[ConfigUtil::FIELDS]) === 1;
+        return $result;
     }
 }

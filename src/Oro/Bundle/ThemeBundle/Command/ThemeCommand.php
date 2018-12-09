@@ -2,13 +2,15 @@
 
 namespace Oro\Bundle\ThemeBundle\Command;
 
+use Oro\Bundle\ThemeBundle\Model\Theme;
+use Oro\Bundle\ThemeBundle\Model\ThemeRegistry;
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 
-use Oro\Bundle\ThemeBundle\Model\ThemeRegistry;
-use Oro\Bundle\ThemeBundle\Model\Theme;
-
+/**
+ * Command to list all available themes
+ */
 class ThemeCommand extends ContainerAwareCommand
 {
     /**
@@ -74,17 +76,6 @@ class ThemeCommand extends ContainerAwareCommand
 
         if ($theme->getScreenshot()) {
             $output->writeln(sprintf(' - <info>screenshot:</info> %s', $theme->getScreenshot()));
-        }
-
-        if ($theme->getStyles()) {
-            if (count($theme->getStyles()) > 1) {
-                $output->writeln(' - <info>styles:</info>');
-                foreach ($theme->getStyles() as $style) {
-                    $output->writeln(sprintf('     - %s', $style));
-                }
-            } else {
-                $output->writeln(sprintf(' - <info>styles:</info> %s', current($theme->getStyles())));
-            }
         }
     }
 }

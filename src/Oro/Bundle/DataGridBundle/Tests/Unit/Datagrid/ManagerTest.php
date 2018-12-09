@@ -4,21 +4,21 @@ namespace Oro\Bundle\DataGridBundle\Tests\Unit\Datagrid;
 
 use Oro\Bundle\DataGridBundle\Datagrid\Manager;
 
-class ManagerTest extends \PHPUnit_Framework_TestCase
+class ManagerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Manager */
     protected $manager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $builder;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $configurationProvider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $parametersFactory;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $nameStrategy;
 
     protected function setUp()
@@ -59,7 +59,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
         $datagridName = 'test_grid';
         $additionalParameters = array('foo' => 'bar');
 
-        $parameters = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
+        $parameters = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
         $parameters->expects($this->once())->method('add')->with($additionalParameters);
 
         $this->nameStrategy->expects($this->atLeastOnce())
@@ -81,7 +81,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->exactly(2))
             ->method('getConfiguration')
@@ -97,7 +97,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->method('offsetSet');
 
         $this->builder->expects($this->once())->method('build')
-            ->with($configuration, $parameters)
+            ->with($configuration, $parameters, $additionalParameters)
             ->will($this->returnValue($datagrid));
 
         $this->assertEquals(
@@ -113,7 +113,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
         $gridScope = 'test_scope';
         $additionalParameters = array('foo' => 'bar');
 
-        $parameters = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
+        $parameters = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
         $parameters->expects($this->once())->method('add')->with($additionalParameters);
         $parameters->expects($this->once())->method('all')->will($this->returnValue([]));
 
@@ -150,7 +150,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->method('offsetSet')
             ->with('scope', $gridScope);
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->once())
             ->method('getConfiguration')
@@ -158,7 +158,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($configuration));
 
         $this->builder->expects($this->once())->method('build')
-            ->with($configuration, $parameters)
+            ->with($configuration, $parameters, $additionalParameters)
             ->will($this->returnValue($datagrid));
 
         $this->assertEquals(
@@ -170,7 +170,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
     public function testGetDatagridWithoutScope()
     {
         $datagridName = 'test_grid';
-        $parameters = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
+        $parameters = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
 
         $this->nameStrategy->expects($this->once())
             ->method('parseGridScope')
@@ -189,7 +189,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
         $configuration->expects($this->never())
             ->method($this->anything());
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->once())
             ->method('getConfiguration')
@@ -211,7 +211,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
         $gridFullName = 'test_grid:test_scope';
         $gridName = 'test_grid';
         $gridScope = 'test_scope';
-        $parameters = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
+        $parameters = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\ParameterBag');
 
         $this->nameStrategy->expects($this->once())
             ->method('parseGridScope')
@@ -234,7 +234,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->method('offsetSet')
             ->with('scope', $gridScope);
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->once())
             ->method('getConfiguration')
@@ -269,7 +269,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->once())
             ->method('getConfiguration')
@@ -315,7 +315,7 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $this->configurationProvider->expects($this->once())
             ->method('getConfiguration')

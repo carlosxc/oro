@@ -2,12 +2,9 @@
 
 namespace Oro\Bundle\AddressBundle\Entity;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\FormBundle\Entity\PrimaryItem;
 
@@ -22,8 +19,6 @@ abstract class AbstractTypedAddress extends AbstractAddress implements PrimaryIt
      * Many-to-many relation field, relation parameters must be in specific class
      *
      * @var Collection
-     *
-     * @Soap\ComplexType("Oro\Bundle\AddressBundle\Entity\AddressType[]", nillable=true)
      */
     protected $types;
 
@@ -31,7 +26,6 @@ abstract class AbstractTypedAddress extends AbstractAddress implements PrimaryIt
      * @var boolean
      *
      * @ORM\Column(name="is_primary", type="boolean", nullable=true)
-     * @Soap\ComplexType("boolean", nillable=true)
      * @ConfigField(
      *      defaultValues={
      *          "importexport"={

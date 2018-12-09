@@ -4,17 +4,15 @@ namespace Oro\Bundle\ActivityListBundle\Migrations\Data\ORM;
 
 use Doctrine\Common\DataFixtures\AbstractFixture;
 use Doctrine\Common\Persistence\ObjectManager;
-
+use Oro\Bundle\ActivityListBundle\Provider\ActivityListChainProvider;
+use Oro\Bundle\BatchBundle\ORM\Query\BufferedIdentityQueryResultIterator;
+use Oro\Bundle\OrganizationBundle\Entity\Organization;
+use Oro\Bundle\SecurityBundle\Authentication\Token\UsernamePasswordOrganizationToken;
+use Oro\Bundle\UserBundle\Entity\User;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
-
-use Oro\Bundle\ActivityListBundle\Provider\ActivityListChainProvider;
-use Oro\Bundle\OrganizationBundle\Entity\Organization;
-use Oro\Bundle\UserBundle\Entity\User;
-use Oro\Bundle\SecurityBundle\Authentication\Token\UsernamePasswordOrganizationToken;
-use Oro\Bundle\BatchBundle\ORM\Query\BufferedQueryResultIterator;
 
 /**
  * This fixture adds activity lists data for existing activity records.
@@ -49,10 +47,13 @@ abstract class AddActivityListsData extends AbstractFixture implements Container
         $ownerField = '',
         $organizationField = ''
     ) {
-        if ($this->container->hasParameter('installed') && $this->container->getParameter('installed')) {
+        $isApplicationInstalled = $this->container->hasParameter('installed')
+            && $this->container->getParameter('installed');
+
+        if ($isApplicationInstalled && !$this->hasRecordsInActivityList($activityClass)) {
             $provider     = $this->container->get('oro_activity_list.provider.chain');
             $queryBuilder = $manager->getRepository($activityClass)->createQueryBuilder('entity');
-            $iterator     = new BufferedQueryResultIterator($queryBuilder);
+            $iterator     = new BufferedIdentityQueryResultIterator($queryBuilder);
             $iterator->setBufferSize(self::BATCH_SIZE);
             $itemsCount = 0;
             $entities   = [];
@@ -71,6 +72,28 @@ abstract class AddActivityListsData extends AbstractFixture implements Container
                 $this->saveActivityLists($manager, $provider, $entities, $ownerField, $organizationField);
             }
         }
+    }
+
+    /**
+     * @param string $activityClass
+     *
+     * @return bool
+     */
+    protected function hasRecordsInActivityList($activityClass)
+    {
+        $qb  = $this->container
+            ->get('doctrine')
+            ->getRepository('OroActivityListBundle:ActivityList')
+            ->createQueryBuilder('activityList');
+
+        $activityList = $qb->select('activityList.id')
+            ->where('activityList.relatedActivityClass = :activityClass')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->setParameter('activityClass', $activityClass)
+            ->getOneOrNullResult();
+
+        return (bool)$activityList;
     }
 
     /**
@@ -114,12 +137,12 @@ abstract class AddActivityListsData extends AbstractFixture implements Container
      */
     protected function setSecurityContext(User $user, Organization $organization = null)
     {
-        $securityContext = $this->container->get('security.context');
+        $tokenStorage = $this->container->get('security.token_storage');
         if ($organization) {
             $token = new UsernamePasswordOrganizationToken($user, $user->getUsername(), 'main', $organization);
         } else {
             $token = new UsernamePasswordToken($user, $user->getUsername(), 'main');
         }
-        $securityContext->setToken($token);
+        $tokenStorage->setToken($token);
     }
 }

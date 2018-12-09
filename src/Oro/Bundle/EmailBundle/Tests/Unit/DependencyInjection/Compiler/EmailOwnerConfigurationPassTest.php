@@ -4,11 +4,11 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use Oro\Bundle\EmailBundle\DependencyInjection\Compiler\EmailOwnerConfigurationPass;
 
-class EmailOwnerConfigurationPassTest extends \PHPUnit_Framework_TestCase
+class EmailOwnerConfigurationPassTest extends \PHPUnit\Framework\TestCase
 {
     public function testProcessNoServices()
     {
-        $containerBuilder = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $containerBuilder = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         $containerBuilder->expects($this->once())
             ->method('hasDefinition')
@@ -32,7 +32,7 @@ class EmailOwnerConfigurationPassTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $containerBuilder = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $containerBuilder = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         $containerBuilder->expects($this->exactly(2))
             ->method('hasDefinition')

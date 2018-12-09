@@ -4,11 +4,13 @@ namespace Oro\Bundle\EntityExtendBundle\Provider;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityManager;
-
 use Oro\Bundle\EntityBundle\Provider\DictionaryValueListProviderInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 
+/**
+ * Implements the DictionaryValueListProviderInterface for enum entities.
+ */
 class EnumValueListProvider implements DictionaryValueListProviderInterface
 {
     /** @var ConfigManager */
@@ -73,7 +75,8 @@ class EnumValueListProvider implements DictionaryValueListProviderInterface
 
             $fields[$fieldName] = null;
         }
-        $fields['priority'] = ['result_name' => 'order'];
+        $fields['order'] = ['property_path' => 'priority'];
+        unset($fields['priority']);
 
         return [
             'exclusion_policy' => 'all',

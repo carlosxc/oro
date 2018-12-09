@@ -2,14 +2,16 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Command;
 
+use Oro\Bundle\EntityExtendBundle\Tools\ConfigFilter\ByInitialStateFilter;
+use Oro\Bundle\EntityExtendBundle\Tools\ConfigFilter\ByOriginFilter;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use Oro\Bundle\EntityExtendBundle\Tools\ConfigFilter\ByInitialStateFilter;
-use Oro\Bundle\EntityExtendBundle\Tools\ConfigFilter\ByOriginFilter;
-
+/**
+ * The CLI command to update extend entity config
+ */
 class UpdateConfigCommand extends ContainerAwareCommand
 {
     /**

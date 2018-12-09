@@ -6,14 +6,14 @@
 {% import 'OroUIBundle::macros.html.twig' as UI %}
 {% import 'OroEmailBundle::macros.html.twig' as EA %}
 {% set name = app.user|oro_format_name|default('N/A') %}
-{% oro_title_set({params : {"%subject%": entity.subject, "%username%": name} }) %}
+{% oro_title_set({params : {"%subject%": entity.subject|oro_html_strip_tags, "%username%": name} }) %}
 
 {% block pageHeader %}
     {% set breadcrumbs = {
         'entity':      entity,
         'indexPath':   path('oro_email_user_emails'),
         'indexLabel':  'oro.email.entity_plural_label'|trans,
-        'entityTitle': entity.subject,
+        'entityTitle': entity.subject|oro_html_strip_tags,
     } %}
     {{ parent() }}
 {% endblock pageHeader %}
@@ -57,7 +57,7 @@
         {% set notFoundMessage %}<strong>{{ 'oro.email.unable_to_load_body'|trans}}</strong>{% endset %}
         {% set attributes = attributes | merge([UI.attibuteRow('', notFoundMessage)]) %}
     {% else %}
-        {% if entity.emailBody.hasAttachments %}
+        {% if entity.emailBody.hasAttachments and attachments is defined %}
             {% set attributes = attributes |
                 merge([UI.attibuteRow(
                     'Attachments'|trans,

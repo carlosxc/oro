@@ -2,19 +2,18 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Twig;
 
-use Symfony\Component\Form\FormView;
-
 use Oro\Bundle\IntegrationBundle\Event\LoadIntegrationThemesEvent;
 use Oro\Bundle\IntegrationBundle\Twig\IntegrationExtension;
+use Symfony\Component\Form\FormView;
 
-class IntegrationExtensionTest extends \PHPUnit_Framework_TestCase
+class IntegrationExtensionTest extends \PHPUnit\Framework\TestCase
 {
     protected $dispatcher;
     protected $integrationExtension;
 
     public function setUp()
     {
-        $this->dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->dispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
         $this->integrationExtension = new IntegrationExtension($this->dispatcher);
     }
 

@@ -2,37 +2,41 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Unit\DataCollector;
 
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\LayoutBundle\DataCollector\LayoutDataCollector;
+use Oro\Bundle\LayoutBundle\Layout\LayoutContextHolder;
+use Oro\Component\Layout\BlockInterface;
+use Oro\Component\Layout\BlockView;
+use Oro\Component\Layout\LayoutContext;
+use Oro\Component\Layout\Tests\Unit\Stubs\ContextItemStub;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-use Oro\Component\Layout\Layout;
-use Oro\Component\Layout\BlockView;
-use Oro\Component\Layout\LayoutContext;
-use Oro\Component\Layout\ContextItemInterface;
-
-use Oro\Bundle\ConfigBundle\Config\ConfigManager;
-use Oro\Bundle\LayoutBundle\DataCollector\LayoutDataCollector;
-
-class LayoutDataCollectorTest extends \PHPUnit_Framework_TestCase
+class LayoutDataCollectorTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var LayoutDataCollector
-     */
+    /** @var LayoutContextHolder|\PHPUnit\Framework\MockObject\MockObject */
+    protected $contextHolder;
+
+    /** @var LayoutDataCollector */
     protected $dataCollector;
 
     protected function setUp()
     {
+        $this->contextHolder = $this->createMock(LayoutContextHolder::class);
+
         $configs = [
             'oro_layout.debug_developer_toolbar' => true
         ];
 
-        $configManager = $this->getMockConfigManager();
+        /** @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject $configManager */
+        $configManager = $this->createMock(ConfigManager::class);
         $configManager->expects($this->any())
             ->method('get')
             ->will($this->returnCallback(function ($code) use ($configs) {
                 return $configs[$code];
             }));
-        $this->dataCollector = new LayoutDataCollector($configManager, true);
+
+        $this->dataCollector = new LayoutDataCollector($this->contextHolder, $configManager, true);
     }
 
     public function testGetName()
@@ -42,105 +46,219 @@ class LayoutDataCollectorTest extends \PHPUnit_Framework_TestCase
 
     public function testCollect()
     {
-        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
+        $context = new LayoutContext();
 
-        $this->assertTrue(is_array($this->dataCollector->getViews()));
-        $this->assertTrue(is_array($this->dataCollector->getItems()));
-    }
-
-    public function testCollectViews()
-    {
-        $view = $this->getMockBlockView();
-        $view->vars['id'] = 'root';
-
-        $childView = $this->getMockBlockView([$view]);
-        $childView->vars['id'] = 'head';
-
-        $view->children[] = $childView;
-
-        $this->dataCollector->collectViews($view);
-        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
-
-        $this->assertEquals(['root' => ['head' => []]], $this->dataCollector->getViews());
-    }
-
-    public function testCollectContextItems()
-    {
-        $contextItemInterface = $this->getMockContextItemInterface();
-        $contextItemInterface->expects($this->once())
-            ->method('toString')
-            ->will($this->returnValue('ContextItemInterface'));
-
-        $items = [
+        $contextItemInterface =  new ContextItemStub();
+        $contextItems = [
             'string' => 'string',
             'array' => ['array'],
             'ContextItemInterface' => $contextItemInterface
         ];
+        foreach ($contextItems as $name => $item) {
+            $context->set($name, $item);
+        }
+        $contextItems['array'] = json_encode($contextItems['array']);
+        $contextItems['ContextItemInterface'] = '(object) ContextItemStub::id:1';
 
-        $context = new LayoutContext();
-        $context->set('string', $items['string']);
-        $context->set('array', $items['array']);
-        $context->set('ContextItemInterface', $items['ContextItemInterface']);
+        $contextData = [
+            'string' => 'string',
+            'array' => [],
+            'object' => \stdClass::class
+        ];
+        foreach ($contextData as $name => $item) {
+            $context->data()->set($name, $item);
+        }
 
-        $this->dataCollector->collectContextItems($context);
+        $this->contextHolder
+            ->expects($this->once())
+            ->method('getContext')
+            ->will($this->returnValue($context));
 
-        $items['array'] = json_encode($items['array']);
-        $items['ContextItemInterface'] = 'ContextItemInterface';
-
+        $this->dataCollector->setNotAppliedActions(['action1', 'action2']);
         $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
-        $this->assertEquals($items, $this->dataCollector->getItems());
-    }
 
-    public function testGetViews()
-    {
-        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
-        $this->assertTrue(is_array($this->dataCollector->getViews()));
-    }
+        $result = [
+            'context' => [
+                'items' => $contextItems,
+                'data' => $contextData
+            ],
+            'views' => [],
+            'count' => 0,
+            'not_applied_actions_count' => 2,
+            'not_applied_actions' => ['action1', 'action2']
+        ];
 
-    public function testGetItems()
-    {
-        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
-        $this->assertTrue(is_array($this->dataCollector->getItems()));
+        $this->assertEquals($result, $this->dataCollector->getData());
     }
 
     /**
-     * @return ConfigManager|\PHPUnit_Framework_MockObject_MockObject
+     * @dataProvider blockOptionsProvider
+     *
+     * @param array $options
+     * @param array $tree
      */
-    protected function getMockConfigManager()
+    public function testCollectBuildBlockOptions($options, $tree)
     {
-        return $this->getMock('Oro\Bundle\ConfigBundle\Config\ConfigManager', [], [], '', false);
+        $rootBlock = new BlockView();
+        $rootBlock->vars['id'] = key($tree);
+        $blockViews = $this->getBlockViews($rootBlock, current($tree));
+
+        foreach ($options as $id => $blockOptions) {
+            $this->dataCollector->collectBuildBlockOptions($id, $id, $blockOptions);
+        }
+
+        foreach ($blockViews as $blockView) {
+            $blockView->vars = $options[$blockView->vars['id']];
+
+            /** @var BlockInterface|\PHPUnit\Framework\MockObject\MockObject $block */
+            $block = $this->createMock(BlockInterface::class);
+            $block->expects($this->any())
+                ->method('getId')
+                ->will($this->returnValue($blockView->vars['id']));
+
+            $this->dataCollector->collectBlockTree($block, $blockView);
+        }
+
+        $this->contextHolder
+            ->expects($this->once())
+            ->method('getContext')
+            ->will($this->returnValue(new LayoutContext()));
+
+        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
+
+        foreach ($blockViews as $blockView) {
+            $this->assertEquals($blockView->vars, $options[$blockView->vars['id']]);
+        }
     }
 
     /**
-     * @return Request|\PHPUnit_Framework_MockObject_MockObject
+     * @dataProvider blockOptionsProvider
+     *
+     * @param array $options
+     * @param array $tree
+     */
+    public function testCollectBuildViewOptions($options, $tree)
+    {
+        $rootBlock = new BlockView();
+        $rootBlock->vars['id'] = key($tree);
+        $blockViews = $this->getBlockViews($rootBlock, current($tree));
+
+        foreach ($options as $id => $blockOptions) {
+            /** @var BlockInterface|\PHPUnit\Framework\MockObject\MockObject $block */
+            $block = $this->createMock(BlockInterface::class);
+            $block->expects($this->any())
+                ->method('getId')
+                ->will($this->returnValue($id));
+
+            $this->dataCollector->collectBuildViewOptions($block, $id, $blockOptions);
+        }
+
+        foreach ($blockViews as $blockView) {
+            $blockView->vars = $options[$blockView->vars['id']];
+
+            /** @var BlockInterface|\PHPUnit\Framework\MockObject\MockObject $block */
+            $block = $this->createMock(BlockInterface::class);
+            $block->expects($this->any())
+                ->method('getId')
+                ->will($this->returnValue($blockView->vars['id']));
+
+            $this->dataCollector->collectBlockTree($block, $blockView);
+        }
+
+        $this->contextHolder
+            ->expects($this->once())
+            ->method('getContext')
+            ->will($this->returnValue(new LayoutContext()));
+
+        $this->dataCollector->collect($this->getMockRequest(), $this->getMockResponse());
+
+        foreach ($blockViews as $blockView) {
+            $this->assertEquals($blockView->vars, $options[$blockView->vars['id']]);
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public function blockOptionsProvider()
+    {
+        return [
+            [
+                'options' => [
+                    'root' => [
+                        'id' => 'root',
+                        'attr' => [],
+                        'string' => 'root_string',
+                        'array' => ['root', 'array'],
+                        'boolean' => true,
+                        'object' => new \stdClass(),
+                        'visible' => true
+                    ],
+                    'head' => [
+                        'id' => 'head',
+                        'string' => 'head_string',
+                        'array' => ['head', 'array'],
+                        'boolean' => false,
+                        'object' => new \stdClass(),
+                        'visible' => false
+                    ],
+                    'body' => [
+                        'id' => 'body',
+                        'string' => 'body_string',
+                        'array' => ['body', 'array'],
+                        'boolean' => true,
+                        'object' => new \stdClass(),
+                        'visible' => true
+                    ]
+                ],
+                'tree' => [
+                    'root' => [
+                        'head' => [],
+                        'body' => [
+                            'undefined' => []
+                        ]
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * @param BlockView $rootBlock
+     * @param array $tree
+     * @param BlockView[] $blockViews
+     *
+     * @return BlockView[]
+     */
+    protected function getBlockViews(BlockView $rootBlock, $tree, &$blockViews = [])
+    {
+        $blockViews[] = $rootBlock;
+
+        foreach ($tree as $id => $children) {
+            $child = new BlockView($rootBlock);
+            $child->vars['id'] = $id;
+
+            $this->getBlockViews($child, $children, $result);
+
+            $rootBlock->children[$id] = $child;
+        }
+
+        return $blockViews;
+    }
+    
+    /**
+     * @return Request|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockRequest()
     {
-        return $this->getMock('Symfony\Component\HttpFoundation\Request');
+        return $this->createMock(Request::class);
     }
 
     /**
-     * @return Response|\PHPUnit_Framework_MockObject_MockObject
+     * @return Response|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockResponse()
     {
-        return $this->getMock('Symfony\Component\HttpFoundation\Response');
-    }
-
-    /**
-     * @param array $args
-     * @return BlockView|\PHPUnit_Framework_MockObject_MockObject
-     */
-    protected function getMockBlockView(array $args = [])
-    {
-        return $this->getMock('Oro\Component\Layout\BlockView', [], $args, '', false);
-    }
-
-    /**
-     * @return ContextItemInterface|\PHPUnit_Framework_MockObject_MockObject
-     */
-    protected function getMockContextItemInterface()
-    {
-        return $this->getMock('Oro\Component\Layout\ContextItemInterface');
+        return $this->createMock(Response::class);
     }
 }

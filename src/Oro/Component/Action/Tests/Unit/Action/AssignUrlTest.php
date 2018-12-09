@@ -2,17 +2,16 @@
 
 namespace Oro\Component\Action\Tests\Unit\Action;
 
+use Oro\Component\Action\Action\AssignUrl;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Routing\RouterInterface;
 
-use Oro\Component\Action\Action\AssignUrl;
-use Oro\Component\Action\Model\ContextAccessor;
-use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
-
-class AssignUrlTest extends \PHPUnit_Framework_TestCase
+class AssignUrlTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|RouterInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|RouterInterface
      */
     protected $router;
 
@@ -86,7 +85,8 @@ class AssignUrlTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeException(array $options, $exceptionName, $exceptionMessage)
     {
-        $this->setExpectedException($exceptionName, $exceptionMessage);
+        $this->expectException($exceptionName);
+        $this->expectExceptionMessage($exceptionMessage);
         $this->action->initialize($options);
     }
 

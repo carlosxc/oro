@@ -4,7 +4,7 @@ namespace Oro\Bundle\SoapBundle\Tests\Unit\Request\Parameters\Filter;
 
 use Oro\Bundle\SoapBundle\Request\Parameters\Filter\IdentifierToReferenceFilter;
 
-class IdentifierToReferenceFilterTest extends \PHPUnit_Framework_TestCase
+class IdentifierToReferenceFilterTest extends \PHPUnit\Framework\TestCase
 {
     public function testFilterWithIdentifierField()
     {
@@ -13,7 +13,7 @@ class IdentifierToReferenceFilterTest extends \PHPUnit_Framework_TestCase
         $testId        = 111;
 
         $em       = $this->getMockBuilder('Doctrine\ORM\EntityManager')->disableOriginalConstructor()->getMock();
-        $registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
         $filter   = new IdentifierToReferenceFilter($registry, $testClassName);
 
         $registry->expects($this->once())->method('getManagerForClass')->with($testClassName)->willReturn($em);
@@ -30,8 +30,8 @@ class IdentifierToReferenceFilterTest extends \PHPUnit_Framework_TestCase
         $testFieldValue = 'john_doe';
 
         $em       = $this->getMockBuilder('Doctrine\ORM\EntityManager')->disableOriginalConstructor()->getMock();
-        $repo     = $this->getMock('Doctrine\Common\Persistence\ObjectRepository');
-        $registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $repo     = $this->createMock('Doctrine\Common\Persistence\ObjectRepository');
+        $registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
         $filter   = new IdentifierToReferenceFilter($registry, $testClassName, $testFieldName);
 
         $registry->expects($this->once())->method('getManagerForClass')->with($testClassName)->willReturn($em);

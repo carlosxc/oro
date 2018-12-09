@@ -2,237 +2,186 @@
 
 namespace Oro\Bundle\NotificationBundle\Tests\Unit\Model;
 
-use Oro\Bundle\ConfigBundle\Config\ConfigManager;
-use Oro\Bundle\EmailBundle\Model\EmailTemplateInterface;
-use Oro\Bundle\NotificationBundle\Processor\EmailNotificationProcessor;
-use Oro\Bundle\NotificationBundle\Model\MassNotification;
+use Doctrine\Common\Persistence\ManagerRegistry;
+use Doctrine\Common\Proxy\Proxy;
+use Doctrine\ORM\EntityManagerInterface;
+use Oro\Bundle\EmailBundle\Model\EmailTemplateCriteria;
+use Oro\Bundle\EmailBundle\Model\From;
+use Oro\Bundle\NotificationBundle\Doctrine\EntityPool;
+use Oro\Bundle\NotificationBundle\Manager\EmailNotificationManager;
+use Oro\Bundle\NotificationBundle\Model\EmailAddressWithContext;
 use Oro\Bundle\NotificationBundle\Model\MassNotificationSender;
+use Oro\Bundle\NotificationBundle\Model\NotificationSettings;
+use Oro\Bundle\NotificationBundle\Model\TemplateMassNotification;
+use Oro\Bundle\UserBundle\Entity\Repository\UserRepository;
+use Oro\Bundle\UserBundle\Entity\User;
+use Oro\Component\Testing\Unit\EntityTrait;
 
-class MassNotificationSenderTest extends \PHPUnit_Framework_TestCase
+class MassNotificationSenderTest extends \PHPUnit\Framework\TestCase
 {
+    use EntityTrait;
+
     const TEST_SENDER_EMAIL = 'admin@example.com';
     const TEST_SENDER_NAME  = 'sender name';
     const TEMPLATE_NAME     = 'test template';
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityManager;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EntityManagerInterface */
+    private $entityManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $userRepository;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|UserRepository */
+    private $userRepository;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $templateRepository;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EntityPool */
+    private $entityPool;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityPool;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|NotificationSettings */
+    private $notificationSettings;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ConfigManager */
-    protected $cm;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject|EmailNotificationProcessor */
-    protected $processor;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $dqlNameFormatter;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EmailNotificationManager */
+    private $manager;
 
     /** @var MassNotificationSender */
-    protected $sender;
+    private $sender;
 
-    /** @var  array */
-    protected $massNotificationParams;
+    /** @var array */
+    private $massNotificationParams;
 
+    /**
+     * {@inheritdoc}
+     */
     protected function setUp()
     {
-        $this->entityManager = $this->getMockBuilder('Doctrine\ORM\EntityManager')
-            ->disableOriginalConstructor()->setMethods(['getRepository'])->getMock();
+        $this->entityManager = $this->createMock(EntityManagerInterface::class);
+        $this->userRepository = $this->createMock(UserRepository::class);
+        $this->entityPool = $this->createMock(EntityPool::class);
+        $this->notificationSettings = $this->createMock(NotificationSettings::class);
+        $this->manager = $this->createMock(EmailNotificationManager::class);
 
-        $this->userRepository = $this->getMockBuilder('Oro\Bundle\UserBundle\Entity\Repository\UserRepository')
-                    ->disableOriginalConstructor()->getMock();
-
-        $this->templateRepository =
-            $this->getMockBuilder('Oro\Bundle\EmailBundle\Entity\Repository\EmailTemplateRepository')
-                    ->disableOriginalConstructor()->getMock();
-
-        $this->entityPool = $this->getMockBuilder('Oro\Bundle\NotificationBundle\Doctrine\EntityPool')
-            ->disableOriginalConstructor()->getMock();
-
-        $this->cm = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
-            ->disableOriginalConstructor()->getMock();
-
-        $this->dqlNameFormatter = $this->getMockBuilder('Oro\Bundle\LocaleBundle\DQL\DQLNameFormatter')
-            ->disableOriginalConstructor()->getMock();
-
-        $this->processor = $this->getMockBuilder('Oro\Bundle\NotificationBundle\Processor\EmailNotificationProcessor')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $doctrine = $this->createMock(ManagerRegistry::class);
+        $doctrine->expects(self::any())
+            ->method('getManager')
+            ->willReturn($this->entityManager);
 
         $this->sender = new MassNotificationSender(
-            $this->processor,
-            $this->cm,
-            $this->entityManager,
-            $this->entityPool,
-            $this->dqlNameFormatter
+            $this->manager,
+            $this->notificationSettings,
+            $doctrine,
+            $this->entityPool
         );
-    }
-
-    protected function tearDown()
-    {
-        unset($this->entityManager);
-        unset($this->cm);
-        unset($this->entityPool);
-        unset($this->processor);
-        unset($this->sender);
-        unset($this->templateRepository);
-        unset($this->userRepository);
-        unset($this->dqlNameFormatter);
     }
 
     public function testSendToActiveUsersWithEmptySender()
     {
-        $body = "Test Body";
-        $subject = "Test Subject";
-        $userRecipients = [
-            ['email' => 'test1@test.com', 'name' => 'test1'],
-            ['email' => 'test2@test.com', 'name' => 'test2']
-        ];
-        $this->cm->expects($this->any())->method('get')->will(
-            $this->returnValueMap(
-                [
-                    ['oro_notification.email_notification_sender_email', false, false, null, self::TEST_SENDER_EMAIL],
-                    ['oro_notification.email_notification_sender_name', false, false, null, self::TEST_SENDER_NAME],
-                    ['oro_notification.mass_notification_recipients', false, false, null, ''],
-                    ['oro_notification.mass_notification_template', false, false, null, self::TEMPLATE_NAME]
-                ]
+        $body = 'Test Body';
+        $subject = 'Test Subject';
+
+        $this->configureNotificationSettins([]);
+
+        $recipient1 = ['id' => 333, 'email' => 'test1@test.com'];
+        $recipient2 = ['id' => 777, 'email' => 'test2@test.com'];
+        $recipient1Proxy = $this->createMock(Proxy::class);
+        $recipient2Proxy = $this->createMock(Proxy::class);
+        $this->entityManager->expects($this->exactly(2))
+            ->method('getReference')
+            ->withConsecutive(
+                [User::class, $recipient1['id']],
+                [User::class, $recipient2['id']]
             )
+            ->willReturnOnConsecutiveCalls(
+                $recipient1Proxy,
+                $recipient2Proxy
+            );
+        $this->userRepository->expects($this->once())
+            ->method('findEnabledUserEmails')
+            ->willReturn([$recipient1, $recipient2]);
+
+        $expectedMassNotification = new TemplateMassNotification(
+            From::emailAddress(self::TEST_SENDER_EMAIL, self::TEST_SENDER_NAME),
+            [
+                new EmailAddressWithContext($recipient1['email'], $recipient1Proxy),
+                new EmailAddressWithContext($recipient2['email'], $recipient2Proxy),
+            ],
+            new EmailTemplateCriteria(self::TEMPLATE_NAME),
+            $subject
         );
 
-        $this->entityManager->expects($this->at(1))->method('getRepository')->with('OroEmailBundle:EmailTemplate')
-            ->will($this->returnValue($this->templateRepository));
+        $this->manager->expects($this->once())
+            ->method('process')
+            ->with(
+                [$expectedMassNotification],
+                null,
+                [MassNotificationSender::MAINTENANCE_VARIABLE => $body]
+            );
 
-        $this->entityManager->expects($this->at(0))->method('getRepository')->with('OroUserBundle:User')->will(
-            $this->returnValue($this->userRepository)
-        );
+        $this->entityPool->expects($this->once())
+            ->method('persistAndFlush')
+            ->with($this->entityManager);
 
-        $template = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailTemplate');
-        $template->expects($this->once())->method('getType')->will($this->returnValue('html'));
-        $template->expects($this->once())->method('getContent')->will($this->returnValue('test content'));
-        $template->expects($this->once())->method('getSubject')->will($this->returnValue('subject'));
-
-        $this->templateRepository->expects($this->once())->method('findByName')->with(self::TEMPLATE_NAME)->will(
-            $this->returnValue($template)
-        );
-        $this->dqlNameFormatter->expects($this->once())->method('getFormattedNameDQL')->will(
-            $this->returnValue("ConcatExpression")
-        );
-
-        $query = $this->getMockBuilder('Doctrine\ORM\AbstractQuery')
-            ->disableOriginalConstructor()
-            ->setMethods(['getResult'])
-            ->getMockForAbstractClass();
-        $query->expects($this->any())
-            ->method('getResult')
-            ->will($this->returnValue($userRecipients));
-
-        $queryBuilder = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
-            ->disableOriginalConstructor()
-            ->setMethods(['getQuery', 'andWhere', 'setParameter'])
-            ->getMock();
-        $queryBuilder->expects($this->once())
-            ->method('andWhere')
-            ->with('u.enabled = :enabled')
-            ->will($this->returnSelf());
-        $queryBuilder->expects($this->once())
-            ->method('setParameter')
-            ->with('enabled', true);
-        $queryBuilder->expects($this->once())
-            ->method('getQuery')
-            ->will($this->returnValue($query));
-        $this->userRepository->expects($this->once())->method('getPrimaryEmailsQb')->with("ConcatExpression")->will(
-            $this->returnValue($queryBuilder)
-        );
-
-        $this->massNotificationParams = [
-            'sender_name'      => self::TEST_SENDER_NAME,
-            'sender_email'     => self::TEST_SENDER_EMAIL,
-            'recipients'       => [['test1@test.com' => 'test1'], ['test2@test.com' => 'test2']],
-            'template_type'    => 'html',
-            'template_content' => 'test content',
-            'template_subject' => $subject
-        ];
-        $this->processor->expects($this->once())->method('process')->with(
-            null,
-            $this->callback([$this, 'assertMassNotification']),
-            null,
-            [MassNotificationSender::MAINTENANCE_VARIABLE => $body]
-        );
-
-        $this->processor->expects($this->once())->method('setMessageLimit')->with(0);
-        $this->processor->expects($this->once())->method('addLogType')
-                    ->with(MassNotificationSender::NOTIFICATION_LOG_TYPE);
-
-        $this->entityPool->expects($this->once())->method('persistAndFlush')->with($this->entityManager);
-
-        $this->assertEquals(2, $this->sender->send($body, $subject));
+        self::assertEquals(2, $this->sender->send($body, $subject));
     }
 
-    public function testSendToConfigEmailsWithEmtpyTemplate()
+    public function testSendToConfigEmailsWithEmptyTemplate()
     {
         $body = "Test Body";
         $subject = null;
         $senderName = "Sender Name";
         $senderEmail = "sender@test.com";
-        $configRecipients = 'test1@test.com;test2@test.com';
-        $this->cm->expects($this->any())->method('get')->will(
-            $this->returnValueMap(
-                [
-                    ['oro_notification.mass_notification_recipients', false, false, null, $configRecipients],
-                    ['oro_notification.mass_notification_template', false, false, null, self::TEMPLATE_NAME]
-                ]
-            )
-        );
+        $recipientEmails = ['test1@test.com', 'test2@test.com'];
 
-        $this->entityManager->expects($this->at(0))->method('getRepository')->with('OroEmailBundle:EmailTemplate')
-                            ->will($this->returnValue($this->templateRepository));
+        $this->configureNotificationSettins($recipientEmails);
 
-        $this->templateRepository->expects($this->once())->method('findByName')->with(self::TEMPLATE_NAME)->will(
-            $this->returnValue(null)
-        );
         $this->massNotificationParams = [
             'sender_name'      => $senderName,
             'sender_email'     => $senderEmail,
-            'recipients'       => explode(';', $configRecipients),
-            'template_type'    => 'txt',
-            'template_content' => sprintf("{{ %s }}", MassNotificationSender::MAINTENANCE_VARIABLE),
-            'template_subject' => $subject
+            'recipients'       => [
+                new EmailAddressWithContext(reset($recipientEmails)),
+                new EmailAddressWithContext(end($recipientEmails)),
+            ]
         ];
-        $this->processor->expects($this->once())->method('process')->with(
-            null,
-            $this->callback([$this, 'assertMassNotification']),
-            null,
-            [MassNotificationSender::MAINTENANCE_VARIABLE => $body]
+
+        $expectedMassNotification = new TemplateMassNotification(
+            From::emailAddress($senderEmail, $senderName),
+            [
+                new EmailAddressWithContext(reset($recipientEmails)),
+                new EmailAddressWithContext(end($recipientEmails)),
+            ],
+            new EmailTemplateCriteria(self::TEMPLATE_NAME)
         );
 
-        $this->assertEquals(2, $this->sender->send($body, $subject, $senderEmail, $senderName));
+        $this->manager->expects($this->once())
+            ->method('process')
+            ->with(
+                [$expectedMassNotification],
+                null,
+                [MassNotificationSender::MAINTENANCE_VARIABLE => $body]
+            );
+
+        self::assertEquals(2, $this->sender->send($body, $subject, From::emailAddress($senderEmail, $senderName)));
     }
 
     /**
-     * @param array $massNotifications
-     * @return bool
+     * @param array $recipientEmails
      */
-    public function assertMassNotification($massNotifications)
+    private function configureNotificationSettins(array $recipientEmails): void
     {
-        $params = $this->massNotificationParams;
-        /** @var MassNotification $massNotification */
-        $massNotification = current($massNotifications);
-        $template = $massNotification->getTemplate();
-        $this->assertEquals($params['sender_name'], $massNotification->getSenderName());
-        $this->assertEquals($params['sender_email'], $massNotification->getSenderEmail());
-        $this->assertEquals($params['recipients'], $massNotification->getRecipientEmails());
-        $this->assertTrue($template instanceof EmailTemplateInterface);
-        $this->assertEquals($params['template_type'], $template->getType());
-        $this->assertEquals($params['template_content'], $template->getContent());
-        $this->assertEquals($params['template_subject'], $template->getSubject());
+        $this->notificationSettings
+            ->expects($this->any())
+            ->method('getSender')
+            ->willReturn(From::emailAddress(self::TEST_SENDER_EMAIL, self::TEST_SENDER_NAME));
 
-        return true;
+        $this->notificationSettings
+            ->expects($this->any())
+            ->method('getMassNotificationEmailTemplateName')
+            ->willReturn(self::TEMPLATE_NAME);
+
+        $this->notificationSettings
+            ->expects($this->any())
+            ->method('getMassNotificationRecipientEmails')
+            ->willReturn($recipientEmails);
+
+        $this->entityManager->expects($this->any())
+            ->method('getRepository')
+            ->with(User::class)
+            ->willReturn($this->userRepository);
     }
 }

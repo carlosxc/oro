@@ -27,7 +27,6 @@ services:
             - @oro_search.mapper
         calls:
             - [setLogQueries, [%oro_search.log_queries%]]
-            - [setDrivers, [%oro_search.drivers%]]
 ```
 
 Each supported DBMS has it's own driver that knows about specific search implementation and generates valid SQL.
@@ -42,10 +41,8 @@ parameters:
 Features
 --------
 
-ORM search engine overrides index listener class with it's own implementation
-_Oro\Bundle\SearchBundle\EventListener\OrmIndexListener_. This listener disables multiple flushes
-for save and delete operation and run only one flush instead. Also it can be temporary disabled that allows to
-perform operation with big data faster.
+At current moment special characters are not supported in ORM search engines. 
+Every character that is not a unicode letter or number is replaced with whitespace before the query.
 
 Another one feature of ORM engine is fulltext index processing. Configuration defines fulltext manager
 _Oro\Bundle\SearchBundle\Engine\FulltextIndexManager_ that used during installation and inside special listener -

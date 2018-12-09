@@ -8,7 +8,7 @@ use Oro\Bundle\DataGridBundle\Datagrid\Manager;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecord;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface;
 use Oro\Bundle\DataGridBundle\Extension\AbstractExtension;
-use Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
 use Oro\Bundle\WorkflowBundle\Restriction\RestrictionManager;
 
 class RestrictionsExtension extends AbstractExtension
@@ -17,8 +17,8 @@ class RestrictionsExtension extends AbstractExtension
     const PROPERTY_ID_PATH    = '[properties][id]';
     const PROPERTIES_PATH     = '[properties]';
 
-    /** @var GridConfigurationHelper */
-    protected $gridConfigurationHelper;
+    /** @var EntityClassResolver */
+    protected $entityClassResolver;
     /**
      * @var RestrictionManager
      */
@@ -28,14 +28,14 @@ class RestrictionsExtension extends AbstractExtension
     protected $entityClassName;
 
     /**
-     * @param GridConfigurationHelper $gridConfigurationHelper
-     * @param RestrictionManager      $restrictionManager
+     * @param EntityClassResolver $entityClassResolver
+     * @param RestrictionManager  $restrictionManager
      */
     public function __construct(
-        GridConfigurationHelper $gridConfigurationHelper,
+        EntityClassResolver $entityClassResolver,
         RestrictionManager $restrictionManager
     ) {
-        $this->gridConfigurationHelper = $gridConfigurationHelper;
+        $this->entityClassResolver = $entityClassResolver;
         $this->restrictionsManager = $restrictionManager;
     }
 
@@ -52,9 +52,12 @@ class RestrictionsExtension extends AbstractExtension
      */
     public function isApplicable(DatagridConfiguration $config)
     {
-        return $this->parameters->get(Manager::REQUIRE_ALL_EXTENSIONS, true) &&
-               null !== $config->offsetGetByPath(self::PROPERTY_ID_PATH) &&
-               $this->hasEntityClassRestrictions($config);
+        return
+            parent::isApplicable($config)
+            && $config->isOrmDatasource()
+            && $this->parameters->get(Manager::REQUIRE_ALL_EXTENSIONS, true)
+            && null !== $config->offsetGetByPath(self::PROPERTY_ID_PATH)
+            && $this->hasEntityClassRestrictions($config);
     }
 
     /**
@@ -79,7 +82,7 @@ class RestrictionsExtension extends AbstractExtension
     protected function getEntity(DatagridConfiguration $config)
     {
         if ($this->entityClassName === null) {
-            $this->entityClassName = $this->gridConfigurationHelper->getEntity($config);
+            $this->entityClassName = $config->getOrmQuery()->getRootEntity($this->entityClassResolver, true);
         }
 
         return $this->entityClassName;

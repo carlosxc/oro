@@ -2,11 +2,14 @@
 
 namespace Oro\Bundle\FilterBundle\Tests\Unit\Form\Type;
 
-use Symfony\Component\Form\Test\FormIntegrationTestCase;
-use Symfony\Component\Translation\TranslatorInterface;
-use Symfony\Component\Form\FormTypeInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+use Oro\Bundle\FormBundle\Form\Extension\DateTimeExtension;
 use Oro\Bundle\TestFrameworkBundle\Test\Form\MutableFormEventSubscriber;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormExtensionInterface;
+use Symfony\Component\Form\PreloadedExtension;
+use Symfony\Component\Form\Test\FormIntegrationTestCase;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Translation\TranslatorInterface;
 
 abstract class AbstractTypeTestCase extends FormIntegrationTestCase
 {
@@ -65,7 +68,7 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
     }
 
     /**
-     * @return TranslatorInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return TranslatorInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function createMockTranslator()
     {
@@ -79,19 +82,21 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
     }
 
     /**
-     * @return OptionsResolverInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return OptionsResolver|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function createMockOptionsResolver()
     {
-        return $this->getMockForAbstractClass('Symfony\Component\OptionsResolver\OptionsResolverInterface');
+        return $this->getMockBuilder('Symfony\Component\OptionsResolver\OptionsResolver')
+            ->disableOriginalConstructor()
+            ->getMock();
     }
 
     /**
-     * @dataProvider setDefaultOptionsDataProvider
+     * @dataProvider configureOptionsDataProvider
      * @param array $defaultOptions
      * @param array $requiredOptions
      */
-    public function testSetDefaultOptions(array $defaultOptions, array $requiredOptions = array())
+    public function testConfigureOptions(array $defaultOptions, array $requiredOptions = [])
     {
         $resolver = $this->createMockOptionsResolver();
 
@@ -103,7 +108,7 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
             $resolver->expects($this->once())->method('setRequired')->with($requiredOptions)->will($this->returnSelf());
         }
 
-        $this->getTestFormType()->setDefaultOptions($resolver);
+        $this->getTestFormType()->configureOptions($resolver);
     }
 
     /**
@@ -111,7 +116,7 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
      *
      * @return array
      */
-    abstract public function setDefaultOptionsDataProvider();
+    abstract public function configureOptionsDataProvider();
 
     /**
      * @dataProvider bindDataProvider
@@ -126,7 +131,7 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
         array $viewData,
         array $customOptions = array()
     ) {
-        $form = $this->factory->create($this->getTestFormType(), null, $customOptions);
+        $form = $this->factory->create(get_class($this->getTestFormType()), null, $customOptions);
 
         $form->submit($bindData);
 
@@ -149,7 +154,7 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
     abstract public function bindDataProvider();
 
     /**
-     * @return FormTypeInterface
+     * @return AbstractType
      */
     abstract protected function getTestFormType();
 
@@ -158,7 +163,10 @@ abstract class AbstractTypeTestCase extends FormIntegrationTestCase
      */
     protected function getExtensions()
     {
-        return $this->formExtensions;
+        return array_merge(
+            $this->formExtensions,
+            [new PreloadedExtension([], ['datetime' => [new DateTimeExtension()]])]
+        );
     }
 
     /**

@@ -4,39 +4,37 @@ namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Command;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityRepository;
-
-use Symfony\Component\Console\Input\Input;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-
 use Oro\Bundle\WorkflowBundle\Command\WorkflowTransitCommand;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowItem;
 use Oro\Bundle\WorkflowBundle\Exception\ForbiddenTransitionException;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowManager;
-use Oro\Bundle\WorkflowBundle\Tests\Unit\Command\Stub\TestOutput;
+use Oro\Component\Testing\Unit\Command\Stub\OutputStub;
+use Symfony\Component\Console\Input\Input;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class WorkflowTransitCommandTest extends \PHPUnit_Framework_TestCase
+class WorkflowTransitCommandTest extends \PHPUnit\Framework\TestCase
 {
     const CLASS_NAME = 'OroWorkflowBundle:WorkflowItem';
 
     /** @var WorkflowTransitCommand */
     private $command;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ContainerInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ContainerInterface */
     private $container;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ManagerRegistry */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry */
     private $managerRegistry;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|WorkflowManager */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|WorkflowManager */
     private $workflowManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|Input */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|Input */
     private $input;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|EntityRepository */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EntityRepository */
     private $repo;
 
-    /** @var TestOutput */
+    /** @var OutputStub */
     private $output;
 
     protected function setUp()
@@ -59,7 +57,7 @@ class WorkflowTransitCommandTest extends \PHPUnit_Framework_TestCase
             ->with(self::CLASS_NAME)
             ->willReturn($em);
 
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         $this->workflowManager = $this->getMockBuilder('Oro\Bundle\WorkflowBundle\Model\WorkflowManager')
             ->disableOriginalConstructor()
@@ -69,7 +67,7 @@ class WorkflowTransitCommandTest extends \PHPUnit_Framework_TestCase
         $this->command->setContainer($this->container);
 
         $this->input = $this->getMockForAbstractClass('Symfony\Component\Console\Input\InputInterface');
-        $this->output = new TestOutput();
+        $this->output = new OutputStub();
     }
 
     protected function tearDown()
@@ -137,7 +135,8 @@ class WorkflowTransitCommandTest extends \PHPUnit_Framework_TestCase
         }
 
         if ($expectedException) {
-            $this->setExpectedException(get_class($expectedException), $expectedException->getMessage());
+            $this->expectException(get_class($expectedException));
+            $this->expectExceptionMessage($expectedException->getMessage());
         }
 
         $this->command->execute($this->input, $this->output);
@@ -224,7 +223,7 @@ class WorkflowTransitCommandTest extends \PHPUnit_Framework_TestCase
     {
         $this->container->expects($this->any())
             ->method('getParameter')
-            ->with('oro_workflow.workflow_item.entity.class')
+            ->with('oro_workflow.entity.workflow_item.class')
             ->willReturn(self::CLASS_NAME);
 
         $this->container->expects($this->any())

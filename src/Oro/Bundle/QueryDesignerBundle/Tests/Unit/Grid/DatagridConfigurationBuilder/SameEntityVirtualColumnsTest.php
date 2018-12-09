@@ -3,7 +3,6 @@
 namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Grid\DatagridConfigurationBuilder;
 
 use Doctrine\ORM\Query;
-
 use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\QueryDesignerModel;
 
 class SameEntityVirtualColumnsTest extends DatagridConfigurationBuilderTestCase
@@ -119,11 +118,16 @@ class SameEntityVirtualColumnsTest extends DatagridConfigurationBuilderTestCase
                 'hints'        => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't2.name'],
+                    'c2' => ['data_name' => 't2.iso2Code']
+                ]
             ]
-
         ];
 
         $this->assertEquals($expected, $result);
@@ -253,11 +257,16 @@ class SameEntityVirtualColumnsTest extends DatagridConfigurationBuilderTestCase
                 'hints'        => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't2.name'],
+                    'c2' => ['data_name' => 't3.name']
+                ]
             ]
-
         ];
 
         $this->assertEquals($expected, $result);

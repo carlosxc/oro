@@ -3,26 +3,22 @@
 namespace Oro\Bundle\EntityExtendBundle\Migration\Schema;
 
 use Doctrine\DBAL\Types\Type;
-
 use Oro\Bundle\EntityExtendBundle\Migration\ExtendOptionsManager;
 use Oro\Bundle\EntityExtendBundle\Migration\OroOptions;
 use Oro\Bundle\MigrationBundle\Migration\Schema\Column;
 
+/**
+ * Adds handling of extended options to the Comumn class that is used in migrations.
+ */
 class ExtendColumn extends Column
 {
-    /**
-     * @var ExtendOptionsManager
-     */
+    /** @var ExtendOptionsManager */
     protected $extendOptionsManager;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $tableName;
 
-    /**
-     * @var bool
-     */
+    /** @var bool */
     protected $constructed = false;
 
     /**
@@ -31,7 +27,7 @@ class ExtendColumn extends Column
     public function __construct(array $args)
     {
         $this->extendOptionsManager = $args['extendOptionsManager'];
-        $this->tableName            = $args['tableName'];
+        $this->tableName = $args['tableName'];
 
         parent::__construct($args);
 
@@ -49,6 +45,12 @@ class ExtendColumn extends Column
             $oroOptions = $options[OroOptions::KEY];
             if ($oroOptions instanceof OroOptions) {
                 $oroOptions = $oroOptions->toArray();
+            }
+            if (!isset($options['type'])
+                && !isset($oroOptions[ExtendOptionsManager::TYPE_OPTION])
+                && null !== $this->getType()
+            ) {
+                $oroOptions[ExtendOptionsManager::TYPE_OPTION] = $this->getType()->getName();
             }
             $this->extendOptionsManager->setColumnOptions($this->tableName, $this->getName(), $oroOptions);
             unset($options[OroOptions::KEY]);
@@ -69,13 +71,7 @@ class ExtendColumn extends Column
     public function setType(Type $type)
     {
         if ($this->constructed) {
-            $this->setOptions(
-                [
-                    OroOptions::KEY => [
-                        ExtendOptionsManager::TYPE_OPTION => $type->getName()
-                    ]
-                ]
-            );
+            $this->setOptions([OroOptions::KEY => [ExtendOptionsManager::TYPE_OPTION => $type->getName()]]);
         }
 
         return parent::setType($type);
@@ -121,6 +117,20 @@ class ExtendColumn extends Column
         }
 
         return parent::setScale($scale);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @return ExtendColumn
+     */
+    public function setDefault($default)
+    {
+        if ($this->constructed) {
+            $this->setOptions([OroOptions::KEY => ['extend' => ['default' => $default]]]);
+        }
+
+        return parent::setDefault($default);
     }
 
     /**

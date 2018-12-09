@@ -2,10 +2,10 @@
 
 namespace Oro\Bundle\DataGridBundle\Datasource;
 
+use Doctrine\Common\Inflector\Inflector;
+use Symfony\Component\PropertyAccess\Exception\ExceptionInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-
-use Doctrine\Common\Inflector\Inflector;
 
 class ResultRecord implements ResultRecordInterface
 {
@@ -89,7 +89,11 @@ class ResultRecord implements ResultRecordInterface
                     return $data[$name];
                 }
             } elseif (is_object($data)) {
-                return $this->getPropertyAccessor()->getValue($data, Inflector::camelize($name));
+                try {
+                    return $this->getPropertyAccessor()->getValue($data, Inflector::camelize($name));
+                } catch (ExceptionInterface $e) {
+                    return null;
+                }
             }
         }
 

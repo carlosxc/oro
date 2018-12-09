@@ -6,7 +6,7 @@ parameters:
 
     oro_layout.default_active_theme:    ~
     oro_layout.debug:    ~
-    oro_layout.cache_dir:               %kernel.cache_dir%/layouts
+    oro_layout.cache_dir:               '%kernel.cache_dir%/layouts'
 
 services:
     oro_layout.dependency_initializer:
@@ -16,11 +16,11 @@ services:
             - '@service_container'
 
     oro_layout.theme_factory:
-        class:  %oro_layout.theme_factory.class%
+        class:  '%oro_layout.theme_factory.class%'
         public: false
 
     oro_layout.theme_manager:
-        class:  %oro_layout.theme_manager.class%
+        class:  '%oro_layout.theme_manager.class%'
         public: false
         arguments:
             - '@oro_layout.theme_factory'
@@ -38,16 +38,16 @@ services:
         public: false
         arguments:
             - '@oro_layout.layout_update_generator.php'
-            - %kernel.debug%
-            - %oro_layout.cache_dir%
+            - '%kernel.debug%'
+            - '%oro_layout.cache_dir%'
 
     oro_layout.loader.yaml_driver:
         class:  Oro\Component\Layout\Loader\Driver\YamlDriver
         public: false
         arguments:
             - '@oro_layout.layout_update_generator.config'
-            - %kernel.debug%
-            - %oro_layout.cache_dir%
+            - '%kernel.debug%'
+            - '%oro_layout.cache_dir%'
 
     oro_layout.loader.path_provider:
         class:  Oro\Component\Layout\Extension\Theme\PathProvider\ChainPathProvider
@@ -63,13 +63,13 @@ services:
 
     oro_layout.layout_context_configurator.theme:
         class: Oro\Bundle\LayoutBundle\Layout\Extension\ThemeContextConfigurator
-        calls:
-            - [setRequest, ["@?request="]]
+        arguments:
+            - '@request_stack'
         tags:
             - { name: layout.context_configurator, priority: -100 }
 
     oro_layout.theme_extension:
-        class: %oro_layout.theme_extension.class%
+        class: '%oro_layout.theme_extension.class%'
         arguments:
             - '@oro_layout.loader'
             - '@oro_layout.dependency_initializer'
@@ -80,9 +80,9 @@ services:
 
     oro_layout.theme_extension.resource_provider.theme:
         class: Oro\Component\Layout\Extension\Theme\ResourceProvider\ThemeResourceProvider
-        public: false
         arguments:
             - '@oro_layout.loader'
+            - '@oro_layout.cache.block_view_cache'
             - []
         calls:
             - [setCache, ['@oro_layout.theme_extension.resource_provider.cache']]
@@ -115,8 +115,8 @@ services:
         calls:
             - [addExtension, ['@oro_layout.layout_update_generator.extension.theme_relative_path']]
             - [addExtension, ['@oro_layout.layout_update_generator.extension.add_tree']]
-            - [addExtension, ['@oro_layout.layout_update_generator.extension.config_conditions']]
             - [addExtension, ['@oro_layout.layout_update_generator.extension.config_imports']]
+            - [addExtension, ['@oro_layout.layout_update_generator.extension.config_conditions']]
 
     oro_layout.layout_update_generator.extension.config_imports:
         class:  Oro\Component\Layout\Loader\Generator\Extension\ImportsLayoutUpdateExtension
@@ -141,24 +141,28 @@ services:
         public: false
 
     oro_layout.request.listener.theme:
-        class: %oro_layout.request.listener.theme.class%
+        class: '%oro_layout.request.listener.theme.class%'
         arguments:
-            - %oro_layout.default_active_theme%
+            - '%oro_layout.default_active_theme%'
         calls:
-            - [setDebug, [%oro_layout.debug%]]
+            - [setDebug, ['%oro_layout.debug%']]
         tags:
             - { name: kernel.event_subscriber }
 
-    oro_layout.config.dumper:
-        class: Oro\Component\Config\Dumper\CumulativeConfigMetadataDumper
+    oro_layout.layout_block_view.cache:
         public: false
-        lazy: true
-        arguments: [ %kernel.cache_dir%, %kernel.debug%, 'oro_layout_resource' ]
+        parent: oro.cache.abstract
+        calls:
+            - [ setNamespace, ['oro_layout_block_view'] ]
 
-    oro_layout.event_listener.container_listener:
-        class: Oro\Bundle\LayoutBundle\EventListener\ContainerListener
+    oro_layout.cache.block_view_cache:
+        class: Oro\Component\Layout\BlockViewCache
         arguments:
-            - '@oro_layout.theme_extension.resource_provider.theme'
-            - '@oro_layout.config.dumper'
-        tags:
-            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest }
+            - '@oro_layout.layout_block_view.cache'
+            - '@oro_layout.block_view_serializer'
+
+    oro_layout.page_templates_manager:
+        class:  'Oro\Component\Layout\Extension\Theme\Manager\PageTemplatesManager'
+        public: false
+        arguments:
+            - '@oro_layout.theme_manager'

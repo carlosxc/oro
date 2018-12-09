@@ -4,9 +4,6 @@ namespace Oro\Bundle\EmailBundle\Tests\Functional\Api\Rest;
 
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 
-/**
- * @dbIsolation
- */
 class EmailActivityEntityControllerTest extends WebTestCase
 {
     protected function setUp()
@@ -121,7 +118,7 @@ class EmailActivityEntityControllerTest extends WebTestCase
             'importance' => 'low',
             'body'       => 'Test body',
             'bodyType'   => 'text',
-            'receivedAt' => '2015-06-19 12:17:51'
+            'receivedAt' => '2015-06-19T12:17:51Z'
         ];
 
         // Create new email
@@ -132,6 +129,9 @@ class EmailActivityEntityControllerTest extends WebTestCase
 
         // Create relation between email and user
         $user = $this->getReference('user_2');
+
+        $this->assertNotEmpty($user->getAuthStatus()->getId());
+
         $this->client->request('POST', $this->getUrl('oro_api_post_activity_relation', [
             'activity' => 'emails',
             'id'       => $emailId

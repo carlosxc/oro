@@ -1,9 +1,4 @@
 {% extends "OroUIBundle:Default:index.html.twig" %}
-{% block head %}
-    {{ parent() }}
-    <script type="text/javascript" src="{{ asset('bundles/oroui/lib/bootstrap/js/bootstrap-tooltip.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('bundles/oroui/lib/bootstrap/js/bootstrap-popover.js') }}"></script>
-{% endblock %}
 {% block content %}
         <div class="layout-content">
             <div class="clearfix"><div class="navbar application-menu">
@@ -11,9 +6,9 @@
                     <div class="container">
                         <div class=" navbar-responsive-collapse">
                             <ul class="nav nav-tabs" id="myTab">
-                                <li class="home"><a href="#myhome"><span>Home</span></a></li>
-                                <li><a href="#mycrm">My CRM</a></li>
-                                <li><a href="#mypim">My PIM</a></li>
+                                <li class="nav-item home"><a href="#myhome" class="nav-link"><span>Home</span></a></li>
+                                <li class="nav-item"><a href="#mycrm" class="nav-link">My CRM</a></li>
+                                <li class="nav-item"><a href="#mypim" class="nav-link">My PIM</a></li>
                             </ul>
                         </div>
                     </div>
@@ -76,9 +71,9 @@
                 <div class="container-fluid">
                     <div class="top-action-box">
                         <div class="btn-group icons-holder icons-small">
-                            <button class="btn"><i class="icon-minimize hide-text">minimaze tab</i></button>
-                            <button class="btn"><i class="icon-fullscreen hide-text">full screen</i></button>
-                            <button class="btn"><i class="icon-remove hide-text">Close</i></button>
+                            <button class="btn"><i class="fa-window-minimize hide-text">minimaze tab</i></button>
+                            <button class="btn"><i class="fa-arrows-alt hide-text">full screen</i></button>
+                            <button class="btn"><i class="fa-close hide-text">Close</i></button>
                         </div>
                     </div>
                     <div class="brand-extra pull-left">Customers</div>
@@ -86,7 +81,7 @@
                     <div class="navbar-responsive-collapse navbar-extra clearfix">
                         <div class="btn-group pull-left">
                             <button class="btn dark">Views</button>
-                            <button class="btn dropdown-toggle" data-toggle="dropdown">Accounts owned by me<span class="icon-sort-down"></span></button>
+                            <button class="btn dropdown-toggle" data-toggle="dropdown">Accounts owned by me<span class="fa-sort-desc"></span></button>
                             <ul class="dropdown-menu">
                                 <li><a href="#">Last update: <strong>2010/12/12-2013/18/18</strong></a></li>
                                 <li><a href="#">Last update: <strong>2011/12/12-2014/11/18</strong></a></li>
@@ -96,10 +91,10 @@
                             <button type="button" class="btn btn-link"> + Add View</button>
                         </div>
                         <div class="btn-group pull-right">
-                            <button class="btn btn-primary"><i class="icon-plus icon-white"></i> New Customers</button>
+                            <button class="btn btn-primary"><i class="fa-plus fa-inverse"></i> New Customers</button>
                         </div>
                         <div class="btn-group pull-right">
-                            <button class="btn btn-primary"><i class="icon-window"></i>Quick Add</button>
+                            <button class="btn btn-primary"><i class="fa-window"></i>Quick Add</button>
                         </div>
                     </div><!-- /.nav-collapse -->
                 </div>
@@ -107,9 +102,9 @@
             <div class="filter-box container-fluid">
                 <div class="btn-group filter-item oro-drop">
                     <button class="btn filter-criteria-selector oro-drop-opener oro-dropdown-toggle" data-toggle="dropdown">
-                        Account Owner: <strong>Me</strong> <span class="icon-sort-down"></span>
+                        Account Owner: <strong>Me</strong> <span class="fa-sort-desc"></span>
                     </button>
-                    <a class="disable-filter" href="javascript:void(0);"><i class="icon-remove hide-text">Close</i></a>
+                    <a class="disable-filter" href="javascript:void(0);"><i class="fa-close hide-text">Close</i></a>
                     <div class="filter-criteria dropdvown-menu" style="display: block !important;">
                         <div>
                             <div class="horizontal clearfix">
@@ -130,9 +125,9 @@
 
                 <div class="btn-group filter-item oro-drop" style="margin: 0 0 0 145px;">
                     <button class="btn filter-criteria-selector oro-drop-opener oro-dropdown-toggle" type="button">
-                        Updated At: <strong class="filter-criteria-hint">All</strong><span class="icon-sort-down"></span>
+                        Updated At: <strong class="filter-criteria-hint">All</strong><span class="fa-sort-desc"></span>
                     </button>
-                    <a class="disable-filter" href="javascript:void(0);"><i class="icon-remove hide-text">Close</i></a>
+                    <a class="disable-filter" href="javascript:void(0);"><i class="fa-close hide-text">Close</i></a>
                     <div class="filter-criteria dropdown-menu" style="display: block !important;">
                         <div>
                             <div class="horizontal clearfix">
@@ -155,16 +150,16 @@
                 </div>
                 <div class="btn-group filter-item oro-drop" style="margin: 0 0 0 75px;">
                     <button class="btn filter-criteria-selector oro-drop-opener oro-dropdown-toggle" data-toggle="dropdown">
-                        Account Owner: <strong>Me</strong> <span class="icon-sort-down"></span>
+                        Account Owner: <strong>Me</strong> <span class="fa-sort-desc"></span>
                     </button>
-                    <a class="disable-filter" href="javascript:void(0);"><i class="icon-remove hide-text">Close</i></a>
+                    <a class="disable-filter" href="javascript:void(0);"><i class="fa-close hide-text">Close</i></a>
                     <div class="filter-criteria dropdown-menu" style="display: block !important;">
                         <div>
                             <div class="input-prepend">
                                 <div class="btn-group">
                                     <button class="btn dropdown-toggle" data-toggle="dropdown">
                                         Action
-                                        <span class="icon-sort-down"></span>
+                                        <span class="fa-sort-desc"></span>
                                     </button>
                                     <ul class="dropdown-menu">
                                         <li><a href="#">=</a></li>
@@ -187,7 +182,7 @@
                 <div class="pull-right form-horizontal">
                     <label class="control-label">View per page: &nbsp;</label>
                     <div class="btn-group">
-                        <button data-toggle="dropdown" class="btn dropdown-toggle">100<span class="icon-sort-down"></span></button>
+                        <button data-toggle="dropdown" class="btn dropdown-toggle">100<span class="fa-sort-desc"></span></button>
                         <ul class="dropdown-menu pull-right">
                             <li><a href="#">10</a></li>
                             <li><a href="#">25</a></li>
@@ -195,8 +190,8 @@
                         </ul>
                     </div>
                     <div class="btn-group icons-holder ">
-                        <button class="btn"><i class="icon-eye2-open hide-text">hide</i></button>
-                        <button class="btn dropdown-toggle" data-toggle="dropdown"><i class="icon-sort hide-text">copy</i></button>
+                        <button class="btn"><i class="fa-eye2-open hide-text">hide</i></button>
+                        <button class="btn dropdown-toggle" data-toggle="dropdown"><i class="fa-sort hide-text">copy</i></button>
                         <ul class="dropdown-menu pull-right">
                             <li>
                                 <div class="holder-height">
@@ -305,12 +300,12 @@
                 </div>
                 <div class="pull-left">
                     <div class="btn-group icons-holder">
-                        <button class="btn"><i class="icon-edit hide-text">edit</i></button>
-                        <button class="btn"><i class="icon-copy hide-text">copy</i></button>
-                        <button class="btn"><i class="icon-trash hide-text">remove</i></button>
+                        <button class="btn"><i class="fa-pencil-square-o hide-text">edit</i></button>
+                        <button class="btn"><i class="fa-files-o hide-text">copy</i></button>
+                        <button class="btn"><i class="fa-trash-o hide-text">remove</i></button>
                     </div>
                     <div class="btn-group">
-                        <button data-toggle="dropdown" class="btn dropdown-toggle">Status: <strong>All</strong><span class="icon-sort-down"></span></button>
+                        <button data-toggle="dropdown" class="btn dropdown-toggle">Status: <strong>All</strong><span class="fa-sort-desc"></span></button>
                         <ul class="dropdown-menu">
                             <li><a href="#">only short</a></li>
                             <li><a href="#">this is long text for test</a></li>
@@ -321,9 +316,9 @@
                 <div class="pagination pagination-centered">
                     <label class="dib">Page:</label>
                     <ul class="icons-holder">
-                        <li class="disabled"><a href="#"><i class="icon-chevron-left hide-text">prew</i></a></li>
+                        <li class="disabled"><a href="#"><i class="fa-chevron-left hide-text">prew</i></a></li>
                         <li><a href="#">5</a></li>
-                        <li><a href="#"><i class="icon-chevron-right hide-text">Next</i></a></li>
+                        <li><a href="#"><i class="fa-chevron-right hide-text">Next</i></a></li>
                     </ul>
                     <label class="dib">of 10   |   565 records</label>
                 </div>
@@ -334,13 +329,13 @@
                     <tr>
                         <th><input type="checkbox" /></th>
                         <th><span class="open-row open-row-all">open</span></th>
-                        <th>name <span class="icon-sort-down"></span></th>
-                        <th>Email <span class="icon-sort-down"></span></th>
-                        <th>Telephone <span class="icon-sort-down"></span></th>
-                        <th>ZIP <span class="icon-sort-down"></span></th>
-                        <th>State/Province <span class="icon-sort-down"></span></th>
-                        <th>Country <span class="icon-sort-down"></span></th>
-                        <th>Last Updated <span class="icon-sort-down"></span></th>
+                        <th>name <span class="fa-sort-desc"></span></th>
+                        <th>Email <span class="fa-sort-desc"></span></th>
+                        <th>Telephone <span class="fa-sort-desc"></span></th>
+                        <th>ZIP <span class="fa-sort-desc"></span></th>
+                        <th>State/Province <span class="fa-sort-desc"></span></th>
+                        <th>Country <span class="fa-sort-desc"></span></th>
+                        <th>Last Updated <span class="fa-sort-desc"></span></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -362,10 +357,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -388,10 +383,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -477,10 +472,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -513,10 +508,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -549,10 +544,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -585,10 +580,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -621,10 +616,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -647,10 +642,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -736,10 +731,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -762,10 +757,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -851,10 +846,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -877,10 +872,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -966,10 +961,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -992,10 +987,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1081,10 +1076,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1107,10 +1102,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1196,10 +1191,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1222,10 +1217,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1311,10 +1306,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1337,10 +1332,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1426,10 +1421,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1452,10 +1447,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1541,10 +1536,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1567,10 +1562,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1656,10 +1651,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1682,10 +1677,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1771,10 +1766,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1797,10 +1792,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1886,10 +1881,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -1912,10 +1907,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -2001,10 +1996,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -2027,10 +2022,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -2116,10 +2111,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -2142,10 +2137,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -2231,10 +2226,10 @@
                                     <ul class="dropdown-menu pull-right">
                                         <li>
                                             <ul class="nav nav-pills icons-holder">
-                                                <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                                <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                                <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                                <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                                <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                                <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                                <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                                <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                             </ul>
                                         </li>
                                         <li class="divider"></li>
@@ -2257,10 +2252,10 @@
                                 <div class="clearfix">
                                     <div class="pull-right">
                                         <ul class="nav nav-pills icons-holder well well-small">
-                                            <li><a href="#"><i class="icon-edit hide-text">edit</i></a></li>
-                                            <li><a href="#"><i class="icon-copy hide-text">copy</i></a></li>
-                                            <li><a href="#"><i class="icon-pin hide-text">pin/unpin</i></a></li>
-                                            <li><a href="#"><i class="icon-trash hide-text">remove</i></a></li>
+                                            <li><a href="#"><i class="fa-pencil-square-o hide-text">edit</i></a></li>
+                                            <li><a href="#"><i class="fa-files-o hide-text">copy</i></a></li>
+                                            <li><a href="#"><i class="fa-thumb-tack hide-text">pin/unpin</i></a></li>
+                                            <li><a href="#"><i class="fa-trash-o hide-text">remove</i></a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -2344,7 +2339,7 @@
                 require(['jquery'],
                 function($) {
                     $(function() {
-                        var _qtyTh = $('table.grid thead th').size();
+                        var _qtyTh = $('table.grid thead th').length;
                         $('table.grid .grid-info td').attr('colspan', _qtyTh);
                         $('table.grid tbody tr:not(.grid-info)').each(function(){
                             var _myRow = $(this);
@@ -2409,8 +2404,6 @@
                 });
             </script>
         </div>
-
-    </div>
 
     </div>
 {% endblock content %}

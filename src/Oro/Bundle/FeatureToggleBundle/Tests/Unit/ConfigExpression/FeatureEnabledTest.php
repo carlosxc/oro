@@ -8,10 +8,10 @@ use Oro\Component\ConfigExpression\ContextAccessor;
 use Oro\Component\ConfigExpression\Exception\InvalidArgumentException;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-class FeatureEnabledTest extends \PHPUnit_Framework_TestCase
+class FeatureEnabledTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var FeatureChecker|\PHPUnit_Framework_MockObject_MockObject
+     * @var FeatureChecker|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $featureChecker;
 
@@ -40,7 +40,7 @@ class FeatureEnabledTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeWrongOptions(array $options)
     {
-        $this->setExpectedException(InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->condition->initialize($options);
     }
 

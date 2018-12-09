@@ -12,6 +12,7 @@ class PropertyConfigContainer
 {
     const TYPE_ENTITY = 'entity';
     const TYPE_FIELD = 'field';
+    const ALL_CACHE_KEY = '__all__';
 
     /** @var array */
     protected $config;
@@ -259,14 +260,10 @@ class PropertyConfigContainer
             return [];
         }
 
-        if ($fieldType) {
-            if (isset($this->cache['formItems'][$type][$fieldType])) {
-                return $this->cache['formItems'][$type][$fieldType];
-            }
-        } else {
-            if (isset($this->cache['formItems'][$type])) {
-                return $this->cache['formItems'][$type];
-            }
+        $cacheKey = $fieldType ? $fieldType : self::ALL_CACHE_KEY;
+
+        if (isset($this->cache['formItems'][$type][$cacheKey])) {
+            return $this->cache['formItems'][$type][$cacheKey];
         }
 
         $result = [];
@@ -281,15 +278,15 @@ class PropertyConfigContainer
                     $result[$code] = $item;
                 }
             }
-            $this->cache['formItems'][$type][$fieldType] = $result;
         } else {
             foreach ($this->config[$type]['items'] as $code => $item) {
                 if (isset($item['form']['type'])) {
                     $result[$code] = $item;
                 }
             }
-            $this->cache['formItems'][$type] = $result;
         }
+
+        $this->cache['formItems'][$type][$cacheKey] = $result;
 
         return $result;
     }
@@ -374,6 +371,33 @@ class PropertyConfigContainer
             }
         }
         $this->cache['required'][$type] = $result;
+
+        return $result;
+    }
+
+    /**
+     * @param string $type
+     * @return array
+     */
+    public function getRequiredPropertiesValues($type = self::TYPE_ENTITY)
+    {
+        $type = $this->getConfigType($type);
+
+        if (empty($this->config[$type]['items'])) {
+            return [];
+        }
+
+        if (isset($this->cache['required_properties'][$type])) {
+            return $this->cache['required_properties'][$type];
+        }
+
+        $result = [];
+        foreach ($this->config[$type]['items'] as $code => $item) {
+            if (isset($item['options']['required_properties'])) {
+                $result[$code] = $item['options']['required_properties'];
+            }
+        }
+        $this->cache['required_properties'][$type] = $result;
 
         return $result;
     }

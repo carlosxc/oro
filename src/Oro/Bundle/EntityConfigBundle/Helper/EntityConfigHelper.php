@@ -25,6 +25,17 @@ class EntityConfigHelper
     }
 
     /**
+     * @param string $class
+     * @return array
+     */
+    public function getAvailableRoutes($class)
+    {
+        $metadata = $this->getConfigManager()->getEntityMetadata($this->configProvider->getClassName($class));
+
+        return $metadata ? $metadata->getRoutes() : [];
+    }
+
+    /**
      * @param string|object $class
      * @param array $routes
      * @param string $groupName
@@ -41,7 +52,6 @@ class EntityConfigHelper
                 $routeName = $this->getRouteByGroup($route, $groupName);
 
                 $result[$route] = $metadata->hasRoute($routeName, true) ? $metadata->getRoute($routeName, true) : null;
-
             }
         }
 
@@ -51,13 +61,24 @@ class EntityConfigHelper
     /**
      * @param string|object $class
      * @param string $name
+     * @param bool $strict
      * @return mixed
      */
-    public function getConfigValue($class, $name)
+    public function getConfigValue($class, $name, $strict = false)
     {
-        $config = $this->configProvider->getConfig($class);
+        $data = null;
 
-        return $config->get($name);
+        try {
+            $config = $this->configProvider->getConfig($class);
+
+            $data = $config->get($name);
+        } catch (\RuntimeException $e) {
+            if ($strict) {
+                throw $e;
+            }
+        }
+
+        return $data;
     }
 
     /**

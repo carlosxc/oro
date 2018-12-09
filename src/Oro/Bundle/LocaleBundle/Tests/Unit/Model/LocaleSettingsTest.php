@@ -2,18 +2,19 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Model;
 
-use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
+use Oro\Bundle\CurrencyBundle\DependencyInjection\Configuration as CurrencyConfiguration;
 use Oro\Bundle\LocaleBundle\DependencyInjection\Configuration as LocaleConfiguration;
+use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 
-class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
+class LocaleSettingsTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $configManager;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $calendarFactory;
 
@@ -27,7 +28,7 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
         $this->configManager = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
             ->disableOriginalConstructor()
             ->getMock();
-        $this->calendarFactory = $this->getMock('Oro\Bundle\LocaleBundle\Model\CalendarFactoryInterface');
+        $this->calendarFactory = $this->createMock('Oro\Bundle\LocaleBundle\Model\CalendarFactoryInterface');
         $this->localeSettings = new LocaleSettings($this->configManager, $this->calendarFactory);
     }
 
@@ -302,7 +303,7 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
 
         $this->configManager->expects($this->once())
             ->method('get')
-            ->with('oro_locale.currency')
+            ->with('oro_currency.default_currency')
             ->will($this->returnValue($expectedCurrency));
 
         $this->assertEquals($expectedCurrency, $this->localeSettings->getCurrency());
@@ -311,11 +312,11 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
 
     public function testGetCurrencyDefault()
     {
-        $expectedCurrency = LocaleConfiguration::DEFAULT_CURRENCY;
+        $expectedCurrency = CurrencyConfiguration::DEFAULT_CURRENCY;
 
         $this->configManager->expects($this->once())
             ->method('get')
-            ->with('oro_locale.currency')
+            ->with('oro_currency.default_currency')
             ->will($this->returnValue(null));
 
         $this->assertEquals($expectedCurrency, $this->localeSettings->getCurrency());
@@ -337,7 +338,7 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
             ->with('oro_locale.language')
             ->will($this->returnValue($expectedLanguage));
 
-        $calendar = $this->getMock('Oro\Bundle\LocaleBundle\Model\Calendar');
+        $calendar = $this->createMock('Oro\Bundle\LocaleBundle\Model\Calendar');
 
         $this->calendarFactory->expects($this->once())->method('getCalendar')
             ->with($expectedLocale, $expectedLanguage)
@@ -353,7 +354,7 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
 
         $this->configManager->expects($this->never())->method($this->anything());
 
-        $calendar = $this->getMock('Oro\Bundle\LocaleBundle\Model\Calendar');
+        $calendar = $this->createMock('Oro\Bundle\LocaleBundle\Model\Calendar');
 
         $this->calendarFactory->expects($this->once())->method('getCalendar')
             ->with($locale, $language)
@@ -390,6 +391,7 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($configurationValue));
 
         $this->assertEquals($expectedValue, $this->localeSettings->getLanguage());
+        $this->assertEquals($expectedValue, $this->localeSettings->getLanguage());
     }
 
     /**
@@ -407,6 +409,19 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
                 'configurationValue' => null,
             ),
         );
+    }
+
+    public function testGetActualLanguage()
+    {
+        $en = 'en';
+        $fr = 'fr';
+        $this->configManager->expects($this->exactly(2))
+            ->method('get')
+            ->with('oro_locale.language')
+            ->willReturnOnConsecutiveCalls($en, $fr);
+
+        $this->assertEquals($en, $this->localeSettings->getActualLanguage());
+        $this->assertEquals($fr, $this->localeSettings->getActualLanguage());
     }
 
     public function testGetCurrencySymbolByCurrency()
@@ -443,5 +458,64 @@ class LocaleSettingsTest extends \PHPUnit_Framework_TestCase
             ->method('get')
             ->with('test');
         $this->localeSettings->get('test');
+    }
+
+    /**
+     * @dataProvider localeProvider
+     *
+     * @param string $locale
+     * @param string $expectedCurrency
+     */
+    public function testGetCountryByLocal($locale, $expectedCurrency)
+    {
+        $currency = LocaleSettings::getCurrencyByLocale($locale);
+
+        $this->assertEquals($expectedCurrency, $currency);
+    }
+
+    /**
+     * The USD is default currency
+     *
+     * @return array
+     */
+    public function localeProvider()
+    {
+        return [
+            [
+                'en',
+                'USD'
+            ],
+            [
+                'en_CA',
+                $this->getCurrencyBuLocale('en_CA')
+            ],
+            [
+                'it',
+                'USD'
+            ],
+            [
+                'it_IT',
+                $this->getCurrencyBuLocale('it_IT')
+            ],
+            [
+                'ua',
+                'USD'
+            ],
+            [
+                'ru_UA',
+                $this->getCurrencyBuLocale('ru_UA')
+            ]
+        ];
+    }
+
+    /**
+     * @param string $locale
+     * @return bool|string
+     */
+    protected function getCurrencyBuLocale($locale)
+    {
+        $formatter = new \NumberFormatter($locale, \NumberFormatter::CURRENCY);
+
+        return $formatter->getTextAttribute(\NumberFormatter::CURRENCY_CODE);
     }
 }

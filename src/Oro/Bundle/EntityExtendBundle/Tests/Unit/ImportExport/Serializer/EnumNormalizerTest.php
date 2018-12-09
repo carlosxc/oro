@@ -2,15 +2,15 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\ImportExport\Serializer;
 
+use Oro\Bundle\EntityBundle\Helper\FieldHelper;
 use Oro\Bundle\EntityExtendBundle\Entity\AbstractEnumValue;
 use Oro\Bundle\EntityExtendBundle\ImportExport\Serializer\EnumNormalizer;
 use Oro\Bundle\EntityExtendBundle\Tests\Unit\Fixtures\TestEnumValue;
-use Oro\Bundle\ImportExportBundle\Field\FieldHelper;
 
-class EnumNormalizerTest extends \PHPUnit_Framework_TestCase
+class EnumNormalizerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var FieldHelper|\PHPUnit_Framework_MockObject_MockObject
+     * @var FieldHelper|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $fieldHelper;
 
@@ -21,7 +21,7 @@ class EnumNormalizerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->fieldHelper = $this->getMockBuilder('Oro\Bundle\ImportExportBundle\Field\FieldHelper')
+        $this->fieldHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\Helper\FieldHelper')
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -168,7 +168,11 @@ class EnumNormalizerTest extends \PHPUnit_Framework_TestCase
             [
                 ['id' => $id, 'name' => 'name', 'priority' => 100, 'default' => true],
                 new TestEnumValue($id, 'name', 100, true)
-            ]
+            ],
+            'Check that id with "0" value is handled correctly' => [
+                ['id' => "0", 'name' => 'name', 'priority' => 100, 'default' => true],
+                new TestEnumValue("0", 'name', 100, true)
+            ],
         ];
     }
 }

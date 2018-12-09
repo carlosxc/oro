@@ -2,17 +2,15 @@
 
 namespace Oro\Bundle\EntityBundle\Tests\Functional\Controller\Api\Rest;
 
+use FOS\RestBundle\Util\Codes;
+use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Component\Testing\ResponseExtension;
 use Symfony\Bridge\Doctrine\RegistryInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 
-use FOS\RestBundle\Util\Codes;
-
-use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
-use Oro\Bundle\UserBundle\Entity\User;
-
 /**
- * @dbIsolation
+ * @dbIsolationPerTest
  */
 class EntityDataControllerTest extends WebTestCase
 {
@@ -20,7 +18,7 @@ class EntityDataControllerTest extends WebTestCase
 
     public function setUp()
     {
-        $this->initClient([], $this->generateWsseAuthHeader(), true);
+        $this->initClient([], $this->generateWsseAuthHeader());
         $this->loadFixtures([
             'Oro\Bundle\EntityBundle\Tests\Functional\DataFixtures\LoadUserData',
             'Oro\Bundle\EntityBundle\Tests\Functional\DataFixtures\LoadRoleData',
@@ -32,8 +30,13 @@ class EntityDataControllerTest extends WebTestCase
     {
         /** @var User $user */
         $user = $this->getReference('simple_user');
-
-        $this->sendPatch('/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(), '{"id": 1}');
+        $this->sendPatch(
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
+            '{"id": 1}'
+        );
 
         $this->assertLastResponseStatus(Codes::HTTP_FORBIDDEN);
         $this->assertLastResponseContentTypeJson();
@@ -41,7 +44,13 @@ class EntityDataControllerTest extends WebTestCase
 
     public function testShouldReturnNotFoundIfSuchEntityNotExist()
     {
-        $this->sendPatch('/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_NotExist/10', '{"id": 1}');
+        $this->sendPatch(
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_NotExist',
+                'id' => 10
+            ]),
+            '{"id": 1}'
+        );
 
         $this->assertLastResponseStatus(Codes::HTTP_INTERNAL_SERVER_ERROR);
         $this->assertLastResponseContentTypeJson();
@@ -53,7 +62,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"firstName": "Test1"}'
         );
 
@@ -69,7 +81,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"loginCount": 10}'
         );
 
@@ -85,7 +100,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"enabled": false}'
         );
 
@@ -101,7 +119,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"birthday": "2000-05-05T00:00:00+0000"}'
         );
 
@@ -117,7 +138,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"lastLogin":"2000-05-05T01:05:05+0000"}'
         );
 
@@ -133,7 +157,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"email": "test"}'
         );
 
@@ -150,7 +177,10 @@ class EntityDataControllerTest extends WebTestCase
         $user = $this->getReference('simple_user');
 
         $this->sendPatch(
-            '/api/rest/latest/entity_data/Oro_Bundle_UserBundle_Entity_User/'.$user->getId(),
+            $this->getUrl('oro_api_patch_entity_data', [
+                'className' => 'Oro_Bundle_UserBundle_Entity_User',
+                'id' => $user->getId()
+            ]),
             '{"username": ""}'
         );
 

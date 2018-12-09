@@ -2,99 +2,66 @@
 
 namespace Oro\Bundle\ActionBundle\Helper;
 
+use Oro\Bundle\ActionBundle\Button\ButtonInterface;
+use Oro\Bundle\ActionBundle\Button\OperationButton;
+use Oro\Bundle\ActionBundle\Operation\Execution\FormProvider;
+use Oro\Bundle\UIBundle\Tools\HtmlTagHelper;
+use Symfony\Bundle\FrameworkBundle\Routing\Router;
 use Symfony\Component\Translation\TranslatorInterface;
 
-use Oro\Bundle\ActionBundle\Model\ActionData;
-use Oro\Bundle\ActionBundle\Model\Operation;
-use Oro\Bundle\ActionBundle\Model\OptionsAssembler;
-
-use Oro\Component\Action\Model\ContextAccessor;
-
+/**
+ * Manages options for "action buttons"
+ */
 class OptionsHelper
 {
-    /** @var ContextHelper */
-    protected $contextHelper;
-
-    /** @var OptionsAssembler */
-    protected $optionsAssembler;
-
-    /** @var ContextAccessor */
-    protected $contextAccessor;
-
     /** @var TranslatorInterface */
     protected $translator;
 
-    /** @var ApplicationsUrlHelper */
-    protected $applicationsUrlHelper;
+    /** @var Router */
+    protected $router;
+
+    /** @var FormProvider */
+    protected $formProvider;
+
+    /** @var HtmlTagHelper */
+    protected $htmlTagHelper;
 
     /**
-     * @param ContextHelper $contextHelper
-     * @param OptionsAssembler $optionsAssembler
-     * @param ContextAccessor $contextAccessor
-     * @param ApplicationsUrlHelper $applicationsUrlHelper
+     * OptionsHelper constructor.
+     *
+     * @param Router $router
      * @param TranslatorInterface $translator
+     * @param FormProvider $formProvider
+     * @param HtmlTagHelper $htmlTagHelper
      */
     public function __construct(
-        ContextHelper $contextHelper,
-        OptionsAssembler $optionsAssembler,
-        ContextAccessor $contextAccessor,
-        ApplicationsUrlHelper $applicationsUrlHelper,
-        TranslatorInterface $translator
+        Router $router,
+        TranslatorInterface $translator,
+        FormProvider $formProvider,
+        HtmlTagHelper $htmlTagHelper
     ) {
-        $this->contextHelper = $contextHelper;
-        $this->optionsAssembler = $optionsAssembler;
-        $this->contextAccessor = $contextAccessor;
-        $this->applicationsUrlHelper = $applicationsUrlHelper;
-        $this->translator = $translator;
+        $this->router       = $router;
+        $this->translator   = $translator;
+        $this->formProvider = $formProvider;
+        $this->htmlTagHelper = $htmlTagHelper;
     }
 
     /**
-     * @param Operation $operation
-     * @param array $context
+     * @param ButtonInterface $button
+     *
      * @return array
      */
-    public function getFrontendOptions(Operation $operation, array $context = null)
+    public function getFrontendOptions(ButtonInterface $button)
     {
-        $actionContext = $this->contextHelper->getContext($context);
-        $actionData = $this->contextHelper->getActionData($actionContext);
-
         return [
-            'options' => $this->createOptions($operation, $actionData, $actionContext),
-            'data' => $this->createData($operation, $actionData)
+            'options' => $this->createOptions($button),
+            'data'    => $this->createData($button)
         ];
     }
 
     /**
-     * @param ActionData $data
-     * @param array $options
-     * @return array
-     */
-    protected function resolveOptions(ActionData $data, array $options)
-    {
-        return $this->resolveValues($data, $this->optionsAssembler->assemble($options));
-    }
-
-    /**
-     * @param ActionData $data
-     * @param array $options
-     * @return array
-     */
-    protected function resolveValues(ActionData $data, array $options)
-    {
-        foreach ($options as &$value) {
-            if (is_array($value)) {
-                $value = $this->resolveValues($data, $value);
-            } else {
-                $value = $this->contextAccessor->getValue($data, $value);
-            }
-        }
-
-        return $options;
-    }
-
-    /**
-     * @param array $options
-     * @param array $source
+     * @param array  $options
+     * @param array  $source
      * @param string $sourceKey
      */
     protected function addOption(array &$options, array $source, $sourceKey)
@@ -107,59 +74,153 @@ class OptionsHelper
     }
 
     /**
-     * @param Operation $operation
-     * @param ActionData $actionData
-     * @param array $actionContext
+     * @param ButtonInterface $button
+     *
      * @return array
      */
-    protected function createOptions(Operation $operation, ActionData $actionData, array $actionContext)
+    protected function createOptions(ButtonInterface $button)
     {
-        $actionContext = array_merge($actionContext, ['operationName' => $operation->getName()]);
+        $data = $this->normalizeTemplateData($button->getTemplateData());
+        $executionUrl = $this->router->generate($data['executionRoute'], $data['routeParams']);
 
-        $executionUrl = $this->applicationsUrlHelper->getExecutionUrl($actionContext);
-        $dialogUrl = $this->applicationsUrlHelper->getDialogUrl($actionContext);
-
-        $frontendOptions = $this->resolveOptions($actionData, $operation->getDefinition()->getFrontendOptions());
-
-        $title = isset($frontendOptions['title']) ? $frontendOptions['title'] : $operation->getDefinition()->getLabel();
+        $frontendOptions = $data['frontendOptions'];
 
         $options = [
-            'hasDialog' => $operation->hasForm(),
-            'showDialog' => !empty($frontendOptions['show_dialog']),
-            'dialogOptions' => [
-                'title' => $this->translator->trans($title),
-                'dialogOptions' => !empty($frontendOptions['options']) ? $frontendOptions['options'] : []
-            ],
-            'executionUrl' => $executionUrl,
-            'dialogUrl' => $dialogUrl,
-            'url' => $operation->hasForm() ? $dialogUrl : $executionUrl,
+            'hasDialog'      => $data['hasForm'],
+            'showDialog'     => !empty($data['showDialog']),
+            'executionUrl'   => $executionUrl,
+            'url'            => $executionUrl,
+            'jsDialogWidget' => $data['jsDialogWidget'],
         ];
+        if ($button instanceof OperationButton) {
+            $options['executionTokenData'] =
+                $this->formProvider->createTokenData($button->getOperation(), $button->getData());
+        }
+        if ($data['hasForm']) {
+            $dialogUrl = $this->router->generate($data['dialogRoute'], $data['routeParams']);
 
+            $options = array_merge(
+                $options,
+                [
+                    'dialogOptions' => [
+                        'title'         => $this->getTitle($button, $frontendOptions),
+                        'dialogOptions' => !empty($frontendOptions['options']) ? $frontendOptions['options'] : []
+                    ],
+                    'dialogUrl'     => $dialogUrl,
+                    'url'           => $dialogUrl,
+                ]
+            );
+        } elseif (null !== ($message = $this->getMessage($button, $frontendOptions))) {
+            $this->addOption($options, $frontendOptions, 'message');
+            $options['message']['content'] = $message;
+        }
+
+        if (isset($frontendOptions['confirmation']['message_parameters'])) {
+            $frontendOptions['confirmation']['message_parameters'] =
+                $this->prepareParameters($frontendOptions['confirmation']['message_parameters']);
+        }
         $this->addOption($options, $frontendOptions, 'confirmation');
 
         return $options;
     }
 
     /**
-     * @param Operation $operation
-     * @param ActionData $actionData
+     * @param ButtonInterface $button
+     * @param array           $frontendOptions
+     *
+     * @return string
+     */
+    protected function getTitle(ButtonInterface $button, array $frontendOptions)
+    {
+        $title = isset($frontendOptions['title']) ? $frontendOptions['title'] : $button->getLabel();
+        $parameters = [];
+        if (isset($frontendOptions['title_parameters'])) {
+            $parameters = $this->prepareParameters($frontendOptions['title_parameters']);
+        }
+        return $this->translator->trans($title, $parameters, $button->getTranslationDomain());
+    }
+
+    /**
+     * @param ButtonInterface $button
+     * @param array           $frontendOptions
+     *
+     * @return string|null
+     */
+    protected function getMessage(ButtonInterface $button, array $frontendOptions)
+    {
+        $content = null;
+        if (isset($frontendOptions['message']['content'])) {
+            $message = $frontendOptions['message'];
+            $parameters = [];
+            if (isset($message['message_parameters'])) {
+                $parameters = $this->prepareParameters($message['message_parameters']);
+            }
+
+            $content = $this->translator->trans($message['content'], $parameters, $button->getTranslationDomain());
+            $content = $content !== $message['content'] ? $content : null;
+        }
+
+        return $content;
+    }
+
+    /**
+     * @param ButtonInterface $button
+     *
      * @return array
      */
-    protected function createData(Operation $operation, ActionData $actionData)
+    protected function createData(ButtonInterface $button)
     {
-        $buttonOptions = $this->resolveOptions(
-            $actionData,
-            $operation->getDefinition()->getButtonOptions()
-        );
-
         $data = [];
-        $this->addOption($data, $buttonOptions, 'page_component_module');
-        $this->addOption($data, $buttonOptions, 'page_component_options');
+        $templateData = $this->normalizeTemplateData($button->getTemplateData());
+        $this->addOption($data, $templateData['buttonOptions'], 'page_component_module');
+        $this->addOption($data, $templateData['buttonOptions'], 'page_component_options');
 
-        if (!empty($buttonOptions['data'])) {
-            $data = array_merge($data, $buttonOptions['data']);
+        if (!empty($templateData['buttonOptions']['data'])) {
+            $data = array_merge($data, $templateData['buttonOptions']['data']);
         }
 
         return $data;
+    }
+
+    /**
+     * @param array $data
+     *
+     * @return array
+     */
+    protected function normalizeTemplateData(array $data)
+    {
+        return array_merge(
+            [
+                'hasForm'         => null,
+                'showDialog'      => null,
+                'executionRoute'  => null,
+                'dialogRoute'     => null,
+                'routeParams'     => [],
+                'frontendOptions' => [],
+                'buttonOptions'   => [],
+                'jsDialogWidget'  => ButtonInterface::DEFAULT_JS_DIALOG_WIDGET,
+            ],
+            $data
+        );
+    }
+
+    /**
+     * Recursive escape parameters
+     *
+     * @param $parameters
+     *
+     * @return mixed
+     */
+    private function prepareParameters($parameters)
+    {
+        foreach ($parameters as $key => &$value) {
+            if (\is_array($value)) {
+                $value = $this->prepareParameters($value);
+            } elseif (\is_string($value)) {
+                $value = $this->htmlTagHelper->escape($value);
+            }
+        }
+
+        return $parameters;
     }
 }

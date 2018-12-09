@@ -8,20 +8,20 @@ use Oro\Bundle\WorkflowBundle\Entity\ProcessTrigger;
 use Oro\Bundle\WorkflowBundle\Serializer\Normalizer\ProcessEntityNormalizer;
 use Oro\Bundle\WorkflowBundle\Tests\Unit\Serializer\Normalizer\Stub\Entity;
 
-class ProcessEntityNormalizerTest extends \PHPUnit_Framework_TestCase
+class ProcessEntityNormalizerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $registry;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $doctrineHelper;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $serializer;
 
@@ -32,7 +32,7 @@ class ProcessEntityNormalizerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $this->registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
 
         $this->doctrineHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\DoctrineHelper')
             ->disableOriginalConstructor()

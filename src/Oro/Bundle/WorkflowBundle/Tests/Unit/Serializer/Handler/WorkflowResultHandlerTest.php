@@ -3,14 +3,13 @@
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Serializer\Handler;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\WorkflowBundle\Serializer\Handler\WorkflowResultHandler;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowResult;
+use Oro\Bundle\WorkflowBundle\Serializer\Handler\WorkflowResultHandler;
 
-class WorkflowResultHandlerTest extends \PHPUnit_Framework_TestCase
+class WorkflowResultHandlerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $doctrineHelper;
 
@@ -65,8 +64,8 @@ class WorkflowResultHandlerTest extends \PHPUnit_Framework_TestCase
 
     public function workflowResultToJsonDataProvider()
     {
-        $object = $this->getMock('PlainObject');
-        $entity = $this->getMock('Entity');
+        $object = $this->createMock(\stdClass::class);
+        $entity = $this->createMock(\stdClass::class);
         return array(
             'plain' => array(
                 new WorkflowResult(

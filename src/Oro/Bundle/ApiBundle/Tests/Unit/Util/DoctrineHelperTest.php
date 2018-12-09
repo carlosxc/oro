@@ -2,71 +2,102 @@
 
 namespace Oro\Bundle\ApiBundle\Tests\Unit\Util;
 
+use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\Mapping\ClassMetadata;
-
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity;
 use Oro\Bundle\ApiBundle\Tests\Unit\OrmRelatedTestCase;
 use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
-use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity;
 
 class DoctrineHelperTest extends OrmRelatedTestCase
 {
-    const ENTITY_NAMESPACE = 'Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\\';
+    /**
+     * @param string $entityClass
+     *
+     * @return ClassMetadata
+     */
+    protected function getClassMetadata($entityClass)
+    {
+        return $this->doctrineHelper->getEntityMetadataForClass($entityClass);
+    }
 
     public function testIsManageableEntityClassShouldBeCached()
     {
         $entityClass = 'Test\Entity';
-        $doctrine = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
-        $doctrine->expects($this->once())
+        $doctrine = $this->createMock(ManagerRegistry::class);
+        $doctrine->expects(self::once())
             ->method('getManagerForClass')
             ->with($entityClass)
             ->willReturn($this->em);
 
         $doctrineHelper = new DoctrineHelper($doctrine);
-        $this->assertTrue($doctrineHelper->isManageableEntityClass($entityClass));
+        self::assertTrue($doctrineHelper->isManageableEntityClass($entityClass));
         // test local cache
-        $this->assertTrue($doctrineHelper->isManageableEntityClass($entityClass));
+        self::assertTrue($doctrineHelper->isManageableEntityClass($entityClass));
     }
 
     public function testIsManageableEntityClassShouldBeCachedEvenForNotManageableEntity()
     {
         $entityClass = 'Test\Entity';
-        $doctrine = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
-        $doctrine->expects($this->once())
+        $doctrine = $this->createMock(ManagerRegistry::class);
+        $doctrine->expects(self::once())
             ->method('getManagerForClass')
             ->with($entityClass)
             ->willReturn(null);
 
         $doctrineHelper = new DoctrineHelper($doctrine);
-        $this->assertFalse($doctrineHelper->isManageableEntityClass($entityClass));
+        self::assertFalse($doctrineHelper->isManageableEntityClass($entityClass));
         // test local cache
-        $this->assertFalse($doctrineHelper->isManageableEntityClass($entityClass));
+        self::assertFalse($doctrineHelper->isManageableEntityClass($entityClass));
     }
 
-    public function testFindEntityMetadataByPath()
+    public function testFindEntityMetadataByPathForAssociation()
     {
-        $this->assertEquals(
-            $this->getClassMetadata('Category'),
+        self::assertEquals(
+            $this->getClassMetadata(Entity\Category::class),
             $this->doctrineHelper->findEntityMetadataByPath(
-                $this->getEntityClass('User'),
+                Entity\User::class,
                 ['category']
             )
         );
-        $this->assertNull(
+    }
+
+    public function testFindEntityMetadataByPathForField()
+    {
+        self::assertNull(
             $this->doctrineHelper->findEntityMetadataByPath(
-                $this->getEntityClass('User'),
+                Entity\User::class,
                 ['name']
             )
         );
-        $this->assertEquals(
-            $this->getClassMetadata('Category'),
+    }
+
+    public function testFindEntityMetadataByPathForStringPath()
+    {
+        self::assertEquals(
+            $this->getClassMetadata(Entity\Category::class),
             $this->doctrineHelper->findEntityMetadataByPath(
-                $this->getEntityClass('User'),
+                Entity\User::class,
+                'products.category'
+            )
+        );
+    }
+
+    public function testFindEntityMetadataByPathForArrayPath()
+    {
+        self::assertEquals(
+            $this->getClassMetadata(Entity\Category::class),
+            $this->doctrineHelper->findEntityMetadataByPath(
+                Entity\User::class,
                 ['products', 'category']
             )
         );
-        $this->assertNull(
+    }
+
+    public function testFindEntityMetadataByPathForDeepPath()
+    {
+        self::assertNull(
             $this->doctrineHelper->findEntityMetadataByPath(
-                $this->getEntityClass('User'),
+                Entity\User::class,
                 ['products', 'category', 'name']
             )
         );
@@ -78,133 +109,72 @@ class DoctrineHelperTest extends OrmRelatedTestCase
 
         $this->notManageableClassNames = [$className];
 
-        $this->assertNull(
+        self::assertNull(
             $this->doctrineHelper->findEntityMetadataByPath($className, ['association'])
-        );
-    }
-
-    public function testGetOrderByIdentifierForEntityWithSingleIdentifier()
-    {
-        $this->assertEquals(
-            ['id' => 'ASC'],
-            $this->doctrineHelper->getOrderByIdentifier($this->getEntityClass('User'))
-        );
-        $this->assertEquals(
-            ['id' => 'DESC'],
-            $this->doctrineHelper->getOrderByIdentifier($this->getEntityClass('User'), true)
-        );
-    }
-
-    public function testGetOrderByIdentifierForEntityWithCompositeIdentifier()
-    {
-        $this->assertEquals(
-            ['id' => 'ASC', 'title' => 'ASC'],
-            $this->doctrineHelper->getOrderByIdentifier($this->getEntityClass('CompositeKeyEntity'))
-        );
-        $this->assertEquals(
-            ['id' => 'DESC', 'title' => 'DESC'],
-            $this->doctrineHelper->getOrderByIdentifier($this->getEntityClass('CompositeKeyEntity'), true)
         );
     }
 
     public function testGetIndexedFields()
     {
-        $this->assertEquals(
+        self::assertEquals(
             [
                 'id'          => 'integer', // primary key
                 'name'        => 'string', // unique constraint
-                'description' => 'string', // index
+                'description' => 'string' // index
             ],
-            $this->doctrineHelper->getIndexedFields($this->getClassMetadata('Role'))
+            $this->doctrineHelper->getIndexedFields($this->getClassMetadata(Entity\Role::class))
         );
     }
 
     public function testGetIndexedAssociations()
     {
-        // category = ManyToOne
-        // groups = ManyToMany (should be ignored)
-        // products = OneToMany (should be ignored)
-        // owner = ManyToOne
-        $this->assertEquals(
+        self::assertEquals(
             [
-                'category' => 'string',
-                'owner'    => 'integer',
+                'category' => 'string', // many-to-one
+                'owner'    => 'integer', // many-to-one
+                'groups'   => 'integer', // many-to-many
+                'products' => 'integer', // one-to-many
             ],
-            $this->doctrineHelper->getIndexedAssociations($this->getClassMetadata('User'))
+            $this->doctrineHelper->getIndexedAssociations($this->getClassMetadata(Entity\User::class))
         );
     }
 
-    public function testSetIdentifierForEntityWithSingleId()
+    public function testGetFieldDataTypeForScalarField()
     {
-        $entityId = 123;
-        $entity = new Entity\Group();
+        $metadata = $this->getClassMetadata(Entity\Role::class);
 
-        $this->doctrineHelper->setEntityIdentifier($entity, $entityId);
-        $this->assertEquals($entityId, $entity->getId());
-    }
-
-    public function testSetIdentifierForEntityWithCompositeId()
-    {
-        $entityId = ['id' => 123, 'title' => 'test'];
-        $entity = new Entity\CompositeKeyEntity();
-
-        $this->doctrineHelper->setEntityIdentifier($entity, $entityId);
-        $this->assertEquals($entityId['id'], $entity->getId());
-        $this->assertEquals($entityId['title'], $entity->getTitle());
-    }
-
-    public function testSetInvalidIdentifierForEntityWithCompositeId()
-    {
-        $entityId = 123;
-        $entity = new Entity\CompositeKeyEntity();
-
-        $this->setExpectedException(
-            '\InvalidArgumentException',
-            sprintf(
-                'Unexpected identifier value "%s" for composite primary key of the entity "%s".',
-                $entityId,
-                get_class($entity)
-            )
-        );
-
-        $this->doctrineHelper->setEntityIdentifier($entity, $entityId);
-    }
-
-    public function testSetIdentifierWithUndefinedFieldForEntityWithCompositeId()
-    {
-        $entityId = ['id' => 123, 'title1' => 'test'];
-        $entity = new Entity\CompositeKeyEntity();
-
-        $this->setExpectedException(
-            '\InvalidArgumentException',
-            sprintf(
-                'The entity "%s" does not have the "title1" property.',
-                get_class($entity)
-            )
-        );
-
-        $this->doctrineHelper->setEntityIdentifier($entity, $entityId);
-    }
-
-    /**
-     * @param string $entityShortClass
-     *
-     * @return ClassMetadata
-     */
-    protected function getClassMetadata($entityShortClass)
-    {
-        return $this->doctrineHelper->getEntityMetadataForClass(
-            $this->getEntityClass($entityShortClass)
+        self::assertEquals(
+            'boolean',
+            $this->doctrineHelper->getFieldDataType($metadata, 'enabled')
         );
     }
 
-    /**
-     * @param string $entityShortClass
-     *
-     * @return string
-     */
-    protected function getEntityClass($entityShortClass)
+    public function testGetFieldDataTypeForUnknownField()
     {
-        return self::ENTITY_NAMESPACE . $entityShortClass;
+        $metadata = $this->getClassMetadata(Entity\Role::class);
+
+        self::assertNull(
+            $this->doctrineHelper->getFieldDataType($metadata, 'unknown')
+        );
+    }
+
+    public function testGetFieldDataTypeForAssociation()
+    {
+        $metadata = $this->getClassMetadata(Entity\Role::class);
+
+        self::assertEquals(
+            'integer',
+            $this->doctrineHelper->getFieldDataType($metadata, 'users')
+        );
+    }
+
+    public function testGetFieldDataTypeForAssociationWithCompositeIdentifier()
+    {
+        $metadata = $this->getClassMetadata(Entity\CompositeKeyEntity::class);
+
+        self::assertEquals(
+            'string',
+            $this->doctrineHelper->getFieldDataType($metadata, 'children')
+        );
     }
 }

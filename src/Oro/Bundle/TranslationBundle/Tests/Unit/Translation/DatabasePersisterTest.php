@@ -2,22 +2,27 @@
 
 namespace Oro\Bundle\TranslationBundle\Tests\Unit\Translation;
 
-use Oro\Bundle\TranslationBundle\Entity\Translation;
+use Doctrine\Bundle\DoctrineBundle\Registry;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityRepository;
+use Oro\Bundle\TranslationBundle\Entity\Language;
+use Oro\Bundle\TranslationBundle\Manager\TranslationManager;
 use Oro\Bundle\TranslationBundle\Translation\DatabasePersister;
 
-class DatabasePersisterTest extends \PHPUnit_Framework_TestCase
+class DatabasePersisterTest extends \PHPUnit\Framework\TestCase
 {
     /** @var DatabasePersister */
     protected $persister;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var Registry|\PHPUnit\Framework\MockObject\MockObject */
+    protected $registry;
+
+    /** @var EntityManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $repo;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $metadataCache;
+    /** @var TranslationManager|\PHPUnit\Framework\MockObject\MockObject */
+    protected $translationManager;
 
     /** @var array */
     protected $testData = [
@@ -37,94 +42,72 @@ class DatabasePersisterTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->em            = $this->getMockBuilder('Doctrine\ORM\EntityManager')
-            ->disableOriginalConstructor()->getMock();
-        $this->repo          = $this->getMockBuilder(
-            'Oro\Bundle\TranslationBundle\Entity\Repository\TranslationRepository'
-        )
-            ->disableOriginalConstructor()->getMock();
-        $this->metadataCache = $this
-            ->getMockBuilder('Oro\Bundle\TranslationBundle\Translation\DynamicTranslationMetadataCache')
-            ->disableOriginalConstructor()->getMock();
+        $this->registry = $this->getMockBuilder(Registry::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
+        $this->em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        $this->em->expects($this->any())->method('getRepository')->with($this->equalTo(Translation::ENTITY_NAME))
-            ->will($this->returnValue($this->repo));
-        $this->persister = new DatabasePersister($this->em, $this->metadataCache);
+        $this->translationManager = $this
+            ->getMockBuilder(TranslationManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        // set batch size to 2
-        $reflection = new \ReflectionProperty(get_class($this->persister), 'batchSize');
-        $reflection->setAccessible(true);
-        $reflection->setValue($this->persister, 2);
+        $this->registry->expects($this->any())
+            ->method('getManagerForClass')
+            ->will($this->returnValue($this->em));
+
+        $language = new Language();
+
+        $connection = $this->createMock(Connection::class);
+        $this->em->expects($this->any())->method('getConnection')->willReturn($connection);
+
+        $entityRepository = $this->createMock(EntityRepository::class);
+        $entityRepository->expects($this->any())->method('findOneBy')->willReturn($language);
+        $this->em->expects($this->any())->method('getRepository')->willReturn($entityRepository);
+
+        $this->persister = new DatabasePersister(
+            $this->registry,
+            $this->translationManager
+        );
     }
 
     protected function tearDown()
     {
-        unset($this->em, $this->persister, $this->repo);
+        unset(
+            $this->em,
+            $this->persister,
+            $this->translationManager,
+            $this->registry
+        );
     }
 
     public function testPersist()
     {
         $this->em->expects($this->once())->method('beginTransaction');
-        $this->em->expects($this->exactly(5))->method('persist');
-        $this->em->expects($this->exactly(3))->method('flush');
-        $this->em->expects($this->exactly(3))->method('clear');
         $this->em->expects($this->once())->method('commit');
         $this->em->expects($this->never())->method('rollback');
 
-        $this->metadataCache->expects($this->once())->method('updateTimestamp')->with($this->testLocale);
+        $this->translationManager->expects($this->once())->method('invalidateCache')->with($this->testLocale);
+        $this->translationManager->expects($this->once())->method('clear');
 
         $this->persister->persist($this->testLocale, $this->testData);
-    }
-
-    public function testPersistUpdateScenario()
-    {
-        $testValue         = 'some Value';
-        $existsTranslation = new Translation();
-        $existsTranslation->setValue($testValue);
-
-        $this->repo->expects($this->any())->method('findValue')
-            ->will(
-                $this->returnValueMap(
-                    [
-                        ['key_1', $this->testLocale, 'messages', Translation::SCOPE_SYSTEM, null],
-                        ['key_2', $this->testLocale, 'messages', Translation::SCOPE_SYSTEM, null],
-                        ['key_3', $this->testLocale, 'messages', Translation::SCOPE_SYSTEM, null],
-                        ['key_1', $this->testLocale, 'validators', Translation::SCOPE_SYSTEM, $existsTranslation],
-                        ['key_2', $this->testLocale, 'validators', Translation::SCOPE_SYSTEM, null],
-                    ]
-                )
-            );
-
-        $this->em->expects($this->once())->method('beginTransaction');
-        $this->em->expects($this->exactly(5))->method('persist');
-        $this->em->expects($this->exactly(3))->method('flush');
-        $this->em->expects($this->exactly(3))->method('clear');
-        $this->em->expects($this->once())->method('commit');
-        $this->em->expects($this->never())->method('rollback');
-
-        $this->metadataCache->expects($this->once())->method('updateTimestamp')->with($this->testLocale);
-
-        $this->persister->persist($this->testLocale, $this->testData);
-
-        $this->assertSame($this->testData['validators']['key_1'], $existsTranslation->getValue());
-        $this->assertNotSame($testValue, $existsTranslation->getValue());
     }
 
     public function testExceptionScenario()
     {
         $exceptionClass = '\LogicException';
-        $this->setExpectedException($exceptionClass);
+        $this->expectException($exceptionClass);
         $exception = new $exceptionClass();
 
         $this->em->expects($this->once())->method('beginTransaction');
-        $this->em->expects($this->exactly(5))->method('persist');
-        $this->em->expects($this->exactly(3))->method('flush');
-        $this->em->expects($this->exactly(3))->method('clear');
         $this->em->expects($this->once())->method('commit')->will($this->throwException($exception));
         $this->em->expects($this->once())->method('rollback');
 
-        $this->metadataCache->expects($this->never())->method('updateTimestamp');
+        $this->translationManager->expects($this->never())->method('invalidateCache');
+        $this->translationManager->expects($this->never())->method('clear');
 
         $this->persister->persist($this->testLocale, $this->testData);
     }

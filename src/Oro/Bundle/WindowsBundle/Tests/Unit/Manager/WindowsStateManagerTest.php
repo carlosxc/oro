@@ -2,23 +2,22 @@
 
 namespace Oro\Bundle\WindowsBundle\Tests\Manager;
 
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
 use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Bundle\WindowsBundle\Entity\WindowsState;
 use Oro\Bundle\WindowsBundle\Manager\WindowsStateManager;
 use Oro\Bundle\WindowsBundle\Manager\WindowsStateRequestManager;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
-class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
+class WindowsStateManagerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|TokenStorageInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|TokenStorageInterface */
     protected $tokenStorage;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|DoctrineHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|DoctrineHelper */
     protected $doctrineHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|WindowsStateRequestManager */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|WindowsStateRequestManager */
     protected $requestStateManager;
 
     /** @var WindowsStateManager */
@@ -27,7 +26,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->tokenStorage = $this
-            ->getMock('Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface');
+            ->createMock('Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface');
 
         $this->doctrineHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\DoctrineHelper')
             ->disableOriginalConstructor()
@@ -49,11 +48,11 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
 
     public function testCreateWindowsState()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn(new User());
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
-        $em = $this->getMock('Doctrine\ORM\EntityManagerInterface');
+        $em = $this->createMock('Doctrine\ORM\EntityManagerInterface');
 
         $state = new WindowsState();
         $this->doctrineHelper->expects($this->once())->method('createEntityInstance')->willReturn($state);
@@ -72,7 +71,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
         $user = new User();
         $data = ['url' => '/test'];
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn($user);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -93,7 +92,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
         $user = new User();
         $windowId = 42;
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn($user);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -118,7 +117,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
 
         $windowStates = [$windowStateFoo, $windowStateBar];
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn($user);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -141,7 +140,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
 
         $windowState = $this->createWindowState(['cleanUrl' => 'foo']);
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn($user);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -164,7 +163,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
      */
     public function testFilterId()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn(new User());
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -198,7 +197,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
      */
     public function testUserEmptyUser()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn(null);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -225,7 +224,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
 
     public function testIsApplicableWithoutUser()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn(null);
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 
@@ -234,7 +233,7 @@ class WindowsStateManagerTest extends \PHPUnit_Framework_TestCase
 
     public function testIsApplicable()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())->method('getUser')->willReturn(new User());
         $this->tokenStorage->expects($this->once())->method('getToken')->willReturn($token);
 

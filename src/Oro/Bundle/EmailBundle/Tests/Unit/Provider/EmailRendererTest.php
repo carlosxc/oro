@@ -2,27 +2,30 @@
 
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Provider;
 
-use Symfony\Component\Translation\TranslatorInterface;
-
 use Oro\Bundle\EmailBundle\Entity\EmailTemplate;
+use Oro\Bundle\EmailBundle\Processor\VariableProcessorRegistry;
 use Oro\Bundle\EmailBundle\Provider\EmailRenderer;
 use Oro\Bundle\EmailBundle\Tests\Unit\Fixtures\Entity\TestEntityForVariableProvider;
+use Symfony\Component\Translation\TranslatorInterface;
 
-class EmailRendererTest extends \PHPUnit_Framework_TestCase
+class EmailRendererTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $loader;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $variablesProvider;
 
-    /** @var  \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $variablesProcessorRegistry;
+
+    /** @var  \PHPUnit\Framework\MockObject\MockObject */
     protected $cache;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $securityPolicy;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $sandbox;
 
     /** @var string */
@@ -39,7 +42,7 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $this->loader = $this->getMock('\Twig_Loader_String');
+        $this->loader = $this->createMock('\Twig_Loader_String');
 
         $this->securityPolicy = $this->getMockBuilder('\Twig_Sandbox_SecurityPolicy')
             ->disableOriginalConstructor()->getMock();
@@ -48,13 +51,17 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->sandbox->expects($this->once())->method('getName')
+        $this->sandbox->expects($this->exactly(3))->method('getName')
             ->will($this->returnValue('sandbox'));
         $this->sandbox->expects($this->once())->method('getSecurityPolicy')
             ->will($this->returnValue($this->securityPolicy));
 
         $this->variablesProvider = $this->getMockBuilder('Oro\Bundle\EmailBundle\Provider\VariablesProvider')
             ->disableOriginalConstructor()->getMock();
+
+        $this->variablesProcessorRegistry = $this->getMockBuilder(VariableProcessorRegistry::class)
+            ->disableOriginalConstructor()->getMock();
+        $this->variablesProcessorRegistry->expects($this->any())->method('get')->willReturn(null);
 
         $this->cache = $this->getMockBuilder('Doctrine\Common\Cache\Cache')
             ->disableOriginalConstructor()
@@ -172,7 +179,7 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
         $content = 'test content <a href="sdfsdf">asfsdf</a> {{ entity.field1|oro_html_sanitize }} N/A';
         $subject = 'subject';
 
-        $emailTemplate = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailTemplate');
+        $emailTemplate = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailTemplate');
         $emailTemplate->expects($this->once())->method('getContent')
             ->will($this->returnValue($content));
         $emailTemplate->expects($this->once())->method('getSubject')
@@ -237,8 +244,8 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
         $result = $renderer->compileMessage(new EmailTemplate('', $content), ['entity' => $entity]);
 
         $this->assertEquals(
-            'content oro.email.variable.not.found, {{ entity.field1|oro_html_sanitize }}, ' .
-            '{{ entity.field2.field1|oro_html_sanitize }}, oro.email.variable.not.found, ' .
+            'content oro.email.variable.not.found, {{ entity.field1|oro_format_name }}, ' .
+            '{{ entity.field2.field1|oro_format_name }}, oro.email.variable.not.found, ' .
             '{{ system.currentDate }}',
             $renderedContent = $result[1]
         );
@@ -270,7 +277,7 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
 
         $content = 'test content <a href="sdfsdf">asfsdf</a> {{ entity.field1 }} {{ system.testVar }}';
 
-        $emailTemplate = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailTemplate');
+        $emailTemplate = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailTemplate');
         $emailTemplate->expects($this->once())
             ->method('getContent')
             ->will($this->returnValue($content));
@@ -286,16 +293,16 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return EmailRenderer|\PHPUnit_Framework_MockObject_MockObject
+     * @return EmailRenderer|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getRendererInstance()
     {
-        /** @var \PHPUnit_Framework_MockObject_MockObject */
+        /** @var \PHPUnit\Framework\MockObject\MockObject */
         $doctrine = $this->getMockBuilder('Doctrine\Common\Persistence\ManagerRegistry')
             ->disableOriginalConstructor()
             ->getMock();
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject */
+        /** @var \PHPUnit\Framework\MockObject\MockObject */
         $em = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\OroEntityManager')
             ->disableOriginalConstructor()
             ->getMock();
@@ -305,18 +312,18 @@ class EmailRendererTest extends \PHPUnit_Framework_TestCase
             ->method('getManager')
             ->will($this->returnValue($em));
 
-        return $this->getMock(
-            'Oro\Bundle\EmailBundle\Provider\EmailRenderer',
-            array('render'),
-            array(
+        return $this->getMockBuilder('Oro\Bundle\EmailBundle\Provider\EmailRenderer')
+            ->setMethods(array('render'))
+            ->setConstructorArgs(array(
                 $this->loader,
                 array(),
                 $this->variablesProvider,
                 $this->cache,
                 $this->cacheKey,
                 $this->sandbox,
-                $this->translation
-            )
-        );
+                $this->translation,
+                $this->variablesProcessorRegistry,
+            ))
+            ->getMock();
     }
 }

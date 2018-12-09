@@ -3,17 +3,19 @@
 namespace Oro\Bundle\TranslationBundle\Controller\Api\Rest;
 
 use FOS\RestBundle\Controller\Annotations\NamePrefix;
-use FOS\RestBundle\Controller\Annotations\RouteResource;
+use FOS\RestBundle\Controller\Annotations\Patch;
 use FOS\RestBundle\Controller\Annotations\QueryParam;
+use FOS\RestBundle\Controller\Annotations\RouteResource;
 use FOS\RestBundle\Controller\FOSRestController;
 use FOS\RestBundle\Util\Codes;
-
 use Nelmio\ApiDocBundle\Annotation\ApiDoc;
-
-use Symfony\Component\HttpFoundation\Response;
-
+use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
 use Oro\Bundle\SoapBundle\Controller\Api\Rest\RestGetController;
 use Oro\Bundle\SoapBundle\Handler\Context;
+use Oro\Bundle\TranslationBundle\Entity\Translation;
+use Oro\Bundle\TranslationBundle\Manager\TranslationManager;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @RouteResource("translation")
@@ -53,13 +55,14 @@ class TranslationController extends FOSRestController
      *      resource=true
      * )
      *
+     * @param Request $request
      * @return Response
      */
-    public function cgetAction()
+    public function cgetAction(Request $request)
     {
-        $page   = (int)$this->getRequest()->get('page', 1);
-        $limit  = (int)$this->getRequest()->get('limit', RestGetController::ITEMS_PER_PAGE);
-        $domain = $this->getRequest()->get('domain', 'messages');
+        $page   = (int)$request->get('page', 1);
+        $limit  = (int)$request->get('limit', RestGetController::ITEMS_PER_PAGE);
+        $domain = $request->get('domain', 'messages');
 
         $result = $this->get('translator')->getTranslations([$domain]);
 
@@ -91,7 +94,7 @@ class TranslationController extends FOSRestController
         $includeHandler->handle(
             new Context(
                 $this,
-                $this->get('request'),
+                $request,
                 $response,
                 RestGetController::ACTION_LIST,
                 $responseContext
@@ -99,5 +102,42 @@ class TranslationController extends FOSRestController
         );
 
         return $response;
+    }
+
+    /**
+     * @param string $locale
+     * @param string $domain
+     * @param string $key
+     *
+     * @return Response
+     *
+     * @Patch("translations/{locale}/{domain}/{key}/patch")
+     * @AclAncestor("oro_translation_language_translate")
+     */
+    public function patchAction($locale, $domain, $key)
+    {
+        $data = json_decode($this->get('request_stack')->getCurrentRequest()->getContent(), true);
+
+        /* @var $translationManager TranslationManager */
+        $translationManager = $this->get('oro_translation.manager.translation');
+
+        $translation = $translationManager->saveTranslation(
+            $key,
+            $data['value'],
+            $locale,
+            $domain,
+            Translation::SCOPE_UI
+        );
+        $translationManager->flush();
+
+        $translated = null !== $translation;
+
+        $response = [
+            'status' => $translated,
+            'id' => $translated ? $translation->getId() : '',
+            'value' => $translated ? $translation->getValue() : '',
+        ];
+
+        return parent::handleView($this->view($response, Codes::HTTP_OK));
     }
 }

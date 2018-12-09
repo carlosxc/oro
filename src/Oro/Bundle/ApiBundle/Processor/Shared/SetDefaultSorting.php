@@ -3,30 +3,30 @@
 namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
 use Doctrine\Common\Collections\Criteria;
-
-use Oro\Component\ChainProcessor\ContextInterface;
-use Oro\Component\ChainProcessor\ProcessorInterface;
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
 use Oro\Bundle\ApiBundle\Filter\FilterCollection;
+use Oro\Bundle\ApiBundle\Filter\FilterNamesRegistry;
 use Oro\Bundle\ApiBundle\Filter\SortFilter;
 use Oro\Bundle\ApiBundle\Processor\Context;
 use Oro\Bundle\ApiBundle\Request\DataType;
-use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
+use Oro\Component\ChainProcessor\ContextInterface;
+use Oro\Component\ChainProcessor\ProcessorInterface;
 
 /**
- * A base class that can be used to create a processor to set default sorting for different kind of requests.
- * The default sorting is "identifier field ASC".
+ * Sets default sorting for different kind of requests.
+ * The default sorting expression is "identifier field ASC".
  */
-abstract class SetDefaultSorting implements ProcessorInterface
+class SetDefaultSorting implements ProcessorInterface
 {
-    /** @var DoctrineHelper */
-    protected $doctrineHelper;
+    /** @var FilterNamesRegistry */
+    private $filterNamesRegistry;
 
     /**
-     * @param DoctrineHelper $doctrineHelper
+     * @param FilterNamesRegistry $filterNamesRegistry
      */
-    public function __construct(DoctrineHelper $doctrineHelper)
+    public function __construct(FilterNamesRegistry $filterNamesRegistry)
     {
-        $this->doctrineHelper = $doctrineHelper;
+        $this->filterNamesRegistry = $filterNamesRegistry;
     }
 
     /**
@@ -40,35 +40,35 @@ abstract class SetDefaultSorting implements ProcessorInterface
             // a query is already built
             return;
         }
-        if (!$context->getConfig()->isSortingEnabled()) {
-            // a sorting is disabled
-            return;
-        }
 
-        $entityClass = $context->getClassName();
-        if (!$this->doctrineHelper->isManageableEntityClass($entityClass)) {
-            // only manageable entities are supported
-            return;
+        $config = $context->getConfig();
+        if (null !== $config && $config->isSortingEnabled()) {
+            $this->addSortFilter(
+                $this->filterNamesRegistry->getFilterNames($context->getRequestType())->getSortFilterName(),
+                $context->getFilters(),
+                $config
+            );
         }
-
-        $this->addSortFilter($context->getFilters(), $entityClass);
     }
 
     /**
-     * @param FilterCollection $filters
-     * @param string           $entityClass
+     * @param string                 $filterName
+     * @param FilterCollection       $filters
+     * @param EntityDefinitionConfig $config
      */
-    protected function addSortFilter(FilterCollection $filters, $entityClass)
-    {
-        $sortFilterKey = $this->getSortFilterKey();
-        if (!$filters->has($sortFilterKey)) {
+    protected function addSortFilter(
+        string $filterName,
+        FilterCollection $filters,
+        EntityDefinitionConfig $config
+    ): void {
+        if (!$filters->has($filterName)) {
             $filters->add(
-                $sortFilterKey,
+                $filterName,
                 new SortFilter(
                     DataType::ORDER_BY,
                     $this->getSortFilterDescription(),
-                    function () use ($entityClass) {
-                        return $this->getDefaultValue($entityClass);
+                    function () use ($config) {
+                        return $this->getDefaultValue($config);
                     },
                     function ($value) {
                         return $this->convertDefaultValueToString($value);
@@ -81,24 +81,33 @@ abstract class SetDefaultSorting implements ProcessorInterface
     /**
      * @return string
      */
-    abstract protected function getSortFilterKey();
-
-    /**
-     * @return string
-     */
-    protected function getSortFilterDescription()
+    protected function getSortFilterDescription(): string
     {
         return 'Result sorting. Comma-separated fields, e.g. \'field1,-field2\'.';
     }
 
     /**
-     * @param string $entityClass
+     * @param EntityDefinitionConfig $config
      *
-     * @return string
+     * @return array [field name => direction, ...]
      */
-    protected function getDefaultValue($entityClass)
+    protected function getDefaultValue(EntityDefinitionConfig $config): array
     {
-        return $this->doctrineHelper->getOrderByIdentifier($entityClass);
+        $orderBy = $config->getOrderBy();
+        if (empty($orderBy)) {
+            $idFieldNames = $config->getIdentifierFieldNames();
+            if (!empty($idFieldNames)) {
+                foreach ($idFieldNames as $fieldName) {
+                    $field = $config->getField($fieldName);
+                    if (null !== $field) {
+                        $fieldName = $field->getPropertyPath($fieldName);
+                    }
+                    $orderBy[$fieldName] = Criteria::ASC;
+                }
+            }
+        }
+
+        return $orderBy;
     }
 
     /**
@@ -106,7 +115,7 @@ abstract class SetDefaultSorting implements ProcessorInterface
      *
      * @return string
      */
-    protected function convertDefaultValueToString($value)
+    protected function convertDefaultValueToString(?array $value): string
     {
         $result = [];
         if (null !== $value) {
@@ -115,6 +124,6 @@ abstract class SetDefaultSorting implements ProcessorInterface
             }
         }
 
-        return implode(',', $result);
+        return \implode(',', $result);
     }
 }

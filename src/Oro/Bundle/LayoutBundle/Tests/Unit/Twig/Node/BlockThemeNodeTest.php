@@ -4,7 +4,7 @@ namespace Oro\Bundle\LayoutBundle\Tests\Unit\Twig\Node;
 
 use Oro\Bundle\LayoutBundle\Twig\Node\BlockThemeNode;
 
-class BlockThemeNodeTest extends \PHPUnit_Framework_TestCase
+class BlockThemeNodeTest extends \PHPUnit\Framework\TestCase
 {
     const SET_THEME_CALL = '$this->env->getExtension(\'layout\')->renderer->setTheme';
 
@@ -36,10 +36,12 @@ class BlockThemeNodeTest extends \PHPUnit_Framework_TestCase
 
     protected function getVariableGetter($name)
     {
-        if (PHP_VERSION_ID >= 50400) {
+        if (PHP_VERSION_ID >= 70000) {
+            return sprintf('($context["%s"] ?? null)', $name);
+        } elseif (PHP_VERSION_ID >= 50400) {
             return sprintf('(isset($context["%s"]) ? $context["%s"] : null)', $name, $name);
+        } else {
+            return sprintf('$this->getContext($context, "%s")', $name);
         }
-
-        return sprintf('$this->getContext($context, "%s")', $name);
     }
 }

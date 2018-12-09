@@ -1,13 +1,6 @@
 config:
-    shim:
-        'orodatagrid/lib/backgrid/backgrid':
-            deps:
-                - 'jquery'
-                - 'underscore'
-                - 'backbone'
-            exports: 'Backgrid'
     paths:
-        'backbone-pageable-collection': 'bundles/orodatagrid/lib/backbone-pageable.js'
+        'backbone-pageable-collection': 'bundles/bowerassets/backbone-pageable/lib/backbone-pageable.js'
         'backgrid': 'bundles/orodatagrid/js/extend/backgrid.js'
 
         'orodatagrid/js/datagrid/action-launcher': 'bundles/orodatagrid/js/datagrid/action-launcher.js'
@@ -20,14 +13,17 @@ config:
         'oro/datagrid/action/ajaxdelete-action': 'bundles/orodatagrid/js/datagrid/action/ajaxdelete-action.js'
         'oro/datagrid/action/mass-action': 'bundles/orodatagrid/js/datagrid/action/mass-action.js'
         'oro/datagrid/action/delete-mass-action': 'bundles/orodatagrid/js/datagrid/action/delete-mass-action.js'
+        'oro/datagrid/action/edit-mass-action': 'bundles/orodatagrid/js/datagrid/action/edit-mass-action.js'
         'oro/datagrid/action/dialog-action': 'bundles/orodatagrid/js/datagrid/action/dialog-action.js'
         'oro/datagrid/action/model-action': 'bundles/orodatagrid/js/datagrid/action/model-action.js'
         'oro/datagrid/action/navigate-action': 'bundles/orodatagrid/js/datagrid/action/navigate-action.js'
         'oro/datagrid/action/refresh-collection-action': 'bundles/orodatagrid/js/datagrid/action/refresh-collection-action.js'
         'oro/datagrid/action/reset-collection-action': 'bundles/orodatagrid/js/datagrid/action/reset-collection-action.js'
         'oro/datagrid/action/export-action': 'bundles/orodatagrid/js/datagrid/action/export-action.js'
+        'oro/datagrid/action/row/importexport-action': 'bundles/orodatagrid/js/datagrid/action/row/importexport-action.js'
         'oro/datagrid/action/show-component-action': 'bundles/orodatagrid/js/datagrid/action/show-component-action.js'
         'oro/datagrid/action/select-data-appearance-action': 'bundles/orodatagrid/js/datagrid/action/select-data-appearance-action.js'
+        'oro/datagrid/action/trigger-event-action': 'bundles/orodatagrid/js/datagrid/action/trigger-event-action.js'
         'orodatagrid/js/datagrid/actions-panel': 'bundles/orodatagrid/js/datagrid/actions-panel.js'
         'orodatagrid/js/datagrid/column/action-column': 'bundles/orodatagrid/js/datagrid/column/action-column.js'
         'orodatagrid/js/datagrid/body': 'bundles/orodatagrid/js/datagrid/body.js'
@@ -48,9 +44,11 @@ config:
         'orodatagrid/js/datagrid/formatter/cell-formatter': 'bundles/orodatagrid/js/datagrid/formatter/cell-formatter.js'
         'orodatagrid/js/datagrid/formatter/datetime-formatter': 'bundles/orodatagrid/js/datagrid/formatter/datetime-formatter.js'
         'orodatagrid/js/datagrid/formatter/number-formatter': 'bundles/orodatagrid/js/datagrid/formatter/number-formatter.js'
+        'orodatagrid/js/datagrid/formatter/currency-formatter': 'bundles/orodatagrid/js/datagrid/formatter/currency-formatter.js'
         'orodatagrid/js/datagrid/editor/select-cell-radio-editor': 'bundles/orodatagrid/js/datagrid/editor/select-cell-radio-editor.js'
         'orodatagrid/js/datagrid/grid': 'bundles/orodatagrid/js/datagrid/grid.js'
         'orodatagrid/js/datagrid/header-cell/header-cell': 'bundles/orodatagrid/js/datagrid/header-cell/header-cell.js'
+        'orodatagrid/js/datagrid/header-cell/action-header-cell': 'bundles/orodatagrid/js/datagrid/header-cell/action-header-cell.js'
         'orodatagrid/js/datagrid/header-cell/select-all-header-cell': 'bundles/orodatagrid/js/datagrid/header-cell/select-all-header-cell.js'
         'orodatagrid/js/datagrid/header': 'bundles/orodatagrid/js/datagrid/header.js'
 
@@ -64,6 +62,7 @@ config:
         'orodatagrid/js/datagrid/listener/abstract-listener': 'bundles/orodatagrid/js/datagrid/listener/abstract-listener.js'
         'orodatagrid/js/datagrid/listener/abstract-grid-change-listener': 'bundles/orodatagrid/js/datagrid/listener/abstract-grid-change-listener.js'
         'orodatagrid/js/datagrid/listener/column-form-listener': 'bundles/orodatagrid/js/datagrid/listener/column-form-listener.js'
+        'orodatagrid/js/datagrid/listener/action-form-listener': 'bundles/orodatagrid/js/datagrid/listener/action-form-listener.js'
         'orodatagrid/js/datagrid/listener/callback-listener': 'bundles/orodatagrid/js/datagrid/listener/callback-listener.js'
         'orodatagrid/js/datagrid/listener/change-editable-cell-listener': 'bundles/orodatagrid/js/datagrid/listener/change-editable-cell-listener.js'
         'orodatagrid/js/datagrid/sorting/dropdown': 'bundles/orodatagrid/js/datagrid/sorting/dropdown.js'
@@ -79,8 +78,9 @@ config:
         'orodatagrid/js/pageable-collection': 'bundles/orodatagrid/js/pageable-collection.js'
 
         'orodatagrid/js/app/components/datagrid-component': 'bundles/orodatagrid/js/app/components/datagrid-component.js'
+        'orodatagrid/js/app/components/datagrid-allow-tracking-component': 'bundles/orodatagrid/js/app/components/datagrid-allow-tracking-component.js'
         'orodatagrid/js/app/components/column-renderer-component': 'bundles/orodatagrid/js/app/components/column-renderer-component.js'
-
+        'orodatagrid/js/app/components/grid-sidebar-component': 'bundles/orodatagrid/js/app/components/grid-sidebar-component.js'
         'orodatagrid/js/inline-editing/builder': 'bundles/orodatagrid/js/inline-editing/builder.js'
         'orodatagrid/js/app/plugins/grid/inline-editing-plugin': 'bundles/orodatagrid/js/app/plugins/grid/inline-editing-plugin.js'
         'orodatagrid/js/inline-editing/default-editors': 'bundles/orodatagrid/js/inline-editing/default-editors.js'
@@ -93,9 +93,14 @@ config:
         'orodatagrid/js/app/transitions/update-main-property-transition': 'bundles/orodatagrid/js/app/transitions/update-main-property-transition.js'
         'orodatagrid/js/app/views/board/card-view': 'bundles/orodatagrid/js/app/views/board/card-view.js'
         'orodatagrid/js/app/transitions/abstract-transition': 'bundles/orodatagrid/js/app/transitions/abstract-transition.js'
+        'orodatagrid/js/app/components/multi-grid-component': 'bundles/orodatagrid/js/app/components/multi-grid-component.js'
+        'orodatagrid/js/app/views/multi-grid-view': 'bundles/orodatagrid/js/app/views/multi-grid-view.js'
+        'orodatagrid/js/row-select-for-widget/builder': 'bundles/orodatagrid/js/row-select-for-widget/builder.js'
 
-build:
-    paths:
-#       Backbone after v.1.1.1 started to support AMD. And that broke a js-build with
-#       files which does not support AMD. Backgrid is one of them, therefore it's excluded
-        'orodatagrid/lib/backgrid/backgrid': 'empty:'
+        'orodatagrid/js/app/models/datagrid-settings-list/datagrid-settings-list-filter-model':  'bundles/orodatagrid/js/app/models/datagrid-settings-list/datagrid-settings-list-filter-model.js'
+        'orodatagrid/js/app/models/datagrid-settings-list/datagrid-settings-list-collection':  'bundles/orodatagrid/js/app/models/datagrid-settings-list/datagrid-settings-list-collection'
+
+        'orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-collection-view': 'bundles/orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-collection-view.js'
+        'orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-filter-view': 'bundles/orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-filter-view.js'
+        'orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-item-view': 'bundles/orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-item-view.js'
+        'orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-view': 'bundles/orodatagrid/js/app/views/datagrid-settings-list/datagrid-settings-list-view.js'

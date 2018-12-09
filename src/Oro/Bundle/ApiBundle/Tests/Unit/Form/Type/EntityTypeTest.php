@@ -1,27 +1,35 @@
 <?php
 
-namespace Oro\Bundle\ApiBundle\Tests\Unit\Form;
+namespace Oro\Bundle\ApiBundle\Tests\Unit\Form\Type;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Symfony\Component\Form\FormFactoryInterface;
-use Symfony\Component\Form\Forms;
-
+use Oro\Bundle\ApiBundle\Collection\IncludedEntityCollection;
+use Oro\Bundle\ApiBundle\Collection\IncludedEntityData;
 use Oro\Bundle\ApiBundle\Form\Type\EntityType;
 use Oro\Bundle\ApiBundle\Metadata\AssociationMetadata;
 use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group;
 use Oro\Bundle\ApiBundle\Tests\Unit\OrmRelatedTestCase;
+use Oro\Bundle\ApiBundle\Util\EntityLoader;
+use Oro\Component\Testing\Unit\PreloadedExtension;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\Forms;
 
 class EntityTypeTest extends OrmRelatedTestCase
 {
     /** @var FormFactoryInterface */
-    protected $factory;
+    private $factory;
 
     protected function setUp()
     {
         parent::setUp();
-
-        $this->factory = Forms::createFormFactoryBuilder()->getFormFactory();
+        $this->factory = Forms::createFormFactoryBuilder()
+            ->addExtensions([
+                new PreloadedExtension(
+                    [new EntityType($this->doctrineHelper, new EntityLoader($this->doctrine))],
+                    []
+                )
+            ])
+            ->getFormFactory();
     }
 
     /**
@@ -31,18 +39,16 @@ class EntityTypeTest extends OrmRelatedTestCase
     {
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(false);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit($value);
-        $this->assertTrue($form->isSynchronized());
-        $this->assertEquals($expected, $form->getData());
+        self::assertTrue($form->isSynchronized());
+        self::assertEquals($expected, $form->getData());
     }
 
     public function validSingleEmptyValuesDataProvider()
@@ -50,7 +56,7 @@ class EntityTypeTest extends OrmRelatedTestCase
         return [
             [null, null],
             ['', null],
-            [[], null],
+            [[], null]
         ];
     }
 
@@ -61,18 +67,16 @@ class EntityTypeTest extends OrmRelatedTestCase
     {
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(true);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit($value);
-        $this->assertTrue($form->isSynchronized());
-        $this->assertEquals($expected, $form->getData());
+        self::assertTrue($form->isSynchronized());
+        self::assertEquals($expected, $form->getData());
     }
 
     public function validMultipleEmptyValuesDataProvider()
@@ -80,18 +84,20 @@ class EntityTypeTest extends OrmRelatedTestCase
         return [
             [null, new ArrayCollection()],
             ['', new ArrayCollection()],
-            [[], new ArrayCollection()],
+            [[], new ArrayCollection()]
         ];
     }
 
     public function testSingleWithValidValue()
     {
-        $value = ['class' => 'Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group', 'id' => 123];
+        $value = ['class' => Group::class, 'id' => 123];
         $entity = new Group();
         $entity->setId($value['id']);
         $entity->setName('test');
 
-        $stmt = $this->createFetchStatementMock(
+        $this->setQueryExpectation(
+            $this->getDriverConnectionMock($this->em),
+            'SELECT t0.id AS id_1, t0.name AS name_2 FROM group_table t0 WHERE t0.id = ?',
             [
                 [
                     'id_1'   => $entity->getId(),
@@ -101,34 +107,30 @@ class EntityTypeTest extends OrmRelatedTestCase
             [1 => $value['id']],
             [1 => \PDO::PARAM_INT]
         );
-        $this->getDriverConnectionMock($this->em)->expects($this->any())
-            ->method('prepare')
-            ->with('SELECT t0.id AS id_1, t0.name AS name_2 FROM group_table t0 WHERE t0.id = ?')
-            ->willReturn($stmt);
 
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(false);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit($value);
-        $this->assertTrue($form->isSynchronized());
+        self::assertTrue($form->isSynchronized());
     }
 
     public function testMultipleWithValidValue()
     {
-        $value = ['class' => 'Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group', 'id' => 123];
+        $value = ['class' => Group::class, 'id' => 123];
         $entity = new Group();
         $entity->setId($value['id']);
         $entity->setName('test');
 
-        $stmt = $this->createFetchStatementMock(
+        $this->setQueryExpectation(
+            $this->getDriverConnectionMock($this->em),
+            'SELECT t0.id AS id_1, t0.name AS name_2 FROM group_table t0 WHERE t0.id = ?',
             [
                 [
                     'id_1'   => $entity->getId(),
@@ -138,58 +140,48 @@ class EntityTypeTest extends OrmRelatedTestCase
             [1 => $value['id']],
             [1 => \PDO::PARAM_INT]
         );
-        $this->getDriverConnectionMock($this->em)->expects($this->any())
-            ->method('prepare')
-            ->with('SELECT t0.id AS id_1, t0.name AS name_2 FROM group_table t0 WHERE t0.id = ?')
-            ->willReturn($stmt);
 
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(true);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit([$value]);
-        $this->assertTrue($form->isSynchronized());
+        self::assertTrue($form->isSynchronized());
     }
 
     public function testSingleWithInvalidValue()
     {
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(false);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit('test');
-        $this->assertFalse($form->isSynchronized());
+        self::assertFalse($form->isSynchronized());
     }
 
     public function testMultipleWithInvalidValue()
     {
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(true);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit('test');
-        $this->assertFalse($form->isSynchronized());
+        self::assertFalse($form->isSynchronized());
     }
 
     public function testSingleWithNotAcceptableValue()
@@ -198,17 +190,15 @@ class EntityTypeTest extends OrmRelatedTestCase
 
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(false);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit($value);
-        $this->assertFalse($form->isSynchronized());
+        self::assertFalse($form->isSynchronized());
     }
 
     public function testMultipleWithNotAcceptableValue()
@@ -217,22 +207,60 @@ class EntityTypeTest extends OrmRelatedTestCase
 
         $associationMetadata = new AssociationMetadata();
         $associationMetadata->setIsCollection(true);
-        $associationMetadata->setAcceptableTargetClassNames(
-            ['Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group']
-        );
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
 
         $form = $this->factory->create(
-            new EntityType($this->doctrine),
+            EntityType::class,
             null,
             ['metadata' => $associationMetadata]
         );
         $form->submit([$value]);
-        $this->assertFalse($form->isSynchronized());
+        self::assertFalse($form->isSynchronized());
     }
 
-    public function testGetName()
+    public function testSingleWithValidValueFromIncludedEntities()
     {
-        $type = new EntityType($this->doctrine);
-        $this->assertEquals('oro_api_entity', $type->getName());
+        $value = ['class' => Group::class, 'id' => 123];
+        $entity = new Group();
+        $entity->setId($value['id']);
+        $entity->setName('test');
+
+        $associationMetadata = new AssociationMetadata();
+        $associationMetadata->setIsCollection(false);
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
+
+        $includedEntities = new IncludedEntityCollection();
+        $includedEntities->add($entity, $value['class'], $value['id'], new IncludedEntityData('/included/0', 0));
+
+        $form = $this->factory->create(
+            EntityType::class,
+            null,
+            ['metadata' => $associationMetadata, 'included_entities' => $includedEntities]
+        );
+        $form->submit($value);
+        self::assertTrue($form->isSynchronized());
+    }
+
+    public function testMultipleWithValidValueFromIncludedEntities()
+    {
+        $value = ['class' => Group::class, 'id' => 123];
+        $entity = new Group();
+        $entity->setId($value['id']);
+        $entity->setName('test');
+
+        $associationMetadata = new AssociationMetadata();
+        $associationMetadata->setIsCollection(true);
+        $associationMetadata->setAcceptableTargetClassNames([Group::class]);
+
+        $includedEntities = new IncludedEntityCollection();
+        $includedEntities->add($entity, $value['class'], $value['id'], new IncludedEntityData('/included/0', 0));
+
+        $form = $this->factory->create(
+            EntityType::class,
+            null,
+            ['metadata' => $associationMetadata, 'included_entities' => $includedEntities]
+        );
+        $form->submit([$value]);
+        self::assertTrue($form->isSynchronized());
     }
 }

@@ -5,7 +5,7 @@ namespace Oro\Component\EntitySerializer\Tests\Unit;
 use Oro\Component\EntitySerializer\ConfigConverter;
 use Oro\Component\EntitySerializer\ConfigNormalizer;
 
-class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
+class ConfigNormalizerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider normalizeConfigProvider
@@ -40,134 +40,69 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
     public function normalizeConfigProvider()
     {
         return [
-            // @deprecated since 1.9. Use 'exclude' attribute for a field instead of 'excluded_fields' for an entity
-            'excluded_fields'                                                => [
+            'order_by'                                                => [
                 'config'         => [
                     'fields' => [
                         'phones' => [
-                            'excluded_fields' => ['name', 'code'],
-                            'fields'          => [
-                                'id'   => null,
-                                'name' => null
-                            ]
+                            'order_by' => ['primary' => 'DESC']
                         ]
                     ]
                 ],
                 'expectedConfig' => [
                     'fields' => [
                         'phones' => [
-                            'fields' => [
-                                'id'   => null,
-                                'name' => ['exclude' => true],
-                                'code' => ['exclude' => true]
-                            ]
+                            'order_by' => ['primary' => 'DESC']
                         ]
                     ]
                 ],
                 'configObject'   => [
                     'fields' => [
                         'phones' => [
+                            'order_by' => ['primary' => 'DESC']
+                        ]
+                    ]
+                ],
+            ],
+            'excluded_fields'                                         => [
+                'config'         => [
+                    'fields' => [
+                        'id'     => ['exclude' => true],
+                        'phones' => [
                             'fields' => [
+                                'id'   => null,
+                                'name' => ['exclude' => true]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    '_excluded_fields' => ['id'],
+                    'fields'           => [
+                        'id'     => ['exclude' => true],
+                        'phones' => [
+                            '_excluded_fields' => ['name'],
+                            'fields'           => [
+                                'id'   => null,
+                                'name' => ['exclude' => true]
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    '_excluded_fields' => ['id'],
+                    'fields'           => [
+                        'id'     => ['exclude' => true],
+                        'phones' => [
+                            '_excluded_fields' => ['name'],
+                            'fields'           => [
                                 'id'   => [],
-                                'name' => ['exclude' => true],
-                                'code' => ['exclude' => true]
+                                'name' => ['exclude' => true]
                             ]
                         ]
                     ]
                 ],
             ],
-            // @deprecated since 1.9. Use 'order_by' attribute instead of 'orderBy'
-            'order_by'                                                       => [
-                'config'         => [
-                    'fields' => [
-                        'phones' => [
-                            'orderBy' => ['primary' => 'DESC']
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'phones' => [
-                            'order_by' => ['primary' => 'DESC']
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'phones' => [
-                            'order_by' => ['primary' => 'DESC']
-                        ]
-                    ]
-                ],
-            ],
-            // @deprecated since 1.9. Use `property_path` attribute instead of 'result_name'
-            'result_name'                                                    => [
-                'config'         => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'primary' => ['result_name' => 'isPrimary']
-                            ]
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => null
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => []
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            // @deprecated since 1.9. Use `property_path` attribute instead of 'result_name'
-            'result_name_with_data_transformer'                              => [
-                'config'         => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'primary' => [
-                                    'result_name'      => 'isPrimary',
-                                    'data_transformer' => 'primary_field_transformer'
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => ['data_transformer' => 'primary_field_transformer']
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => ['data_transformer' => ['primary_field_transformer']]
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'collapsed_related_entity'                                       => [
+            'collapsed_related_entity_single_field_config'            => [
                 'config'         => [
                     'fields' => [
                         'id'      => null,
@@ -181,8 +116,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'id'      => null,
                         'contact' => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id' => null
                             ]
@@ -194,8 +129,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'id'      => [],
                         'contact' => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id' => []
                             ]
@@ -203,48 +138,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'collapsed_related_entity_full_definition'                       => [
-                'config'         => [
-                    'fields' => [
-                        'id'      => null,
-                        'contact' => [
-                            'exclusion_policy' => 'all',
-                            'property_path'    => 'id',
-                            'collapse'         => true,
-                            'fields'           => [
-                                'id' => null
-                            ]
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'id'      => null,
-                        'contact' => [
-                            'exclusion_policy' => 'all',
-                            'property_path'    => 'id',
-                            'collapse'         => true,
-                            'fields'           => [
-                                'id' => null
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'id'      => [],
-                        'contact' => [
-                            'exclusion_policy' => 'all',
-                            'property_path'    => 'id',
-                            'collapse'         => true,
-                            'fields'           => [
-                                'id' => []
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'collapsed_related_entity_full_definition_without_property_path' => [
+            'collapsed_related_entity'                                => [
                 'config'         => [
                     'fields' => [
                         'id'      => null,
@@ -262,8 +156,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'id'      => null,
                         'contact' => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id' => null
                             ]
@@ -275,8 +169,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'id'      => [],
                         'contact' => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id' => []
                             ]
@@ -284,9 +178,142 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'single_property_path'                                           => [
+            'collapsed_related_entity_with_excluded_fields'           => [
                 'config'         => [
                     'fields' => [
+                        'id'      => null,
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            'fields'           => [
+                                'id'   => null,
+                                'name' => ['exclude' => true]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'fields' => [
+                        'id'      => null,
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'id',
+                            '_excluded_fields' => ['name'],
+                            'fields'           => [
+                                'id'   => null,
+                                'name' => ['exclude' => true]
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    'fields' => [
+                        'id'      => [],
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'id',
+                            '_excluded_fields' => ['name'],
+                            'fields'           => [
+                                'id'   => [],
+                                'name' => ['exclude' => true]
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'collapsed_related_entity_with_property_path'             => [
+                'config'         => [
+                    'fields' => [
+                        'id'         => null,
+                        'newContact' => [
+                            'exclusion_policy' => 'all',
+                            'property_path'    => 'contact',
+                            'collapse'         => true,
+                            'fields'           => [
+                                'id' => null
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    '_renamed_fields' => ['contact' => 'newContact'],
+                    'fields'          => [
+                        'id'         => null,
+                        'newContact' => [
+                            'exclusion_policy' => 'all',
+                            'property_path'    => 'contact',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'id',
+                            'fields'           => [
+                                'id' => null
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    '_renamed_fields' => ['contact' => 'newContact'],
+                    'fields'          => [
+                        'id'         => [],
+                        'newContact' => [
+                            'exclusion_policy' => 'all',
+                            'property_path'    => 'contact',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'id',
+                            'fields'           => [
+                                'id' => []
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'collapsed_related_entity_with_renamed_id'                => [
+                'config'         => [
+                    'fields' => [
+                        'id'      => null,
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            'fields'           => [
+                                'name' => ['property_path' => 'id']
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'fields' => [
+                        'id'      => null,
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'name',
+                            '_renamed_fields'  => ['id' => 'name'],
+                            'fields'           => [
+                                'name' => ['property_path' => 'id']
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    'fields' => [
+                        'id'      => [],
+                        'contact' => [
+                            'exclusion_policy' => 'all',
+                            'collapse'         => true,
+                            '_collapse_field'  => 'name',
+                            '_renamed_fields'  => ['id' => 'name'],
+                            'fields'           => [
+                                'name' => ['property_path' => 'id']
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'field_property_path'                                     => [
+                'config'         => [
+                    'fields' => [
+                        'name'   => ['property_path' => 'label'],
                         'phones' => [
                             'fields' => [
                                 'isPrimary' => ['property_path' => 'primary']
@@ -295,29 +322,37 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 'expectedConfig' => [
-                    'fields' => [
+                    '_renamed_fields' => ['label' => 'name'],
+                    'fields'          => [
+                        'name'   => ['property_path' => 'label'],
                         'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => null
+                            '_renamed_fields' => ['primary' => 'isPrimary'],
+                            'fields'          => [
+                                'isPrimary' => ['property_path' => 'primary']
                             ]
                         ]
                     ]
                 ],
                 'configObject'   => [
-                    'fields' => [
+                    '_renamed_fields' => ['label' => 'name'],
+                    'fields'          => [
+                        'name'   => ['property_path' => 'label'],
                         'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => []
+                            '_renamed_fields' => ['primary' => 'isPrimary'],
+                            'fields'          => [
+                                'isPrimary' => ['property_path' => 'primary']
                             ]
                         ]
                     ]
                 ],
             ],
-            'property_path_with_data_transformer'                            => [
+            'field_property_path_with_data_transformer'               => [
                 'config'         => [
                     'fields' => [
+                        'name'   => [
+                            'property_path'    => 'label',
+                            'data_transformer' => 'name_field_transformer'
+                        ],
                         'phones' => [
                             'fields' => [
                                 'isPrimary' => [
@@ -329,80 +364,62 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 'expectedConfig' => [
-                    'fields' => [
+                    '_renamed_fields' => ['label' => 'name'],
+                    'fields'          => [
+                        'name'   => [
+                            'property_path'    => 'label',
+                            'data_transformer' => 'name_field_transformer'
+                        ],
                         'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => ['data_transformer' => 'primary_field_transformer']
+                            '_renamed_fields' => ['primary' => 'isPrimary'],
+                            'fields'          => [
+                                'isPrimary' => [
+                                    'property_path'    => 'primary',
+                                    'data_transformer' => 'primary_field_transformer'
+                                ],
                             ]
                         ]
                     ]
                 ],
                 'configObject'   => [
-                    'fields' => [
+                    '_renamed_fields' => ['label' => 'name'],
+                    'fields'          => [
+                        'name'   => [
+                            'property_path'    => 'label',
+                            'data_transformer' => ['name_field_transformer']
+                        ],
                         'phones' => [
-                            'fields' => [
-                                'isPrimary' => ['property_path' => 'primary'],
-                                'primary'   => ['data_transformer' => ['primary_field_transformer']]
+                            '_renamed_fields' => ['primary' => 'isPrimary'],
+                            'fields'          => [
+                                'isPrimary' => [
+                                    'property_path'    => 'primary',
+                                    'data_transformer' => ['primary_field_transformer']
+                                ],
                             ]
                         ]
                     ]
                 ],
             ],
-            'deep_property_path_with_data_transformer'                       => [
-                'config'         => [
-                    'fields' => [
-                        'phone_number' => [
-                            'property_path'    => 'phone.number',
-                            'data_transformer' => 'phone_number_field_transformer'
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'phone_number' => [
-                            'property_path' => 'phone.number'
-                        ],
-                        'phone'        => [
-                            'fields' => [
-                                'number' => ['data_transformer' => 'phone_number_field_transformer']
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'phone_number' => [
-                            'property_path' => 'phone.number'
-                        ],
-                        'phone'        => [
-                            'fields' => [
-                                'number' => ['data_transformer' => ['phone_number_field_transformer']]
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'metadata_property_path'                                         => [
+            'metadata_property_path'                                  => [
                 'config'         => [
                     'fields' => [
                         'entity' => ['property_path' => '__class__']
                     ]
                 ],
                 'expectedConfig' => [
-                    'fields' => [
-                        'entity'    => ['property_path' => '__class__'],
-                        '__class__' => null
+                    '_renamed_fields' => ['__class__' => 'entity'],
+                    'fields'          => [
+                        'entity' => ['property_path' => '__class__']
                     ]
                 ],
                 'configObject'   => [
-                    'fields' => [
-                        'entity'    => ['property_path' => '__class__'],
-                        '__class__' => []
+                    '_renamed_fields' => ['__class__' => 'entity'],
+                    'fields'          => [
+                        'entity' => ['property_path' => '__class__']
                     ]
                 ],
             ],
-            'property_path'                                                  => [
+            'dependency_on_not_configured_relation_field'             => [
                 'config'         => [
                     'fields' => [
                         'contactName' => ['property_path' => 'contact.name'],
@@ -436,7 +453,42 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'property_path_with_all_fields_of_child'                         => [
+            'dependency_on_configured_relation_field'                 => [
+                'config'         => [
+                    'fields' => [
+                        'contactName' => ['property_path' => 'contact.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'   => null,
+                                'name' => null
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'fields' => [
+                        'contactName' => ['property_path' => 'contact.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'   => null,
+                                'name' => null
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    'fields' => [
+                        'contactName' => ['property_path' => 'contact.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'   => [],
+                                'name' => []
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'dependency_on_not_configured_relation'                   => [
                 'config'         => [
                     'fields' => [
                         'contactName' => ['property_path' => 'contact.name']
@@ -463,7 +515,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'property_path_with_id_only_child'                               => [
+            'dependency_on_relation_with_single_field_config'         => [
                 'config'         => [
                     'fields' => [
                         'contactName' => ['property_path' => 'contact.name'],
@@ -477,8 +529,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'contactName' => ['property_path' => 'contact.name'],
                         'contact'     => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id'   => null,
                                 'name' => null
@@ -491,8 +543,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'contactName' => ['property_path' => 'contact.name'],
                         'contact'     => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id'   => [],
                                 'name' => []
@@ -501,113 +553,36 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'property_path_with_exclusion'                                   => [
+            'dependency_on_excluded_relation'                         => [
                 'config'         => [
                     'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
-                        'contact'     => ['exclusion_policy' => 'all']
+                        'phoneNumber' => ['property_path' => 'address.phone'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'address'     => ['exclude' => true],
+                        'contact'     => [
+                            'fields' => [
+                                'account' => ['exclude' => true]
+                            ]
+                        ]
                     ]
                 ],
                 'expectedConfig' => [
-                    'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
-                        'contact'     => [
+                    '_excluded_fields' => ['address'],
+                    'fields'           => [
+                        'phoneNumber' => ['property_path' => 'address.phone'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'address'     => [
                             'exclusion_policy' => 'all',
                             'fields'           => [
-                                'name' => null
+                                'phone' => null
                             ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
+                        ],
                         'contact'     => [
-                            'exclusion_policy' => 'all',
+                            '_excluded_fields' => ['account'],
                             'fields'           => [
-                                'name' => []
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'deep_property_path'                                             => [
-                'config'         => [
-                    'fields' => [
-                        'newField'    => ['property_path' => 'field'],
-                        'accountName' => ['property_path' => 'contact.account.name'],
-                        'contact'     => [
-                            'fields' => [
-                                'id'       => null,
-                                'newField' => ['property_path' => 'field'],
-                                'account'  => [
-                                    'fields' => [
-                                        'id'       => null,
-                                        'newField' => ['property_path' => 'field'],
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'newField'    => ['property_path' => 'field'],
-                        'field'       => null,
-                        'accountName' => ['property_path' => 'contact.account.name'],
-                        'contact'     => [
-                            'fields' => [
-                                'id'       => null,
-                                'newField' => ['property_path' => 'field'],
-                                'field'    => null,
-                                'account'  => [
-                                    'fields' => [
-                                        'id'       => null,
-                                        'newField' => ['property_path' => 'field'],
-                                        'field'    => null,
-                                        'name'     => null
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'newField'    => ['property_path' => 'field'],
-                        'field'       => [],
-                        'accountName' => ['property_path' => 'contact.account.name'],
-                        'contact'     => [
-                            'fields' => [
-                                'id'       => [],
-                                'newField' => ['property_path' => 'field'],
-                                'field'    => [],
-                                'account'  => [
-                                    'fields' => [
-                                        'id'       => [],
-                                        'newField' => ['property_path' => 'field'],
-                                        'field'    => [],
-                                        'name'     => []
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'deep_property_path_with_all_fields_of_child'                    => [
-                'config'         => [
-                    'fields' => [
-                        'accountName' => ['property_path' => 'contact.account.name'],
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'accountName' => ['property_path' => 'contact.account.name'],
-                        'contact'     => [
-                            'fields' => [
                                 'account' => [
-                                    'fields' => [
+                                    'exclusion_policy' => 'all',
+                                    'fields'           => [
                                         'name' => null
                                     ]
                                 ]
@@ -616,12 +591,22 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 'configObject'   => [
-                    'fields' => [
+                    '_excluded_fields' => ['address'],
+                    'fields'           => [
+                        'phoneNumber' => ['property_path' => 'address.phone'],
                         'accountName' => ['property_path' => 'contact.account.name'],
+                        'address'     => [
+                            'exclusion_policy' => 'all',
+                            'fields'           => [
+                                'phone' => []
+                            ]
+                        ],
                         'contact'     => [
-                            'fields' => [
+                            '_excluded_fields' => ['account'],
+                            'fields'           => [
                                 'account' => [
-                                    'fields' => [
+                                    'exclusion_policy' => 'all',
+                                    'fields'           => [
                                         'name' => []
                                     ]
                                 ]
@@ -630,7 +615,204 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
             ],
-            'deep_property_path_with_id_only_child'                          => [
+            'dependency_on_excluded_relation (links after relations)' => [
+                'config'         => [
+                    'fields' => [
+                        'address'     => ['exclude' => true],
+                        'contact'     => [
+                            'fields' => [
+                                'account' => ['exclude' => true]
+                            ]
+                        ],
+                        'phoneNumber' => ['property_path' => 'address.phone'],
+                        'accountName' => ['property_path' => 'contact.account.name']
+                    ]
+                ],
+                'expectedConfig' => [
+                    '_excluded_fields' => ['address'],
+                    'fields'           => [
+                        'phoneNumber' => ['property_path' => 'address.phone'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'address'     => [
+                            'exclusion_policy' => 'all',
+                            'fields'           => [
+                                'phone' => null
+                            ]
+                        ],
+                        'contact'     => [
+                            '_excluded_fields' => ['account'],
+                            'fields'           => [
+                                'account' => [
+                                    'exclusion_policy' => 'all',
+                                    'fields'           => [
+                                        'name' => null
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    '_excluded_fields' => ['address'],
+                    'fields'           => [
+                        'phoneNumber' => ['property_path' => 'address.phone'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'address'     => [
+                            'exclusion_policy' => 'all',
+                            'fields'           => [
+                                'phone' => []
+                            ]
+                        ],
+                        'contact'     => [
+                            '_excluded_fields' => ['account'],
+                            'fields'           => [
+                                'account' => [
+                                    'exclusion_policy' => 'all',
+                                    'fields'           => [
+                                        'name' => []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'dependency_on_fields'                                    => [
+                'config'         => [
+                    'fields' => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'          => null,
+                                'field'       => null,
+                                'accountName' => ['property_path' => 'account.name'],
+                                'account'     => [
+                                    'fields' => [
+                                        'id'    => null,
+                                        'name'  => null,
+                                        'field' => null
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    '_renamed_fields' => ['field' => 'newField'],
+                    'fields'          => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'          => null,
+                                'field'       => null,
+                                'accountName' => ['property_path' => 'account.name'],
+                                'account'     => [
+                                    'fields' => [
+                                        'id'    => null,
+                                        'name'  => null,
+                                        'field' => null
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    '_renamed_fields' => ['field' => 'newField'],
+                    'fields'          => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'contact'     => [
+                            'fields' => [
+                                'id'          => [],
+                                'field'       => [],
+                                'accountName' => ['property_path' => 'account.name'],
+                                'account'     => [
+                                    'fields' => [
+                                        'id'    => [],
+                                        'name'  => [],
+                                        'field' => []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'dependency_on_renamed_fields'                            => [
+                'config'         => [
+                    'fields' => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'newContact'  => [
+                            'property_path' => 'contact',
+                            'fields'        => [
+                                'id'         => null,
+                                'newField'   => ['property_path' => 'field'],
+                                'newAccount' => [
+                                    'property_path' => 'account',
+                                    'fields'        => [
+                                        'id'       => null,
+                                        'newName'  => ['property_path' => 'name'],
+                                        'newField' => ['property_path' => 'field']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    '_renamed_fields' => ['field' => 'newField', 'contact' => 'newContact'],
+                    'fields'          => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'newContact'  => [
+                            'property_path'   => 'contact',
+                            '_renamed_fields' => ['field' => 'newField', 'account' => 'newAccount'],
+                            'fields'          => [
+                                'id'         => null,
+                                'newField'   => ['property_path' => 'field'],
+                                'newAccount' => [
+                                    'property_path'   => 'account',
+                                    '_renamed_fields' => ['name' => 'newName', 'field' => 'newField'],
+                                    'fields'          => [
+                                        'id'       => null,
+                                        'newName'  => ['property_path' => 'name'],
+                                        'newField' => ['property_path' => 'field']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'configObject'   => [
+                    '_renamed_fields' => ['field' => 'newField', 'contact' => 'newContact'],
+                    'fields'          => [
+                        'newField'    => ['property_path' => 'field'],
+                        'accountName' => ['property_path' => 'contact.account.name'],
+                        'newContact'  => [
+                            'property_path'   => 'contact',
+                            '_renamed_fields' => ['field' => 'newField', 'account' => 'newAccount'],
+                            'fields'          => [
+                                'id'         => [],
+                                'newField'   => ['property_path' => 'field'],
+                                'newAccount' => [
+                                    'property_path'   => 'account',
+                                    '_renamed_fields' => ['name' => 'newName', 'field' => 'newField'],
+                                    'fields'          => [
+                                        'id'       => [],
+                                        'newName'  => ['property_path' => 'name'],
+                                        'newField' => ['property_path' => 'field']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+            ],
+            'dependency_on_field_of_collapsed_relation'               => [
                 'config'         => [
                     'fields' => [
                         'accountName' => ['property_path' => 'contact.account.name'],
@@ -644,8 +826,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'accountName' => ['property_path' => 'contact.account.name'],
                         'contact'     => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id'      => null,
                                 'account' => [
@@ -662,8 +844,8 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                         'accountName' => ['property_path' => 'contact.account.name'],
                         'contact'     => [
                             'exclusion_policy' => 'all',
-                            'property_path'    => 'contact.id',
                             'collapse'         => true,
+                            '_collapse_field'  => 'id',
                             'fields'           => [
                                 'id'      => [],
                                 'account' => [
@@ -671,37 +853,6 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                                         'name' => []
                                     ]
                                 ]
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-            'dependency_on_excluded_field'                                   => [
-                'config'         => [
-                    'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
-                        'contact'     => [
-                            'exclude' => true
-                        ]
-                    ]
-                ],
-                'expectedConfig' => [
-                    'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
-                        'contact'     => [
-                            'exclude'          => false,
-                            'fields'           => [
-                                'name' => null
-                            ]
-                        ]
-                    ]
-                ],
-                'configObject'   => [
-                    'fields' => [
-                        'contactName' => ['property_path' => 'contact.name'],
-                        'contact'     => [
-                            'fields'           => [
-                                'name' => []
                             ]
                         ]
                     ]

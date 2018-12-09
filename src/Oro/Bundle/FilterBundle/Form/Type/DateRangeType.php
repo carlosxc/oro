@@ -2,15 +2,30 @@
 
 namespace Oro\Bundle\FilterBundle\Form\Type;
 
+use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Form\FormView;
 use Symfony\Component\Form\FormInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class DateRangeType extends AbstractType
 {
     const NAME = 'oro_type_date_range';
+
+    /**
+     * @var LocaleSettings
+     */
+    protected $localeSettings;
+
+    /**
+     * @param LocaleSettings $localeSettings
+     */
+    public function __construct(LocaleSettings $localeSettings)
+    {
+        $this->localeSettings = $localeSettings;
+    }
 
     /**
      * {@inheritDoc}
@@ -41,8 +56,8 @@ class DateRangeType extends AbstractType
                     'required'       => false,
                     'widget'         => 'single_text',
                     'format'         => 'yyyy-MM-dd',
-                    'model_timezone' => 'UTC',
-                    'view_timezone'  => 'UTC',
+                    'model_timezone' => $this->localeSettings->getTimeZone(),
+                    'view_timezone'  => $this->localeSettings->getTimeZone(),
                 ),
                 $options['field_options'],
                 $options['start_field_options']
@@ -57,8 +72,8 @@ class DateRangeType extends AbstractType
                     'required'       => false,
                     'widget'         => 'single_text',
                     'format'         => 'yyyy-MM-dd',
-                    'model_timezone' => 'UTC',
-                    'view_timezone'  => 'UTC',
+                    'model_timezone' => $this->localeSettings->getTimeZone(),
+                    'view_timezone'  => $this->localeSettings->getTimeZone(),
                 ),
                 $options['field_options'],
                 $options['end_field_options']
@@ -79,11 +94,11 @@ class DateRangeType extends AbstractType
     /**
      * {@inheritDoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefaults(
             array(
-                'field_type'          => 'date',
+                'field_type'          => DateType::class,
                 'field_options'       => array(),
                 'start_field_options' => array(),
                 'end_field_options'   => array(),

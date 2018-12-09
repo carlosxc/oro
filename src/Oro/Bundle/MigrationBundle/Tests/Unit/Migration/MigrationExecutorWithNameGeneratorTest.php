@@ -2,14 +2,13 @@
 
 namespace Oro\Bundle\MigrationBundle\Tests\Unit\Migration;
 
+use Oro\Bundle\MigrationBundle\Migration\MigrationExecutorWithNameGenerator;
 use Oro\Bundle\MigrationBundle\Migration\MigrationState;
 use Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\Test1Bundle\Migrations\Schema\v1_0\Test1BundleMigration10;
 use Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\Test1Bundle\Migrations\Schema\v1_1\Test1BundleMigration11;
-
-use Oro\Bundle\MigrationBundle\Migration\MigrationExecutorWithNameGenerator;
-use Oro\Bundle\MigrationBundle\Tools\DbIdentifierNameGenerator;
-use Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\WrongTableNameMigration;
 use Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\WrongColumnNameMigration;
+use Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\WrongTableNameMigration;
+use Oro\Bundle\MigrationBundle\Tools\DbIdentifierNameGenerator;
 
 class MigrationExecutorWithNameGeneratorTest extends AbstractTestMigrationExecutor
 {
@@ -25,7 +24,7 @@ class MigrationExecutorWithNameGeneratorTest extends AbstractTestMigrationExecut
 
         $this->nameGenerator = new DbIdentifierNameGenerator();
 
-        $this->executor = new MigrationExecutorWithNameGenerator($this->queryExecutor);
+        $this->executor = new MigrationExecutorWithNameGenerator($this->queryExecutor, $this->cacheManager);
         $this->executor->setLogger($this->logger);
         $this->executor->setNameGenerator($this->nameGenerator);
     }
@@ -100,8 +99,8 @@ class MigrationExecutorWithNameGeneratorTest extends AbstractTestMigrationExecut
         $migrations = [
             new MigrationState($migration)
         ];
-        $this->setExpectedException(
-            '\RuntimeException',
+        $this->expectException('\RuntimeException');
+        $this->expectExceptionMessage(
             'Failed migrations: Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\WrongTableNameMigration.'
         );
         $this->executor->executeUp($migrations);
@@ -126,8 +125,8 @@ class MigrationExecutorWithNameGeneratorTest extends AbstractTestMigrationExecut
         $migrations = [
             new MigrationState($migration)
         ];
-        $this->setExpectedException(
-            '\RuntimeException',
+        $this->expectException('\RuntimeException');
+        $this->expectExceptionMessage(
             'Failed migrations: Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\WrongColumnNameMigration.'
         );
         $this->executor->executeUp($migrations);

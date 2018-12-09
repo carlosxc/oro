@@ -2,32 +2,31 @@
 
 namespace Oro\Bundle\ActivityListBundle\Tests\Unit\EventListener;
 
-use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Bundle\EntityMergeBundle\Metadata\FieldMetadata;
-use Oro\Bundle\EntityMergeBundle\Metadata\EntityMetadata;
-use Oro\Bundle\EntityMergeBundle\Event\EntityMetadataEvent;
+use Oro\Bundle\ActivityBundle\Manager\ActivityManager;
+use Oro\Bundle\ActivityListBundle\EventListener\MergeListener;
 use Oro\Bundle\ActivityListBundle\Model\MergeModes;
 use Oro\Bundle\ActivityListBundle\Tests\Unit\Stub\EntityStub;
-use Oro\Bundle\ActivityListBundle\EventListener\MergeListener;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
-use Oro\Bundle\ActivityBundle\Manager\ActivityManager;
+use Oro\Bundle\EntityMergeBundle\Event\EntityMetadataEvent;
+use Oro\Bundle\EntityMergeBundle\Metadata\EntityMetadata;
+use Oro\Bundle\EntityMergeBundle\Metadata\FieldMetadata;
+use Symfony\Component\Translation\TranslatorInterface;
 
-class MergeListenerTest extends \PHPUnit_Framework_TestCase
+class MergeListenerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var MergeListener */
     protected $listener;
 
-    /** @var EntityMetadata|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var EntityMetadata|\PHPUnit\Framework\MockObject\MockObject */
     protected $entityMetadata;
 
-    /** @var TranslatorInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var TranslatorInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
-    /** @var ConfigProvider|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ConfigProvider|\PHPUnit\Framework\MockObject\MockObject */
     protected $configProvider;
 
-    /** @var ActivityManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ActivityManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $activityManager;
 
     protected function setUp()
@@ -39,7 +38,7 @@ class MergeListenerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->translator->expects($this->any())
             ->method('trans')
             ->willReturn('Items');
@@ -83,7 +82,7 @@ class MergeListenerTest extends \PHPUnit_Framework_TestCase
      */
     public function testOnBuildMetadata($keys, $calls)
     {
-        $config = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+        $config = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
         $this->configProvider->expects($this->any())
             ->method('getConfig')
             ->willReturn($config);

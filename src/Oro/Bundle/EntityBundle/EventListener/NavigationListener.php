@@ -2,21 +2,23 @@
 
 namespace Oro\Bundle\EntityBundle\EventListener;
 
-use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Bundle\EntityConfigBundle\Config\Config;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Oro\Bundle\NavigationBundle\Utils\MenuUpdateUtils;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class NavigationListener
 {
-    /**
-     * @var SecurityFacade
-     */
-    protected $securityFacade;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
+
+    /** @var TokenAccessorInterface */
+    protected $tokenAccessor;
 
     /** @var ConfigManager $configManager */
     protected $configManager;
@@ -25,18 +27,21 @@ class NavigationListener
     protected $translator;
 
     /**
-     * @param SecurityFacade      $securityFacade
-     * @param ConfigManager       $configManager
-     * @param TranslatorInterface $translator
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param TokenAccessorInterface        $tokenAccessor
+     * @param ConfigManager                 $configManager
+     * @param TranslatorInterface           $translator
      */
     public function __construct(
-        SecurityFacade $securityFacade,
+        AuthorizationCheckerInterface $authorizationChecker,
+        TokenAccessorInterface $tokenAccessor,
         ConfigManager $configManager,
         TranslatorInterface $translator
     ) {
-        $this->securityFacade = $securityFacade;
-        $this->configManager  = $configManager;
-        $this->translator     = $translator;
+        $this->authorizationChecker = $authorizationChecker;
+        $this->tokenAccessor = $tokenAccessor;
+        $this->configManager = $configManager;
+        $this->translator = $translator;
     }
 
     /**
@@ -44,11 +49,9 @@ class NavigationListener
      */
     public function onNavigationConfigure(ConfigureMenuEvent $event)
     {
-        $menu     = $event->getMenu();
-        $children = array();
-
-        $entitiesMenuItem = $menu->getChild('system_tab')->getChild('entities_list');
-        if ($entitiesMenuItem) {
+        $children = [];
+        $entitiesMenuItem = MenuUpdateUtils::findMenuItem($event->getMenu(), 'entities_list');
+        if ($entitiesMenuItem !== null) {
             /** @var ConfigProvider $entityConfigProvider */
             $entityConfigProvider = $this->configManager->getProvider('entity');
 
@@ -61,25 +64,25 @@ class NavigationListener
                 if ($this->checkAvailability($extendConfig)) {
                     $config = $entityConfigProvider->getConfig($extendConfig->getId()->getClassname());
                     if (!class_exists($config->getId()->getClassName()) ||
-                        !$this->securityFacade->hasLoggedUser() ||
-                        !$this->securityFacade->isGranted('VIEW', 'entity:' . $config->getId()->getClassName())
+                        !$this->tokenAccessor->hasUser() ||
+                        !$this->authorizationChecker->isGranted('VIEW', 'entity:' . $config->getId()->getClassName())
                     ) {
                         continue;
                     }
 
-                    $children[$config->get('label')] = array(
+                    $children[$config->get('label')] = [
                         'label'   => $this->translator->trans($config->get('label')),
-                        'options' => array(
+                        'options' => [
                             'route'           => 'oro_entity_index',
-                            'routeParameters' => array(
-                                'entityName' => str_replace('\\', '_', $config->getId()->getClassName())
-                            ),
-                            'extras'          => array(
-                                'safe_label' => true,
-                                'routes'     => array('oro_entity_*')
-                            ),
-                        )
-                    );
+                            'routeParameters' => [
+                                'entityName'  => str_replace('\\', '_', $config->getId()->getClassName())
+                            ],
+                            'extras'          => [
+                                'safe_label'  => true,
+                                'routes'      => array('oro_entity_*')
+                            ],
+                        ]
+                    ];
                 }
             }
 
@@ -88,15 +91,14 @@ class NavigationListener
                 $entitiesMenuItem->addChild($child['label'], $child['options']);
             }
         }
-
     }
 
     /**
-     * @param Config $extendConfig
+     * @param ConfigInterface $extendConfig
      *
      * @return bool
      */
-    protected function checkAvailability(Config $extendConfig)
+    protected function checkAvailability(ConfigInterface $extendConfig)
     {
         return
             $extendConfig->is('is_extend')

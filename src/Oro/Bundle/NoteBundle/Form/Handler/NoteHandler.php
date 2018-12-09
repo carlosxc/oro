@@ -2,34 +2,54 @@
 
 namespace Oro\Bundle\NoteBundle\Form\Handler;
 
-use Doctrine\Common\Persistence\ObjectManager;
-
-use Symfony\Component\Form\FormInterface;
-use Symfony\Component\HttpFoundation\Request;
-
+use Doctrine\Common\Persistence\ManagerRegistry;
+use Doctrine\ORM\EntityManager;
+use Oro\Bundle\ActivityBundle\Manager\ActivityManager;
+use Oro\Bundle\FormBundle\Form\Handler\RequestHandlerTrait;
 use Oro\Bundle\NoteBundle\Entity\Note;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class NoteHandler
 {
-    /** @var FormInterface */
-    protected $form;
-
-    /** @var Request */
-    protected $request;
-
-    /** @var ObjectManager */
-    protected $manager;
+    use RequestHandlerTrait;
 
     /**
-     * @param FormInterface $form
-     * @param Request       $request
-     * @param ObjectManager $manager
+     * @var FormInterface
      */
-    public function __construct(FormInterface $form, Request $request, ObjectManager $manager)
-    {
-        $this->form    = $form;
-        $this->request = $request;
-        $this->manager = $manager;
+    protected $form;
+
+    /**
+     * @var RequestStack
+     */
+    protected $requestStack;
+
+    /**
+     * @var ManagerRegistry
+     */
+    protected $managerRegistry;
+
+    /**
+     * @var ActivityManager
+     */
+    protected $activityManager;
+
+    /**
+     * @param FormInterface   $form
+     * @param RequestStack    $requestStack
+     * @param ManagerRegistry $managerRegistry
+     * @param ActivityManager $activityManager
+     */
+    public function __construct(
+        FormInterface $form,
+        RequestStack $requestStack,
+        ManagerRegistry $managerRegistry,
+        ActivityManager $activityManager
+    ) {
+        $this->form = $form;
+        $this->requestStack = $requestStack;
+        $this->managerRegistry = $managerRegistry;
+        $this->activityManager = $activityManager;
     }
 
     /**
@@ -43,8 +63,9 @@ class NoteHandler
     {
         $this->form->setData($entity);
 
-        if (in_array($this->request->getMethod(), array('POST', 'PUT'))) {
-            $this->form->submit($this->request);
+        $request = $this->requestStack->getCurrentRequest();
+        if (in_array($request->getMethod(), ['POST', 'PUT'], true)) {
+            $this->submitPostPutRequest($this->form, $request);
 
             if ($this->form->isValid()) {
                 $this->onSuccess($entity);
@@ -61,8 +82,22 @@ class NoteHandler
      */
     protected function onSuccess(Note $entity)
     {
-        $entity->setUpdatedAt(new \DateTime());
-        $this->manager->persist($entity);
-        $this->manager->flush();
+        $em = $this->getEntityManager();
+        if ($this->form->has('contexts')) {
+            $contexts = $this->form->get('contexts')->getData();
+            $this->activityManager->setActivityTargets($entity, $contexts);
+        }
+        $entity->setUpdatedAt(new \DateTime('now', new \DateTimeZone('UTC')));
+
+        $em->persist($entity);
+        $em->flush();
+    }
+
+    /**
+     * @return EntityManager
+     */
+    protected function getEntityManager()
+    {
+        return $this->managerRegistry->getManagerForClass(Note::class);
     }
 }

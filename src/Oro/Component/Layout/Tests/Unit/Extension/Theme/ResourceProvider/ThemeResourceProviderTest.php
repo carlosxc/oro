@@ -3,19 +3,22 @@
 namespace Oro\Component\Layout\Tests\Unit\Extension\Theme\ResourceProvider;
 
 use Doctrine\Common\Cache\Cache;
-
 use Oro\Component\Config\CumulativeResourceManager;
+use Oro\Component\Layout\BlockViewCache;
 use Oro\Component\Layout\Extension\Theme\ResourceProvider\ThemeResourceProvider;
 use Oro\Component\Layout\Loader\LayoutUpdateLoaderInterface;
 use Oro\Component\Layout\Tests\Unit\Fixtures\Bundle\TestBundle\TestBundle;
 
-class ThemeResourceProviderTest extends \PHPUnit_Framework_TestCase
+class ThemeResourceProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ThemeResourceProvider */
     protected $provider;
 
-    /** @var LayoutUpdateLoaderInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LayoutUpdateLoaderInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $loader;
+
+    /** @var BlockViewCache|\PHPUnit\Framework\MockObject\MockObject */
+    protected $blockViewCache;
 
     /** @var array */
     protected $excludedPaths = [];
@@ -25,9 +28,12 @@ class ThemeResourceProviderTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $this->loader = $this->getMock(LayoutUpdateLoaderInterface::class);
+        $this->loader = $this->createMock(LayoutUpdateLoaderInterface::class);
+        $this->blockViewCache = $this->getMockBuilder(BlockViewCache::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        $this->provider = new ThemeResourceProvider($this->loader, $this->excludedPaths);
+        $this->provider = new ThemeResourceProvider($this->loader, $this->blockViewCache, $this->excludedPaths);
     }
 
     public function testFindApplicableResources()
@@ -132,11 +138,13 @@ class ThemeResourceProviderTest extends \PHPUnit_Framework_TestCase
             ]
         ];
 
-        /** @var Cache|\PHPUnit_Framework_MockObject_MockObject $cache */
-        $cache = $this->getMock(Cache::class);
-        $cache->expects($this->once())
-            ->method('save')
-            ->with(ThemeResourceProvider::CACHE_KEY, $result);
+        /** @var Cache|\PHPUnit\Framework\MockObject\MockObject $cache */
+        $cache = $this->createMock(Cache::class);
+        $cache->expects($this->exactly(2))
+            ->method('save');
+
+        $this->blockViewCache->expects($this->exactly(1))
+            ->method('reset');
 
         $this->provider->setCache($cache);
         $this->provider->loadResources();

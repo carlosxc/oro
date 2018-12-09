@@ -3,11 +3,18 @@ namespace Oro\Bundle\MessageQueueBundle\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 use Oro\Component\MessageQueue\Job\Job as BaseJob;
 
 /**
  * @ORM\Entity
- * @ORM\Table(name="oro_message_queue_job")
+ * @ORM\Table(
+ *     name="oro_message_queue_job",
+ *     indexes={
+ *          @Index(name="owner_id_idx", columns={"owner_id"}),
+ *          @Index(name="oro_message_queue_job_idx", columns={"root_job_id", "name", "status", "interrupted"})
+ *     }
+ * )
  */
 class Job extends BaseJob
 {
@@ -66,7 +73,7 @@ class Job extends BaseJob
     /**
      * @var Job[]
      *
-     * @ORM\OneToMany(targetEntity="Job", mappedBy="rootJob")
+     * @ORM\OneToMany(targetEntity="Job", mappedBy="rootJob", cascade={"persist"})
      */
     protected $childJobs;
 
@@ -87,6 +94,13 @@ class Job extends BaseJob
     /**
      * @var \DateTime
      *
+     * @ORM\Column(name="last_active_at", type="datetime", nullable=true)
+     */
+    protected $lastActiveAt;
+
+    /**
+     * @var \DateTime
+     *
      * @ORM\Column(name="stopped_at", type="datetime", nullable=true)
      */
     protected $stoppedAt;
@@ -97,6 +111,13 @@ class Job extends BaseJob
      * @ORM\Column(name="data", type="json_array", nullable=true)
      */
     protected $data;
+
+    /**
+     * @var float
+     *
+     * @ORM\Column(name="job_progress", type="percent", nullable=true)
+     */
+    protected $jobProgress;
 
     public function __construct()
     {

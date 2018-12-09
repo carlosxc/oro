@@ -2,15 +2,13 @@
 
 namespace Oro\Bundle\QueryDesignerBundle\DependencyInjection\Compiler;
 
+use Oro\Bundle\QueryDesignerBundle\QueryDesigner\Configuration;
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
-
-use Oro\Bundle\QueryDesignerBundle\QueryDesigner\Configuration;
-
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 
 class ConfigurationPass implements CompilerPassInterface
 {
@@ -29,7 +27,7 @@ class ConfigurationPass implements CompilerPassInterface
 
             $configLoader = new CumulativeConfigLoader(
                 'oro_query_designer',
-                new YamlCumulativeFileLoader('Resources/config/query_designer.yml')
+                new YamlCumulativeFileLoader('Resources/config/oro/query_designer.yml')
             );
             $resources    = $configLoader->load($container);
             foreach ($resources as $resource) {

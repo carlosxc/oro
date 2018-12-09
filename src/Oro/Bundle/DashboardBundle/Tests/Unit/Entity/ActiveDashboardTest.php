@@ -4,7 +4,7 @@ namespace Oro\Bundle\DashboardBundle\Tests\Unit\Entity;
 
 use Oro\Bundle\DashboardBundle\Entity\ActiveDashboard;
 
-class ActiveDashboardTest extends \PHPUnit_Framework_TestCase
+class ActiveDashboardTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ActiveDashboard
@@ -23,7 +23,7 @@ class ActiveDashboardTest extends \PHPUnit_Framework_TestCase
 
     public function testSetAndGetUser()
     {
-        $expected  = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $expected  = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
         $this->activeDashboard->setUser($expected);
 
@@ -32,7 +32,7 @@ class ActiveDashboardTest extends \PHPUnit_Framework_TestCase
 
     public function testSetAndGetDashboard()
     {
-        $expected  = $this->getMock('Oro\Bundle\DashboardBundle\Entity\Dashboard');
+        $expected  = $this->createMock('Oro\Bundle\DashboardBundle\Entity\Dashboard');
 
         $this->activeDashboard->setDashboard($expected);
 
@@ -42,7 +42,7 @@ class ActiveDashboardTest extends \PHPUnit_Framework_TestCase
     public function testOrganization()
     {
         $this->assertNull($this->activeDashboard->getOrganization());
-        $value = $this->getMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
+        $value = $this->createMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
         $this->assertEquals($this->activeDashboard, $this->activeDashboard->setOrganization($value));
         $this->assertEquals($value, $this->activeDashboard->getOrganization());
     }

@@ -2,22 +2,22 @@
 
 namespace Oro\Bundle\DataAuditBundle\Tests\Unit\Form\Type;
 
+use Oro\Bundle\DataAuditBundle\Form\Type\FilterType as AuditFilterType;
+use Oro\Bundle\FilterBundle\Form\Type\Filter\FilterType;
+use Oro\Component\Testing\Unit\PreloadedExtension;
 use Symfony\Component\Form\Extension\Validator\Type\FormTypeValidatorExtension;
 use Symfony\Component\Form\FormBuilder;
 use Symfony\Component\Form\Forms;
-use Symfony\Component\Form\PreloadedExtension;
 use Symfony\Component\Validator\ConstraintViolationList;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-use Oro\Bundle\DataAuditBundle\Form\Type\FilterType as AuditFilterType;
-use Oro\Bundle\FilterBundle\Form\Type\Filter\FilterType;
-
-class FilterTypeTest extends \PHPUnit_Framework_TestCase
+class FilterTypeTest extends \PHPUnit\Framework\TestCase
 {
     public function setUp()
     {
         parent::setUp();
 
-        $validator = $this->getMock('Symfony\Component\Validator\ValidatorInterface');
+        $validator = $this->createMock(ValidatorInterface::class);
         $validator->method('validate')->will($this->returnValue(new ConstraintViolationList()));
 
         $this->factory = Forms::createFormFactoryBuilder()
@@ -36,7 +36,7 @@ class FilterTypeTest extends \PHPUnit_Framework_TestCase
             )
             ->getFormFactory();
 
-        $this->dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->dispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
         $this->builder = new FormBuilder(null, null, $this->dispatcher, $this->factory);
     }
 
@@ -54,8 +54,7 @@ class FilterTypeTest extends \PHPUnit_Framework_TestCase
             ],
         ];
 
-        $type = new AuditFilterType();
-        $form = $this->factory->create($type);
+        $form = $this->factory->create(AuditFilterType::class);
         $form->submit($formData);
         
         $this->assertTrue($form->isValid());
@@ -63,7 +62,7 @@ class FilterTypeTest extends \PHPUnit_Framework_TestCase
 
     protected function getExtensions()
     {
-        $translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
 
         $filterType = new FilterType($translator);
 

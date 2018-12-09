@@ -3,12 +3,14 @@ define([
 ], function(Backbone) {
     'use strict';
 
+    var AddressModel;
+
     /**
      * @export  oroaddress/js/address/model
      * @class   oroaddress.address.Model
      * @extends Backbone.Model
      */
-    return Backbone.Model.extend({
+    AddressModel = Backbone.Model.extend({
         defaults: {
             label: '',
             namePrefix: '',
@@ -32,10 +34,38 @@ define([
             active: false
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function AddressModel() {
+            AddressModel.__super__.constructor.apply(this, arguments);
+        },
+
         getSearchableString: function() {
-            return this.get('country') + ', ' +
-                this.get('city') + ', ' +
-                this.get('street') + ' ' + (this.get('street2') || '');
+            var address = '';
+
+            if (this.get('country')) {
+                address += this.get('country') + ', ';
+            }
+            if (this.get('region')) {
+                address += this.get('region') + ', ';
+            }
+            if (this.get('city')) {
+                address += this.get('city') + ', ';
+            }
+            if (this.get('street')) {
+                address += this.get('street') + ' ';
+            }
+            if (this.get('street2')) {
+                address += this.get('street2') + ' ';
+            }
+            if (this.get('postalCode')) {
+                address += this.get('postalCode') + ', ';
+            }
+
+            return address;
         }
     });
+
+    return AddressModel;
 });

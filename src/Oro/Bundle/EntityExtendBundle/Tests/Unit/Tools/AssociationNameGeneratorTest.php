@@ -4,7 +4,7 @@ namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Tools;
 
 use Oro\Bundle\EntityExtendBundle\Tools\AssociationNameGenerator;
 
-class AssociationNameGeneratorTest extends \PHPUnit_Framework_TestCase
+class AssociationNameGeneratorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider getMethodNamesProvider
@@ -28,7 +28,6 @@ class AssociationNameGeneratorTest extends \PHPUnit_Framework_TestCase
             ['generateResetTargetsMethodName', null,'resetTargets'],
             ['generateAddTargetMethodName', null, 'addTarget'],
             ['generateRemoveTargetMethodName', null,'removeTarget'],
-            ['generateGetTargetEntitiesMethodName', null, 'getTargetEntities'],
             ['generateSupportTargetMethodName', 'test_type', 'supportTestTypeTarget'],
             ['generateGetTargetMethodName', 'test_type', 'getTestTypeTarget'],
             ['generateGetTargetsMethodName', 'test_type', 'getTestTypeTargets'],
@@ -37,7 +36,6 @@ class AssociationNameGeneratorTest extends \PHPUnit_Framework_TestCase
             ['generateResetTargetsMethodName', 'test_type', 'resetTestTypeTargets'],
             ['generateAddTargetMethodName', 'test_type', 'addTestTypeTarget'],
             ['generateRemoveTargetMethodName', 'test_type', 'removeTestTypeTarget'],
-            ['generateGetTargetEntitiesMethodName', 'test_type','getTestTypeTargetEntities'],
         ];
     }
 }

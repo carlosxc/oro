@@ -4,15 +4,15 @@ namespace Oro\Bundle\NotificationBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use Oro\Bundle\NotificationBundle\DependencyInjection\Compiler\EventsCompilerPass;
 
-class EventsCompilerPassTest extends \PHPUnit_Framework_TestCase
+class EventsCompilerPassTest extends \PHPUnit\Framework\TestCase
 {
     const EVENT_NAME = 'test';
     const CLASS_NAME = 'Oro\Bundle\NotificationBundle\Entity\Event';
 
     public function testCompile()
     {
-        $container  = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
-        $dispatcher = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $container  = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $dispatcher = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $container->expects($this->once())
             ->method('hasDefinition')
@@ -62,7 +62,7 @@ class EventsCompilerPassTest extends \PHPUnit_Framework_TestCase
 
     public function testCompileManagerNotDefined()
     {
-        $container  = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container  = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         $container->expects($this->once())
             ->method('hasDefinition')
@@ -79,7 +79,7 @@ class EventsCompilerPassTest extends \PHPUnit_Framework_TestCase
     /**
      * Creates and configure EM mock object
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     private function configureConnectionMock()
     {

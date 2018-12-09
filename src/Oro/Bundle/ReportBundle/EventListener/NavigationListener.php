@@ -2,54 +2,54 @@
 
 namespace Oro\Bundle\ReportBundle\EventListener;
 
-use Doctrine\ORM\EntityManager;
-
 use Knp\Menu\ItemInterface;
-
-use Oro\Bundle\EntityConfigBundle\Config\Config;
-use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureChecker;
 use Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent;
+use Oro\Bundle\NavigationBundle\Utils\MenuUpdateUtils;
+use Oro\Bundle\ReportBundle\Entity\Report;
+use Oro\Bundle\ReportBundle\Entity\Repository\ReportRepository;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
+use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
 
 class NavigationListener
 {
-    /**
-     * @var EntityManager
-     */
-    protected $em;
+    /** @var DoctrineHelper */
+    protected $doctrineHelper;
 
-    /**
-     * @var ConfigProvider
-     */
-    protected $entityConfigProvider = null;
+    /** @var ConfigProvider */
+    protected $entityConfigProvider;
 
-    /**
-     * @var SecurityFacade
-     */
-    protected $securityFacade;
+    /** @var TokenAccessorInterface */
+    protected $tokenAccessor;
 
-    /**
-     * @var AclHelper
-     */
+    /** @var AclHelper */
     protected $aclHelper;
 
+    /** @var FeatureChecker */
+    protected $featureChecker;
+
     /**
-     * @param EntityManager  $entityManager
-     * @param ConfigProvider $entityConfigProvider
-     * @param SecurityFacade $securityFacade
-     * @param AclHelper      $aclHelper
+     * @param DoctrineHelper         $doctrineHelper
+     * @param ConfigProvider         $entityConfigProvider
+     * @param TokenAccessorInterface $tokenAccessor
+     * @param AclHelper              $aclHelper
+     * @param FeatureChecker         $featureChecker
      */
     public function __construct(
-        EntityManager $entityManager,
+        DoctrineHelper $doctrineHelper,
         ConfigProvider $entityConfigProvider,
-        SecurityFacade $securityFacade,
-        AclHelper $aclHelper
+        TokenAccessorInterface $tokenAccessor,
+        AclHelper $aclHelper,
+        FeatureChecker $featureChecker
     ) {
-        $this->em                   = $entityManager;
+        $this->doctrineHelper = $doctrineHelper;
         $this->entityConfigProvider = $entityConfigProvider;
-        $this->securityFacade       = $securityFacade;
-        $this->aclHelper            = $aclHelper;
+        $this->tokenAccessor = $tokenAccessor;
+        $this->aclHelper = $aclHelper;
+        $this->featureChecker = $featureChecker;
     }
 
     /**
@@ -57,41 +57,48 @@ class NavigationListener
      */
     public function onNavigationConfigure(ConfigureMenuEvent $event)
     {
-        /** @var ItemInterface $reportsMenuItem */
-        $reportsMenuItem = $event->getMenu()->getChild('reports_tab');
-        if ($reportsMenuItem && $this->securityFacade->hasLoggedUser()) {
-            $qb = $this->em->getRepository('OroReportBundle:Report')
-                ->createQueryBuilder('report')
-                ->orderBy('report.name', 'ASC');
-            $reports = $this->aclHelper->apply($qb)->execute();
+        if (!$this->tokenAccessor->hasUser()) {
+            return;
+        }
 
-            if (!empty($reports)) {
-                $this->addDivider($reportsMenuItem);
-                $reportMenuData = [];
-                foreach ($reports as $report) {
-                    $config = $this->entityConfigProvider->getConfig($report->getEntity());
-                    if ($this->checkAvailability($config)) {
-                        $entityLabel = $config->get('plural_label');
-                        if (!isset($reportMenuData[$entityLabel])) {
-                            $reportMenuData[$entityLabel] = [];
-                        }
-                        $reportMenuData[$entityLabel][$report->getId()] = $report->getName();
-                    }
+        $reportsMenuItem = MenuUpdateUtils::findMenuItem($event->getMenu(), 'reports_tab');
+        if (!$reportsMenuItem || !$reportsMenuItem->isDisplayed()) {
+            return;
+        }
+
+        /** @var ReportRepository $repo */
+        $repo = $this->doctrineHelper->getEntityRepositoryForClass(Report::class);
+        $qb = $repo->getAllReportsBasicInfoQb($this->featureChecker->getDisabledResourcesByType('entities'));
+
+        $reports = $this->aclHelper->apply($qb)->getResult();
+        if (!$reports) {
+            return;
+        }
+
+        $this->addDivider($reportsMenuItem);
+        $reportMenuData = [];
+        foreach ($reports as $report) {
+            $config = $this->entityConfigProvider->getConfig($report['entity']);
+            if ($this->checkAvailability($config)) {
+                $entityLabel = $config->get('plural_label');
+                if (!isset($reportMenuData[$entityLabel])) {
+                    $reportMenuData[$entityLabel] = [];
                 }
-                ksort($reportMenuData);
-                $this->buildReportMenu($reportsMenuItem, $reportMenuData);
+                $reportMenuData[$entityLabel][$report['id']] = $report['name'];
             }
         }
+        ksort($reportMenuData);
+        $this->buildReportMenu($reportsMenuItem, $reportMenuData);
     }
 
     /**
      * Checks whether an entity with given config could be shown within navigation of reports
      *
-     * @param Config $config
+     * @param ConfigInterface $config
      *
      * @return bool
      */
-    protected function checkAvailability(Config $config)
+    protected function checkAvailability(ConfigInterface $config)
     {
         return true;
     }
@@ -132,7 +139,7 @@ class NavigationListener
     {
         $menu->addChild('divider-' . rand(1, 99999))
             ->setLabel('')
-            ->setAttribute('class', 'divider')
+            ->setExtra('divider', true)
             ->setExtra('position', 15); // after manage report, we have 10 there
     }
 

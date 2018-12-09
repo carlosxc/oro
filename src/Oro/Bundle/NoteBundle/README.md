@@ -1,44 +1,54 @@
-OroNoteBundle
-===================
+# OroNoteBundle
 
-The `OroNoteBundle` provide ability to add notes to other entities. The system administrator can manage this functionality on *System / Entities / Entity Management* page.
+OroNoteBundle provides the ability for the application users to add notes on an entity record page and enable or disable this feature for every entity type in the entity management UI.
 
-How to enable notes using migrations
-------------------------------------
+## How to enable notes using migrations
 
-The following example shows how notes can be enabled for some entity:
-``` php
+Notes could be enabled for the entity in the same way as for any other Activity entity. See following example:
+
+```
 <?php
 
-namespace OroCRM\Bundle\AccountBundle\Migrations\Schema\v1_1;
+namespace Oro\Bundle\AccountBundle\Migrations\Schema\v1_1;
 
 use Doctrine\DBAL\Schema\Schema;
 
+use Oro\Bundle\ActivityBundle\Migration\Extension\ActivityExtension;
+use Oro\Bundle\ActivityBundle\Migration\Extension\ActivityExtensionAwareInterface;
 use Oro\Bundle\MigrationBundle\Migration\Migration;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
 
-use Oro\Bundle\NoteBundle\Migration\Extension\NoteExtension;
-use Oro\Bundle\NoteBundle\Migration\Extension\NoteExtensionAwareInterface;
-
-class OroCRMAccountBundle implements Migration, NoteExtensionAwareInterface
+class OroAccountBundle implements Migration, ActivityExtensionAwareInterface
 {
-    /** @var NoteExtension */
-    protected $noteExtension;
-
     /**
-     * {@inheritdoc}
+     * @var ActivityExtension
      */
-    public function setNoteExtension(NoteExtension $noteExtension)
-    {
-        $this->noteExtension = $noteExtension;
-    }
+    protected $activityExtension;
 
     /**
      * {@inheritdoc}
      */
     public function up(Schema $schema, QueryBag $queries)
     {
-        $this->noteExtension->addNoteAssociation($schema, 'orocrm_account');
+        $this->addNoteAssociations($schema);
+    }
+
+    /**
+     * Enable notes for Account entity
+     *
+     * @param Schema        $schema
+     */
+    protected function addNoteAssociations(Schema $schema)
+    {
+        $this->activityExtension->addActivityAssociation($schema, 'oro_note', 'orocrm_account');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setActivityExtension(ActivityExtension $activityExtension)
+    {
+        $this->activityExtension = $activityExtension;
     }
 }
 ```

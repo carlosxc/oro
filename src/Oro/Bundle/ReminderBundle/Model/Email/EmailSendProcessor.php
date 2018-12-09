@@ -3,23 +3,24 @@
 namespace Oro\Bundle\ReminderBundle\Model\Email;
 
 use Doctrine\Common\Persistence\ObjectManager;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
-use Oro\Bundle\NotificationBundle\Processor\EmailNotificationProcessor;
+use Oro\Bundle\NotificationBundle\Manager\EmailNotificationManager;
 use Oro\Bundle\ReminderBundle\Entity\Reminder;
 use Oro\Bundle\ReminderBundle\Event\ReminderEvents;
 use Oro\Bundle\ReminderBundle\Event\SendReminderEmailEvent;
 use Oro\Bundle\ReminderBundle\Model\SendProcessorInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
+/**
+ * Sends reminde notification emails.
+ */
 class EmailSendProcessor implements SendProcessorInterface
 {
     const NAME = 'email';
 
     /**
-     * @var EmailNotificationProcessor
+     * @var EmailNotificationManager
      */
-    protected $emailNotificationProcessor;
+    protected $emailNotificationManager;
 
     /**
      * @var ObjectManager
@@ -27,7 +28,7 @@ class EmailSendProcessor implements SendProcessorInterface
     protected $em;
 
     /**
-     * @var EmailNotification
+     * @var TemplateEmailNotification
      */
     protected $emailNotification;
 
@@ -42,16 +43,16 @@ class EmailSendProcessor implements SendProcessorInterface
     protected $eventDispatcher;
 
     /**
-     * @param EmailNotificationProcessor $emailNotificationProcessor
-     * @param EmailNotification          $emailNotification
-     * @param EventDispatcherInterface   $eventDispatcher
+     * @param EmailNotificationManager $emailNotificationManager
+     * @param TemplateEmailNotification $emailNotification
+     * @param EventDispatcherInterface $eventDispatcher
      */
     public function __construct(
-        EmailNotificationProcessor $emailNotificationProcessor,
-        EmailNotification $emailNotification,
+        EmailNotificationManager $emailNotificationManager,
+        TemplateEmailNotification $emailNotification,
         EventDispatcherInterface $eventDispatcher
     ) {
-        $this->emailNotificationProcessor = $emailNotificationProcessor;
+        $this->emailNotificationManager = $emailNotificationManager;
         $this->emailNotification = $emailNotification;
         $this->eventDispatcher = $eventDispatcher;
     }
@@ -90,12 +91,8 @@ class EmailSendProcessor implements SendProcessorInterface
         $this->emailNotification->setReminder($reminder);
 
         try {
-            $this->emailNotificationProcessor
-                ->process(
-                    $this->emailNotification->getEntity(),
-                    [$this->emailNotification],
-                    null
-                );
+            $this->emailNotificationManager->processSingle($this->emailNotification);
+
             $reminder->setState(Reminder::STATE_SENT);
         } catch (\Exception $exception) {
             $reminder->setState(Reminder::STATE_FAIL);

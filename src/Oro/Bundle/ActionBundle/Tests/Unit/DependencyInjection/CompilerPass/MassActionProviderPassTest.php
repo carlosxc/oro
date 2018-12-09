@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\ActionBundle\Tests\Unit\DependencyInjection\CompilerPass;
 
+use Oro\Bundle\ActionBundle\DependencyInjection\CompilerPass\MassActionProviderPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-use Oro\Bundle\ActionBundle\DependencyInjection\CompilerPass\MassActionProviderPass;
-
-class MassActionProviderPassTest extends \PHPUnit_Framework_TestCase
+class MassActionProviderPassTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ContainerBuilder */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ContainerBuilder */
     protected $container;
 
     /** @var MassActionProviderPass */
@@ -70,14 +69,14 @@ class MassActionProviderPassTest extends \PHPUnit_Framework_TestCase
             ->with(MassActionProviderPass::PROVIDER_TAG)
             ->willReturn(['provider_service' => ['class' => '\stdClass']]);
 
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $this->container->expects($this->exactly(2))
             ->method('getDefinition')
             ->willReturnMap(
                 [
                     [MassActionProviderPass::REGISTRY_SERVICE_ID, $definition],
-                    ['provider_service', $this->getMock('Symfony\Component\DependencyInjection\Definition')]
+                    ['provider_service', $this->createMock('Symfony\Component\DependencyInjection\Definition')]
                 ]
             );
 

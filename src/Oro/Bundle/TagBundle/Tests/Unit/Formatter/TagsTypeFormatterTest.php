@@ -4,7 +4,7 @@ namespace Oro\Bundle\TagBundle\Tests\Unit\Formatter;
 
 use Oro\Bundle\TagBundle\Formatter\TagsTypeFormatter;
 
-class TagsTypeFormatterTest extends \PHPUnit_Framework_TestCase
+class TagsTypeFormatterTest extends \PHPUnit\Framework\TestCase
 {
     /** @var TagsTypeFormatter */
     protected $formatter;
@@ -15,7 +15,7 @@ class TagsTypeFormatterTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider testFormatTypeDataProvider
+     * @dataProvider formatTypeDataProvider
      *
      * @param $value
      * @param $type
@@ -25,7 +25,7 @@ class TagsTypeFormatterTest extends \PHPUnit_Framework_TestCase
     public function testFormatType($value, $type, $exception, $expected)
     {
         if ($exception) {
-            $this->setExpectedException($exception);
+            $this->expectException($exception);
         }
 
         $val = $this->formatter->formatType($value, $type);
@@ -33,7 +33,7 @@ class TagsTypeFormatterTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($val, $expected);
     }
 
-    public function testFormatTypeDataProvider()
+    public function formatTypeDataProvider()
     {
         $value    = [
             ['name' => 1],

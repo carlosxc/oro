@@ -3,14 +3,11 @@
 namespace Oro\Bundle\EmailBundle\Model\Action;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
-
-use Oro\Bundle\EmailBundle\Entity\Mailbox;
 use Oro\Bundle\EmailBundle\Mailbox\MailboxProcessStorage;
-
 use Oro\Component\Action\Action\AbstractAction;
 use Oro\Component\Action\Action\ActionInterface;
 use Oro\Component\Action\Exception\InvalidParameterException;
-use Oro\Component\Action\Model\ContextAccessor;
+use Oro\Component\ConfigExpression\ContextAccessor;
 
 class RequestMailboxes extends AbstractAction
 {
@@ -53,9 +50,11 @@ class RequestMailboxes extends AbstractAction
         $settingsClass = $this->processStorage->getProcess($settingsClass)->getSettingsEntityFQCN();
 
         $email = $this->contextAccessor->getValue($context, $this->email);
-
-        $results = $this->doctrine->getRepository('OroEmailBundle:Mailbox')
-            ->findBySettingsClassAndEmail($settingsClass, $email);
+        $results = [];
+        if ($email) {
+            $results = $this->doctrine->getRepository('OroEmailBundle:Mailbox')
+                ->findBySettingsClassAndEmail($settingsClass, $email);
+        }
 
         $this->contextAccessor->setValue($context, $this->attribute, $results);
     }

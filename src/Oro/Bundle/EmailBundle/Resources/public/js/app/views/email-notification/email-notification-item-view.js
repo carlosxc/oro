@@ -13,6 +13,10 @@ define(function(require) {
     EmailNotificationView = BaseView.extend({
         tagName: 'li',
 
+        attributes: {
+            'data-layout': 'separate'
+        },
+
         templateSelector: '#email-notification-item-template',
 
         events: {
@@ -23,6 +27,13 @@ define(function(require) {
         listen: {
             'change model': 'render',
             'addedToParent': 'delegateEvents'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function EmailNotificationView() {
+            EmailNotificationView.__super__.constructor.apply(this, arguments);
         },
 
         render: function() {
@@ -41,7 +52,7 @@ define(function(require) {
 
         onClickOpenEmail: function() {
             var url = routing.generate('oro_email_thread_view', {id: this.model.get('id')});
-            this.model.set({'seen': true});
+            this.model.set({seen: true});
             mediator.execute('redirectTo', {url: url});
         },
 
@@ -61,12 +72,11 @@ define(function(require) {
                 success: function(response) {
                     if (_.result(response, 'successful') !== true) {
                         model.set('seen', status);
-                        mediator.execute('showErrorMessage', __('Sorry, unexpected error was occurred'), 'error');
+                        mediator.execute('showErrorMessage', __('Sorry, an unexpected error has occurred.'), 'error');
                     }
                 },
                 error: function(xhr, err, message) {
                     model.set('seen', status);
-                    mediator.execute('showErrorMessage', message, err);
                 }
             });
         }

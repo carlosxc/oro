@@ -2,20 +2,22 @@
 
 namespace Oro\Bundle\WorkflowBundle\Form\Type;
 
-use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\QueryBuilder;
-
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
+use Oro\Bundle\WorkflowBundle\Helper\WorkflowTranslationHelper;
+use Oro\Bundle\WorkflowBundle\Model\Workflow;
+use Oro\Bundle\WorkflowBundle\Model\WorkflowRegistry;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\ChoiceList\View\ChoiceView;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\OptionsResolver\Options;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-
-use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
-use Oro\Bundle\WorkflowBundle\Model\Workflow;
-use Oro\Bundle\WorkflowBundle\Model\WorkflowRegistry;
+use Symfony\Component\Translation\MessageCatalogueInterface;
+use Symfony\Component\Translation\TranslatorBagInterface;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class WorkflowStepSelectType extends AbstractType
 {
@@ -24,12 +26,20 @@ class WorkflowStepSelectType extends AbstractType
     /** @var WorkflowRegistry */
     protected $workflowRegistry;
 
+    /** @var TranslatorInterface */
+    protected $translator;
+
+    /** @var MessageCatalogueInterface */
+    private $translatorCatalogue;
+
     /**
      * @param WorkflowRegistry $workflowRegistry
+     * @param TranslatorInterface $translator
      */
-    public function __construct(WorkflowRegistry $workflowRegistry)
+    public function __construct(WorkflowRegistry $workflowRegistry, TranslatorInterface $translator)
     {
         $this->workflowRegistry = $workflowRegistry;
+        $this->translator = $translator;
     }
 
     /**
@@ -41,7 +51,7 @@ class WorkflowStepSelectType extends AbstractType
         $resolver->setDefaults(
             [
                 'class' => 'OroWorkflowBundle:WorkflowStep',
-                'property' => 'label'
+                'choice_label' => 'label'
             ]
         );
 
@@ -71,15 +81,53 @@ class WorkflowStepSelectType extends AbstractType
      */
     public function finishView(FormView $view, FormInterface $form, array $options)
     {
-        if (count($this->getWorkflows($options)) > 1) {
-            /** @var ChoiceView $choiceView */
-            foreach ($view->vars['choices'] as $choiceView) {
+        $workflowsCount = count($this->getWorkflows($options));
+
+        /** @var ChoiceView $choiceView */
+        foreach ($view->vars['choices'] as $choiceView) {
+            if ($workflowsCount > 1) {
                 /** @var WorkflowStep $step */
                 $step = $choiceView->data;
-
-                $choiceView->label = sprintf('%s: %s', $step->getDefinition()->getLabel(), $choiceView->label);
+                $choiceView->label = sprintf(
+                    '%s: %s',
+                    $this->getTranslation($step->getDefinition()->getLabel()),
+                    $this->getTranslation($choiceView->label)
+                );
+            } else {
+                $choiceView->label = $this->getTranslation($choiceView->label);
             }
         }
+    }
+
+    /**
+     * @param string $value
+     * @return string
+     */
+    private function getTranslation($value)
+    {
+        if ($this->hasTranslation($value, WorkflowTranslationHelper::TRANSLATION_DOMAIN)) {
+            $value = $this->translator->trans($value, [], WorkflowTranslationHelper::TRANSLATION_DOMAIN);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param string $value
+     * @param string $domain
+     * @return bool
+     */
+    private function hasTranslation($value, $domain)
+    {
+        if ($this->translator instanceof TranslatorBagInterface) {
+            if (!$this->translatorCatalogue) {
+                $this->translatorCatalogue = $this->translator->getCatalogue();
+            }
+
+            return $this->translatorCatalogue->has($value, $domain);
+        }
+
+        return true;
     }
 
     /**
@@ -103,13 +151,14 @@ class WorkflowStepSelectType extends AbstractType
      */
     public function getParent()
     {
-        return 'entity';
+        return EntityType::class;
     }
 
     /**
      * @param EntityManager $em
      * @param string $className
      * @param array $definitions
+     *
      * @return QueryBuilder
      */
     protected function getQueryBuilder(EntityManager $em, $className, array $definitions)
@@ -125,6 +174,7 @@ class WorkflowStepSelectType extends AbstractType
 
     /**
      * @param array|Options $options
+     *
      * @return array
      */
     protected function getWorkflows($options)

@@ -1,12 +1,12 @@
-define([
-    'jquery',
-    'underscore',
-    'orotranslation/js/translator',
-    './abstract-filter'
-], function($, _, __, AbstractFilter) {
+define(function(require) {
     'use strict';
 
     var NoneFilter;
+    var wrapperTemplate = require('tpl!orofilter/templates/filter/filter-wrapper.html');
+    var template = require('tpl!orofilter/templates/filter/none-filter.html');
+    var $ = require('jquery');
+    var _ = require('underscore');
+    var AbstractFilter = require('./abstract-filter');
 
     /**
      * None filter: an empty filter implements 'null object' pattern
@@ -21,8 +21,7 @@ define([
     NoneFilter = AbstractFilter.extend({
         wrappable: true,
 
-        wrapperTemplate: '',
-
+        wrapperTemplate: wrapperTemplate,
         wrapperTemplateSelector: '#filter-wrapper-template',
 
         /**
@@ -30,6 +29,7 @@ define([
          *
          * @property
          */
+        template: template,
         templateSelector: '#none-filter-template',
 
         /**
@@ -65,6 +65,13 @@ define([
         },
 
         /**
+         * @inheritDoc
+         */
+        constructor: function NoneFilter() {
+            NoneFilter.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
          * Initialize.
          *
          * @param {Object} options
@@ -94,7 +101,6 @@ define([
          */
         _onClickCriteriaSelector: function(e) {
             e.stopPropagation();
-            $('body').trigger('click');
             if (!this.popupCriteriaShowed) {
                 this._showCriteria();
             } else {
@@ -143,7 +149,8 @@ define([
          */
         render: function() {
             var $filter = $(this.template({
-                popupHint: this._getPopupHint()
+                popupHint: this._getPopupHint(),
+                renderMode: this.renderMode
             }));
             this._wrap($filter);
             return this;
@@ -159,6 +166,7 @@ define([
          * @protected
          */
         _showCriteria: function() {
+            this.trigger('showCriteria', this);
             this.$(this.criteriaSelector).show();
             this._setButtonPressed(this.$(this.criteriaSelector), true);
             setTimeout(_.bind(function() {

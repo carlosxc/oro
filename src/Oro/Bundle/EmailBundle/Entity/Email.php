@@ -2,18 +2,13 @@
 
 namespace Oro\Bundle\EmailBundle\Entity;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\ORM\Mapping as ORM;
 use JMS\Serializer\Annotation as JMS;
-
-use Symfony\Component\HttpFoundation\AcceptHeader;
-
+use Oro\Bundle\EmailBundle\Model\ExtendEmail;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
-use Oro\Bundle\EmailBundle\Model\ExtendEmail;
+use Symfony\Component\HttpFoundation\AcceptHeader;
 
 /**
  * Email
@@ -30,9 +25,10 @@ use Oro\Bundle\EmailBundle\Model\ExtendEmail;
  * @ORM\HasLifecycleCallbacks
  *
  * @Config(
+ *      routeView="oro_email_thread_view",
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-envelope"
+ *              "icon"="fa-envelope"
  *          },
  *          "grouping"={
  *              "groups"={"activity"}
@@ -65,7 +61,6 @@ class Email extends ExtendEmail
      * @ORM\Column(name="id", type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
-     * @Soap\ComplexType("int")
      * @JMS\Type("integer")
      */
     protected $id;
@@ -91,7 +86,6 @@ class Email extends ExtendEmail
      * Max length is 998 see RFC 2822, section 2.1.1 (https://tools.ietf.org/html/rfc2822#section-2.1.1)
      *
      * @ORM\Column(name="subject", type="string", length=998)
-     * @Soap\ComplexType("string")
      * @JMS\Type("string")
      */
     protected $subject;
@@ -99,8 +93,7 @@ class Email extends ExtendEmail
     /**
      * @var string
      *
-     * @ORM\Column(name="from_name", type="string", length=255)
-     * @Soap\ComplexType("string", name="from")
+     * @ORM\Column(name="from_name", type="string", length=320)
      * @JMS\Type("string")
      */
     protected $fromName;
@@ -119,7 +112,6 @@ class Email extends ExtendEmail
      *
      * @ORM\OneToMany(targetEntity="EmailRecipient", mappedBy="email",
      *      cascade={"persist", "remove"}, orphanRemoval=true)
-     * @Soap\ComplexType("Oro\Bundle\EmailBundle\Entity\EmailRecipient[]")
      */
     protected $recipients;
 
@@ -127,7 +119,6 @@ class Email extends ExtendEmail
      * @var \DateTime
      *
      * @ORM\Column(name="sent", type="datetime")
-     * @Soap\ComplexType("dateTime")
      * @JMS\Type("DateTime")
      */
     protected $sentAt;
@@ -136,7 +127,6 @@ class Email extends ExtendEmail
      * @var integer
      *
      * @ORM\Column(name="importance", type="integer")
-     * @Soap\ComplexType("int")
      * @JMS\Type("integer")
      */
     protected $importance;
@@ -153,7 +143,6 @@ class Email extends ExtendEmail
      * @var bool
      *
      * @ORM\Column(name="is_head", type="boolean", options={"default"=true})
-     * @Soap\ComplexType("boolean")
      * @JMS\Type("boolean")
      */
     protected $head = true;
@@ -162,7 +151,6 @@ class Email extends ExtendEmail
      * @var string
      *
      * @ORM\Column(name="message_id", type="string", length=255)
-     * @Soap\ComplexType("string")
      * @JMS\Type("string")
      */
     protected $messageId;
@@ -171,7 +159,6 @@ class Email extends ExtendEmail
      * @var string
      *
      * @ORM\Column(name="multi_message_id", type="text", nullable=true)
-     * @Soap\ComplexType("string")
      * @JMS\Type("string")
      */
     protected $multiMessageId;
@@ -180,7 +167,6 @@ class Email extends ExtendEmail
      * @var string
      *
      * @ORM\Column(name="x_message_id", type="string", length=255, nullable=true)
-     * @Soap\ComplexType("string", nillable=true)
      * @JMS\Type("string")
      */
     protected $xMessageId;
@@ -190,7 +176,6 @@ class Email extends ExtendEmail
      *
      * @ORM\ManyToOne(targetEntity="EmailThread", inversedBy="emails", fetch="EAGER")
      * @ORM\JoinColumn(name="thread_id", referencedColumnName="id", nullable=true)
-     * @Soap\ComplexType("string", nillable=true)
      * @JMS\Exclude
      */
     protected $thread;
@@ -199,7 +184,6 @@ class Email extends ExtendEmail
      * @var string
      *
      * @ORM\Column(name="x_thread_id", type="string", length=255, nullable=true)
-     * @Soap\ComplexType("string", nillable=true)
      * @JMS\Type("string")
      */
     protected $xThreadId;
@@ -208,7 +192,6 @@ class Email extends ExtendEmail
      * @var string
      *
      * @ORM\Column(name="refs", type="text", nullable=true)
-     * @Soap\ComplexType("string", nillable=true)
      * @JMS\Type("string")
      */
     protected $refs;
@@ -301,7 +284,7 @@ class Email extends ExtendEmail
      */
     public function setSubject($subject)
     {
-        $this->subject = $subject;
+        $this->subject = mb_substr($subject, 0, 998, mb_detect_encoding($subject));
 
         return $this;
     }

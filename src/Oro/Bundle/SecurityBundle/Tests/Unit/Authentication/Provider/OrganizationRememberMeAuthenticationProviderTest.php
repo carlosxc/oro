@@ -2,15 +2,14 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Authentication\Provider;
 
-use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
-
-use Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain\Fixtures\Entity\User;
+use Oro\Bundle\SecurityBundle\Authentication\Provider\OrganizationRememberMeAuthenticationProvider;
 use Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationRememberMeToken;
 use Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationRememberMeTokenFactory;
 use Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain\Fixtures\Entity\Organization;
-use Oro\Bundle\SecurityBundle\Authentication\Provider\OrganizationRememberMeAuthenticationProvider;
+use Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain\Fixtures\Entity\User;
+use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
 
-class OrganizationRememberMeAuthenticationProviderTest extends \PHPUnit_Framework_TestCase
+class OrganizationRememberMeAuthenticationProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var OrganizationRememberMeAuthenticationProvider
@@ -18,13 +17,13 @@ class OrganizationRememberMeAuthenticationProviderTest extends \PHPUnit_Framewor
     protected $provider;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $userChecker;
 
     public function setUp()
     {
-        $this->userChecker = $this->getMock('Symfony\Component\Security\Core\User\UserCheckerInterface');
+        $this->userChecker = $this->createMock('Symfony\Component\Security\Core\User\UserCheckerInterface');
         $this->provider = new OrganizationRememberMeAuthenticationProvider($this->userChecker, 'testKey', 'provider');
         $this->provider->setTokenFactory(new OrganizationRememberMeTokenFactory());
     }
@@ -41,7 +40,7 @@ class OrganizationRememberMeAuthenticationProviderTest extends \PHPUnit_Framewor
         $token = new OrganizationRememberMeToken($user, 'another', 'testKey', $organization);
         $this->assertFalse($this->provider->supports($token));
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\AbstractToken');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\AbstractToken');
         $this->assertFalse($this->provider->supports($token));
     }
 

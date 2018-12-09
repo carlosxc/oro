@@ -3,19 +3,17 @@
 namespace Oro\Bundle\SoapBundle\Tests\Unit\Provider;
 
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
+use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
+use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
+use Oro\Bundle\SoapBundle\Provider\EntityMetadataProvider;
 use Symfony\Component\Translation\TranslatorInterface;
 
-use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
-use Oro\Bundle\SoapBundle\Provider\EntityMetadataProvider;
-use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
-
-class EntityMetadataProviderTest extends \PHPUnit_Framework_TestCase
+class EntityMetadataProviderTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var ConfigManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $cm;
 
-    /** @var TranslatorInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var TranslatorInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
     /** @var EntityMetadataProvider */
@@ -25,7 +23,7 @@ class EntityMetadataProviderTest extends \PHPUnit_Framework_TestCase
     {
         $this->cm         = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Config\ConfigManager')
             ->disableOriginalConstructor()->getMock();
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->provider   = new EntityMetadataProvider($this->cm, $this->translator);
     }
 
@@ -53,7 +51,7 @@ class EntityMetadataProviderTest extends \PHPUnit_Framework_TestCase
     public function testGetMetadata($entityName, $hasConfig, array $configValuesMap, array $expectedResult)
     {
         $classMetadata = new ClassMetadataInfo($entityName);
-        $object        = $this->getMock('Oro\Bundle\SoapBundle\Controller\Api\EntityManagerAwareInterface');
+        $object        = $this->createMock('Oro\Bundle\SoapBundle\Controller\Api\EntityManagerAwareInterface');
 
         $apiManager = $this->getMockBuilder('Oro\Bundle\SoapBundle\Entity\Manager\ApiEntityManager')
             ->disableOriginalConstructor()->getMock();
@@ -62,7 +60,7 @@ class EntityMetadataProviderTest extends \PHPUnit_Framework_TestCase
         $this->cm->expects($this->once())->method('hasConfig')->willReturn($hasConfig);
 
         if ($hasConfig) {
-            $config = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+            $config = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
 
             $this->cm->expects($this->once())->method('getConfig')->with(new EntityConfigId('entity', $entityName))
                 ->willReturn($config);

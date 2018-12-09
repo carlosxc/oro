@@ -4,42 +4,60 @@ namespace Oro\Bundle\DataGridBundle\Handler;
 
 use Akeneo\Bundle\BatchBundle\Item\ItemReaderInterface;
 use Akeneo\Bundle\BatchBundle\Item\ItemWriterInterface;
-
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-
+use Oro\Bundle\BatchBundle\Item\Support\ClosableInterface;
+use Oro\Bundle\BatchBundle\Step\StepExecutionWarningHandlerInterface;
 use Oro\Bundle\BatchBundle\Step\StepExecutor;
 use Oro\Bundle\DataGridBundle\Exception\InvalidArgumentException;
-use Oro\Bundle\ImportExportBundle\MimeType\MimeTypeGuesser;
-use Oro\Bundle\ImportExportBundle\Processor\ExportProcessor;
-use Oro\Bundle\ImportExportBundle\Context\ContextAwareInterface;
-use Oro\Bundle\ImportExportBundle\Context\ContextInterface;
+use Oro\Bundle\DataGridBundle\ImportExport\DatagridExportIdFetcher;
 use Oro\Bundle\ImportExportBundle\Context\Context;
+use Oro\Bundle\ImportExportBundle\Context\ContextAwareInterface;
+use Oro\Bundle\ImportExportBundle\File\FileManager;
+use Oro\Bundle\ImportExportBundle\Processor\ExportProcessor;
+use Psr\Log\LoggerInterface;
 
-class ExportHandler
+class ExportHandler implements StepExecutionWarningHandlerInterface
 {
     /**
-     * @var MimeTypeGuesser
+     * @var FileManager
      */
-    protected $guesser;
+    protected $fileManager;
 
     /**
-     * @param MimeTypeGuesser $guesser
+     * @var LoggerInterface
      */
-    public function __construct(MimeTypeGuesser $guesser)
+    protected $logger;
+
+    /**
+     * @var bool
+     */
+    protected $exportFailed = false;
+
+    /**
+     * @param FileManager $fileManager
+     */
+    public function setFileManager(FileManager $fileManager)
     {
-        $this->guesser = $guesser;
+        $this->fileManager = $fileManager;
+    }
+
+    /**
+     * @param LoggerInterface $logger
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
     }
 
     /**
      * @param ItemReaderInterface $reader
-     * @param ExportProcessor     $processor
+     * @param ExportProcessor $processor
      * @param ItemWriterInterface $writer
-     * @param array               $contextParameters
-     * @param int                 $batchSize
-     * @param string              $format
+     * @param array $contextParameters
+     * @param int $batchSize
+     * @param string $format
      *
-     * @return StreamedResponse
+     * @return array
+     * @throws InvalidArgumentException
      */
     public function handle(
         ItemReaderInterface $reader,
@@ -52,7 +70,13 @@ class ExportHandler
         if (!isset($contextParameters['gridName'])) {
             throw new InvalidArgumentException('Parameter "gridName" must be provided.');
         }
-        $context  = new Context($contextParameters);
+
+        $fileName = FileManager::generateFileName(sprintf('datagrid_%s', $contextParameters['gridName']), $format);
+        $filePath = FileManager::generateTmpFilePath($fileName);
+
+        $contextParameters['filePath'] = $filePath;
+
+        $context = new Context($contextParameters);
         $executor = new StepExecutor();
         $executor->setBatchSize($batchSize);
         $executor
@@ -65,40 +89,59 @@ class ExportHandler
             }
         }
 
-        $contentType = $this->guesser->guessByFileExtension($format);
-        if (!$contentType) {
-            $contentType = 'application/octet-stream';
+        try {
+            $executor->execute($this);
+            $this->fileManager->writeFileToStorage($filePath, $fileName);
+        } catch (\Exception $exception) {
+            $context->addFailureException($exception);
+        } finally {
+            @unlink($filePath);
         }
 
-        // prepare response
-        $response = new StreamedResponse($this->exportCallback($context, $executor));
-        $response->headers->set('Content-Type', $contentType);
-        $response->headers->set('Content-Transfer-Encoding', 'binary');
-        $outputFileName = sprintf(
-            'datagrid_%s_%s.%s',
-            str_replace('-', '_', $contextParameters['gridName']),
-            date('Y_m_d_H_i_s'),
-            $format
-        );
-        $response->headers->set(
-            'Content-Disposition',
-            $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $outputFileName)
-        );
+        $readsCount = $context->getReadCount() ?: 0;
+        $errorsCount = count($context->getFailureExceptions());
+        $errors = array_slice(array_merge($context->getErrors(), $context->getFailureExceptions()), 0, 100);
+        if ($writer instanceof ClosableInterface) {
+            $writer->close();
+        }
+        if ($reader instanceof ClosableInterface) {
+            $reader->close();
+        }
 
-        return $response;
+        return [
+            'success' => !$this->exportFailed,
+            'file' => $fileName,
+            'readsCount' => $readsCount,
+            'errorsCount' => $errorsCount,
+            'errors' => $errors
+         ];
     }
 
     /**
-     * @param ContextInterface $context
-     * @param StepExecutor     $executor
-     *
-     * @return \Closure
+     * @param object $element
+     * @param string $name
+     * @param string $reason
+     * @param array $reasonParameters
+     * @param mixed $item
      */
-    protected function exportCallback(ContextInterface $context, StepExecutor $executor)
+    public function handleWarning($element, $name, $reason, array $reasonParameters, $item)
     {
-        return function () use ($executor) {
-            flush();
-            $executor->execute();
-        };
+        $this->exportFailed = true;
+
+        $this->logger->error(sprintf('[DataGridExportHandle] Error message: %s', $reason), ['element' => $element]);
+    }
+
+    /**
+     * @param DatagridExportIdFetcher $idFetcher
+     * @param array $parameters
+     *
+     * @return array
+     */
+    public function getExportingEntityIds(DatagridExportIdFetcher $idFetcher, array $parameters)
+    {
+        $context  = new Context($parameters);
+        $idFetcher->setImportExportContext($context);
+
+        return $idFetcher->getGridDataIds();
     }
 }

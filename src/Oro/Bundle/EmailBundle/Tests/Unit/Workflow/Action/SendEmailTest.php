@@ -2,29 +2,30 @@
 
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Workflow\Action;
 
-use Oro\Bundle\EmailBundle\Tools\EmailAddressHelper;
 use Oro\Bundle\EmailBundle\Form\Model\Email;
+use Oro\Bundle\EmailBundle\Tools\EmailAddressHelper;
 use Oro\Bundle\EmailBundle\Workflow\Action\SendEmail;
+use Psr\Log\LoggerInterface;
 
-class SendEmailTest extends \PHPUnit_Framework_TestCase
+class SendEmailTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $contextAccessor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailProcessor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $entityNameResolver;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $dispatcher;
 
@@ -33,9 +34,14 @@ class SendEmailTest extends \PHPUnit_Framework_TestCase
      */
     protected $action;
 
+    /**
+     * @var LoggerInterface|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $logger;
+
     protected function setUp()
     {
-        $this->contextAccessor = $this->getMockBuilder('Oro\Component\Action\Model\ContextAccessor')
+        $this->contextAccessor = $this->getMockBuilder('Oro\Component\ConfigExpression\ContextAccessor')
             ->disableOriginalConstructor()
             ->getMock();
         $this->emailProcessor = $this->getMockBuilder('Oro\Bundle\EmailBundle\Mailer\Processor')
@@ -56,6 +62,9 @@ class SendEmailTest extends \PHPUnit_Framework_TestCase
         );
 
         $this->action->setDispatcher($this->dispatcher);
+
+        $this->logger = $this->createMock('Psr\Log\LoggerInterface');
+        $this->action->setLogger($this->logger);
     }
 
     /**
@@ -66,7 +75,8 @@ class SendEmailTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeException(array $options, $exceptionName, $exceptionMessage)
     {
-        $this->setExpectedException($exceptionName, $exceptionMessage);
+        $this->expectException($exceptionName);
+        $this->expectExceptionMessage($exceptionMessage);
         $this->action->initialize($options);
     }
 
@@ -256,7 +266,7 @@ class SendEmailTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->setMethods(['getEmail'])
             ->getMock();
-        $emailEntity = $this->getMock('\Oro\Bundle\EmailBundle\Entity\Email');
+        $emailEntity = $this->createMock('\Oro\Bundle\EmailBundle\Entity\Email');
         $emailUserEntity->expects($this->any())
             ->method('getEmail')
             ->willReturn($emailEntity);
@@ -395,5 +405,52 @@ class SendEmailTest extends \PHPUnit_Framework_TestCase
                 )
             )
         );
+    }
+
+    public function testExecuteWithProcessException()
+    {
+        $options = [
+            'from' => 'test@test.com',
+            'to' => 'test@test.com',
+            'template' => 'test',
+            'subject' => 'subject',
+            'body' => 'body',
+            'entity' => new \stdClass(),
+        ];
+
+        $context = array();
+        $this->contextAccessor->expects($this->any())
+            ->method('getValue')
+            ->will($this->returnArgument(1));
+        $this->entityNameResolver->expects($this->any())
+            ->method('getName')
+            ->will(
+                $this->returnCallback(
+                    function () {
+                        return '_Formatted';
+                    }
+                )
+            );
+
+        $emailUserEntity = $this->getMockBuilder('\Oro\Bundle\EmailBundle\Entity\EmailUser')
+            ->disableOriginalConstructor()
+            ->setMethods(['getEmail'])
+            ->getMock();
+        $emailEntity = $this->createMock('\Oro\Bundle\EmailBundle\Entity\Email');
+        $emailUserEntity->expects($this->any())
+            ->method('getEmail')
+            ->willReturn($emailEntity);
+
+        $this->emailProcessor->expects($this->once())
+            ->method('process')
+            ->with($this->isInstanceOf('Oro\Bundle\EmailBundle\Form\Model\Email'))
+            ->willThrowException(new \Swift_SwiftException('The email was not delivered.'));
+
+        $this->logger->expects($this->once())
+            ->method('error')
+            ->with('Workflow send email action.');
+
+        $this->action->initialize($options);
+        $this->action->execute($context);
     }
 }

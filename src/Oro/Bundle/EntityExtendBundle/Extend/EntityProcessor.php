@@ -2,15 +2,17 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Extend;
 
-use Psr\Log\LoggerInterface;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\HttpKernel\Profiler\Profiler;
-
 use Oro\Bundle\EntityConfigBundle\Tools\CommandExecutor;
 use Oro\Bundle\EntityExtendBundle\Event\UpdateSchemaEvent;
 use Oro\Bundle\PlatformBundle\Maintenance\Mode as MaintenanceMode;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpKernel\Profiler\Profiler;
 
+/**
+ * This Processor provide functionality to updates database and all related caches
+ * according to changes of extended entities
+ */
 class EntityProcessor
 {
     /** @var MaintenanceMode */
@@ -66,32 +68,7 @@ class EntityProcessor
         }
 
         $this->maintenance->activate();
-
-        $commands = [
-            'oro:entity-extend:update-config' => [
-                '--update-custom' => true,
-            ],
-            'oro:entity-extend:cache:warmup'  => [],
-            'oro:entity-extend:update-schema' => []
-        ];
-        if ($warmUpConfigCache) {
-            $commands = array_merge(
-                $commands,
-                [
-                    'oro:entity-config:cache:warmup' => []
-                ]
-            );
-        }
-        if ($updateRouting) {
-            $commands = array_merge(
-                $commands,
-                [
-                    'router:cache:clear'  => [],
-                    'fos:js-routing:dump' => []
-                ]
-            );
-        }
-
+        $commands = $this->getCommandsToExecute($warmUpConfigCache, $updateRouting);
         $result = $this->executeCommands($commands);
         if ($result) {
             try {
@@ -109,6 +86,42 @@ class EntityProcessor
         }
 
         return $result;
+    }
+
+
+    /**
+     * @param bool $warmUpConfigCache
+     * @param bool $updateRouting
+     * @return array
+     */
+    private function getCommandsToExecute($warmUpConfigCache = false, $updateRouting = false)
+    {
+        $commands = [
+            'oro:entity-extend:update-config' => ['--update-custom' => true],
+            'oro:entity-extend:cache:warmup' => [],
+            'oro:entity-extend:update-schema' => []
+        ];
+
+        if ($warmUpConfigCache) {
+            $commands = array_merge(
+                $commands,
+                [
+                    'oro:entity-config:cache:warmup' => []
+                ]
+            );
+        }
+
+        if ($updateRouting) {
+            $commands = array_merge(
+                $commands,
+                [
+                    'router:cache:clear' => [],
+                    'fos:js-routing:dump' => []
+                ]
+            );
+        }
+
+        return $commands;
     }
 
     /**

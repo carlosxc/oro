@@ -2,6 +2,8 @@
 
 namespace Oro\Bundle\FilterBundle\Form\Type\Filter;
 
+use Oro\Bundle\EntityExtendBundle\Provider\EnumValueProvider;
+use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
@@ -9,17 +11,13 @@ use Symfony\Component\OptionsResolver\Options;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Translation\TranslatorInterface;
 
-use Oro\Bundle\EntityExtendBundle\Provider\EnumValueProvider;
-use Oro\Bundle\EntityExtendBundle\Entity\AbstractEnumValue;
-use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
-
 class EnumFilterType extends AbstractMultiChoiceType
 {
     const NAME = 'oro_enum_filter';
-    const TYPE_IN = 1;
-    const TYPE_NOT_IN = 2;
-    const EQUAL = 3;
-    const NOT_EQUAL = 4;
+    const TYPE_IN = '1';
+    const TYPE_NOT_IN = '2';
+    const EQUAL = '3';
+    const NOT_EQUAL = '4';
 
     /**
      * @var EnumValueProvider
@@ -42,7 +40,7 @@ class EnumFilterType extends AbstractMultiChoiceType
     public function configureOptions(OptionsResolver $resolver)
     {
         $defaultFieldOptions = [
-            'multiple' => true
+            'multiple' => true,
         ];
 
         $resolver->setDefaults(
@@ -52,8 +50,8 @@ class EnumFilterType extends AbstractMultiChoiceType
                 'class'         => null,
                 'field_options' => $defaultFieldOptions,
                 'operator_choices' => [
-                    self::TYPE_IN => $this->translator->trans('oro.filter.form.label_type_in'),
-                    self::TYPE_NOT_IN => $this->translator->trans('oro.filter.form.label_type_not_in'),
+                    $this->translator->trans('oro.filter.form.label_type_in') => self::TYPE_IN,
+                    $this->translator->trans('oro.filter.form.label_type_not_in') => self::TYPE_NOT_IN,
                 ],
             ]
         );
@@ -152,7 +150,7 @@ class EnumFilterType extends AbstractMultiChoiceType
      */
     public function getParent()
     {
-        return ChoiceFilterType::NAME;
+        return ChoiceFilterType::class;
     }
 
     /**
@@ -165,7 +163,7 @@ class EnumFilterType extends AbstractMultiChoiceType
     {
         $choices = [];
         if (!empty($nullValue)) {
-            $choices[$nullValue] = $this->translator->trans('oro.entity_extend.datagrid.enum.filter.empty');
+            $choices[$this->translator->trans('oro.entity_extend.datagrid.enum.filter.empty')] = $nullValue;
         }
 
         if (!empty($enumValueClassName)) {

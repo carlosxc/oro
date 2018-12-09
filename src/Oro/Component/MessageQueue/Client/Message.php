@@ -1,65 +1,48 @@
 <?php
+
 namespace Oro\Component\MessageQueue\Client;
 
 class Message
 {
-    /**
-     * @var string|null
-     */
+    /** @var mixed */
     private $body;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null */
     private $contentType;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     private $messageId;
 
-    /**
-     * @var int
-     */
+    /** @var int */
     private $timestamp;
 
-    /**
-     * @var string
-     */
+    /** @var string|null */
     private $priority;
 
-    /**
-     * The number of seconds the message should be removed from the queue without processing
-     *
-     * @var int|null
-     */
+    /** @var int|null */
     private $expire;
 
-    /**
-     * The number of seconds the message should be delayed before it will be send to a queue
-     *
-     * @var int|null
-     */
+    /** @var int|null */
     private $delay;
 
-    /**
-     * @var array
-     */
+    /** @var array */
     private $headers = [];
 
-    /**
-     * @var array
-     */
+    /** @var array */
     private $properties = [];
 
-    public function __construct()
+    /**
+     * @param mixed       $body     Can be null, scalar or array
+     * @param string|null $priority Can be any value from {@see Oro\Component\MessageQueue\Client\MessagePriority)
+     */
+    public function __construct($body = null, $priority = null)
     {
-        $this->headers = [];
-        $this->properties = [];
+        $this->body = $body;
+        $this->priority = $priority;
     }
 
     /**
-     * @return null|string
+     * @return mixed Can be null, scalar or array
      */
     public function getBody()
     {
@@ -67,11 +50,15 @@ class Message
     }
 
     /**
-     * @param null|string $body
+     * @param mixed $body Can be null, scalar or array
+     *
+     * @return self
      */
     public function setBody($body)
     {
         $this->body = $body;
+
+        return $this;
     }
 
     /**
@@ -84,10 +71,14 @@ class Message
 
     /**
      * @param string|null $contentType
+     *
+     * @return self
      */
     public function setContentType($contentType)
     {
         $this->contentType = $contentType;
+
+        return $this;
     }
 
     /**
@@ -100,10 +91,14 @@ class Message
 
     /**
      * @param string $messageId
+     *
+     * @return self
      */
     public function setMessageId($messageId)
     {
         $this->messageId = $messageId;
+
+        return $this;
     }
 
     /**
@@ -116,13 +111,19 @@ class Message
 
     /**
      * @param int $timestamp
+     *
+     * @return self
      */
     public function setTimestamp($timestamp)
     {
         $this->timestamp = $timestamp;
+
+        return $this;
     }
 
     /**
+     * @see Oro\Component\MessageQueue\Client\MessagePriority
+     *
      * @return string
      */
     public function getPriority()
@@ -131,15 +132,19 @@ class Message
     }
 
     /**
-     * @param string $priority
+     * @param string $priority Can be any value from {@see Oro\Component\MessageQueue\Client\MessagePriority)
+     *
+     * @return self
      */
     public function setPriority($priority)
     {
         $this->priority = $priority;
+
+        return $this;
     }
 
     /**
-     * Gets the number of seconds the message should be removed from the queue without processing
+     * Gets the number of seconds the message should be removed from the queue without processing.
      *
      * @return int|null
      */
@@ -149,15 +154,21 @@ class Message
     }
 
     /**
+     * Sets the number of seconds the message should be removed from the queue without processing.
+     *
      * @param int|null $expire
+     *
+     * @return self
      */
     public function setExpire($expire)
     {
         $this->expire = $expire;
+
+        return $this;
     }
 
     /**
-     * Gets the number of seconds the message should be delayed before it will be send to a queue
+     * Gets the number of seconds the message should be delayed before it will be send to a queue.
      *
      * @return int|null
      */
@@ -167,13 +178,17 @@ class Message
     }
 
     /**
-     * Set delay in seconds
+     * Sets the number of seconds the message should be delayed before it will be send to a queue.
      *
      * @param int|null $delay
+     *
+     * @return self
      */
     public function setDelay($delay)
     {
         $this->delay = $delay;
+
+        return $this;
     }
 
     /**
@@ -186,7 +201,7 @@ class Message
 
     /**
      * @param string $name
-     * @param mixed $default
+     * @param mixed  $default
      *
      * @return mixed
      */
@@ -197,19 +212,27 @@ class Message
 
     /**
      * @param string $name
-     * @param mixed $value
+     * @param mixed  $value
+     *
+     * @return self
      */
     public function setHeader($name, $value)
     {
         $this->headers[$name] = $value;
+
+        return $this;
     }
 
     /**
      * @param array $headers
+     *
+     * @return self
      */
     public function setHeaders(array $headers)
     {
         $this->headers = $headers;
+
+        return $this;
     }
 
     /**
@@ -222,15 +245,19 @@ class Message
 
     /**
      * @param array $properties
+     *
+     * @return self
      */
     public function setProperties(array $properties)
     {
         $this->properties = $properties;
+
+        return $this;
     }
 
     /**
      * @param string $name
-     * @param mixed $default
+     * @param mixed  $default
      *
      * @return mixed
      */
@@ -241,10 +268,14 @@ class Message
 
     /**
      * @param string $name
-     * @param mixed $value
+     * @param mixed  $value
+     *
+     * @return self
      */
     public function setProperty($name, $value)
     {
         $this->properties[$name] = $value;
+
+        return $this;
     }
 }

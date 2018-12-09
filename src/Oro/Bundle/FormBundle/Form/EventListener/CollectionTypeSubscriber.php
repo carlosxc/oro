@@ -2,14 +2,12 @@
 
 namespace Oro\Bundle\FormBundle\Form\EventListener;
 
-use Symfony\Component\Form\FormInterface;
+use Doctrine\Common\Collections\Collection;
+use Oro\Bundle\FormBundle\Entity\EmptyItem;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-
-use Doctrine\Common\Collections\Collection;
-
-use Oro\Bundle\FormBundle\Entity\EmptyItem;
+use Symfony\Component\Form\FormInterface;
 
 class CollectionTypeSubscriber implements EventSubscriberInterface
 {
@@ -76,7 +74,7 @@ class CollectionTypeSubscriber implements EventSubscriberInterface
         $items = $notEmptyItems;
 
         // Set first non empty item for new item as primary
-        if ($items && !$hasPrimary && $this->isParentFormDataNew($event->getForm()) || count($items) == 1) {
+        if ($items && !$hasPrimary && count($items) == 1) {
             $items[current(array_keys($items))]['primary'] = true;
         }
 
@@ -102,22 +100,6 @@ class CollectionTypeSubscriber implements EventSubscriberInterface
         }
 
         return true;
-    }
-
-    protected function isParentFormDataNew(FormInterface $form)
-    {
-        $result = false;
-        $parent = $form->getParent();
-        if ($parent) {
-            $data = $parent->getData();
-            if (is_object($data)) {
-                if (method_exists($data, 'getId')) {
-                    $result = !$data->getId();
-                }
-            }
-        }
-        return $result;
-
     }
 
     /**

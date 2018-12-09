@@ -2,11 +2,10 @@
 
 namespace Oro\Component\Action\Action;
 
+use Oro\Component\ConfigExpression\ExpressionInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-use Oro\Component\ConfigExpression\ExpressionInterface;
-
-class ActionFactory
+class ActionFactory implements ActionFactoryInterface
 {
     /**
      * @var ContainerInterface
@@ -60,5 +59,21 @@ class ActionFactory
         }
 
         return $action;
+    }
+
+    /**
+     * @return array
+     */
+    public function getTypes()
+    {
+        return $this->types;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isTypeExists($name)
+    {
+        return isset($this->types[$name]);
     }
 }

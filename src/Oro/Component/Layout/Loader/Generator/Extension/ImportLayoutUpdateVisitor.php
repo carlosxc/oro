@@ -5,7 +5,6 @@ namespace Oro\Component\Layout\Loader\Generator\Extension;
 use CG\Generator\PhpMethod;
 use CG\Generator\PhpParameter;
 use CG\Generator\PhpProperty;
-
 use Oro\Component\Layout\Loader\Generator\VisitContext;
 use Oro\Component\Layout\Loader\Visitor\VisitorInterface;
 
@@ -22,12 +21,12 @@ class ImportLayoutUpdateVisitor implements VisitorInterface
         $class->addInterfaceName('Oro\Component\Layout\LayoutUpdateImportInterface');
         $class->addInterfaceName('Oro\Component\Layout\IsApplicableLayoutUpdateInterface');
 
-        $factoryProperty = PhpProperty::create('applicable');
-        $factoryProperty->setVisibility(PhpProperty::VISIBILITY_PRIVATE);
-        $factoryProperty->setDefaultValue(false);
-        $class->setProperty($factoryProperty);
         $setFactoryMethod = PhpMethod::create('isApplicable');
-        $setFactoryMethod->setBody($writer->reset()->write('return $this->applicable;')->getContent());
+        $setFactoryMethod->addParameter(
+            PhpParameter::create('context')
+                ->setType('\Oro\Component\Layout\ContextInterface')
+        );
+        $setFactoryMethod->setBody($writer->reset()->write('return true;')->getContent());
         $class->setMethod($setFactoryMethod);
         
         $setFactoryMethod = PhpMethod::create('getImport');
@@ -72,12 +71,10 @@ class ImportLayoutUpdateVisitor implements VisitorInterface
             ->writeln('')
             ->writeln('if ($this->parentLayoutUpdate instanceof Oro\Component\Layout\IsApplicableLayoutUpdateInterface')
             ->indent()
-            ->writeln('&& !$this->parentLayoutUpdate->isApplicable()) {')
+            ->writeln('&& !$this->parentLayoutUpdate->isApplicable($item->getContext())) {')
             ->writeln('return;')
             ->outdent()
             ->writeln('}')
-            ->writeln('')
-            ->writeln('$this->applicable = true;')
             ->writeln('')
             ->writeln('$layoutManipulator  = new ImportLayoutManipulator($layoutManipulator, $this->import);');
     }

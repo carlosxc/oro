@@ -2,16 +2,15 @@
 
 namespace Oro\Component\Action\Tests\Unit\Action;
 
+use Oro\Component\Action\Action\RefreshGrid;
+use Oro\Component\Action\Tests\Unit\Action\Stub\StubStorage;
+use Oro\Component\ConfigExpression\ContextAccessor;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Component\Action\Action\RefreshGrid;
-use Oro\Component\Action\Model\ContextAccessor;
-use Oro\Component\Action\Tests\Unit\Action\Stub\StubStorage;
-
-class RefreshGridTest extends \PHPUnit_Framework_TestCase
+class RefreshGridTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|EventDispatcherInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EventDispatcherInterface */
     protected $eventDispatcher;
 
     /** @var RefreshGrid */
@@ -19,7 +18,7 @@ class RefreshGridTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $this->action = new RefreshGrid(new ContextAccessor());
         $this->action->setDispatcher($this->eventDispatcher);

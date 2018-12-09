@@ -9,33 +9,33 @@ use Oro\Component\Layout\LayoutManipulatorInterface;
 use Oro\Component\Layout\LayoutRegistryInterface;
 use Oro\Component\Layout\RawLayout;
 
-class BlockBuilderTest extends \PHPUnit_Framework_TestCase
+class BlockBuilderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var RawLayout */
     protected $rawLayout;
 
-    /** @var BlockTypeHelperInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var BlockTypeHelperInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $typeHelper;
 
     /** @var LayoutContext */
     protected $context;
 
-    /** @var LayoutManipulatorInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LayoutManipulatorInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $layoutManipulator;
 
     /** @var BlockBuilder */
     protected $blockBuilder;
 
-    /** @var LayoutRegistryInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LayoutRegistryInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $registry;
 
     protected function setUp()
     {
         $this->rawLayout         = new RawLayout();
-        $this->typeHelper        = $this->getMock('Oro\Component\Layout\BlockTypeHelperInterface');
+        $this->typeHelper        = $this->createMock('Oro\Component\Layout\BlockTypeHelperInterface');
         $this->context           = new LayoutContext();
-        $this->layoutManipulator = $this->getMock('Oro\Component\Layout\LayoutManipulatorInterface');
-        $this->registry          = $this->getMock('Oro\Component\Layout\LayoutRegistryInterface');
+        $this->layoutManipulator = $this->createMock('Oro\Component\Layout\LayoutManipulatorInterface');
+        $this->registry          = $this->createMock('Oro\Component\Layout\LayoutRegistryInterface');
 
         $this->blockBuilder      = new BlockBuilder(
             $this->layoutManipulator,
@@ -86,7 +86,7 @@ class BlockBuilderTest extends \PHPUnit_Framework_TestCase
         $id   = 'test_id';
         $name = 'test_name';
 
-        $type = $this->getMock('Oro\Component\Layout\BlockTypeInterface');
+        $type = $this->createMock('Oro\Component\Layout\BlockTypeInterface');
         $type->expects($this->once())
             ->method('getName')
             ->will($this->returnValue($name));

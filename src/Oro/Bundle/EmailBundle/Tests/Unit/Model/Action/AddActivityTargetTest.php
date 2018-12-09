@@ -9,10 +9,9 @@ use Oro\Bundle\EmailBundle\Entity\Email;
 use Oro\Bundle\EmailBundle\Entity\Manager\EmailActivityManager;
 use Oro\Bundle\EmailBundle\Model\Action\AddActivityTarget;
 use Oro\Bundle\UserBundle\Entity\User;
+use Oro\Component\ConfigExpression\ContextAccessor;
 
-use Oro\Component\Action\Model\ContextAccessor;
-
-class AddActivityTargetTest extends \PHPUnit_Framework_TestCase
+class AddActivityTargetTest extends \PHPUnit\Framework\TestCase
 {
     /** @var AddActivityTarget */
     protected $action;
@@ -31,7 +30,7 @@ class AddActivityTargetTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->contextAccessor = $this->getMock('Oro\Component\Action\Model\ContextAccessor');
+        $this->contextAccessor = $this->createMock('Oro\Component\ConfigExpression\ContextAccessor');
 
         $this->emailActivityManager = $this->getMockBuilder(
             'Oro\Bundle\EmailBundle\Entity\Manager\EmailActivityManager'
@@ -58,7 +57,7 @@ class AddActivityTargetTest extends \PHPUnit_Framework_TestCase
             $this->entityManager
         );
 
-        $this->action->setDispatcher($this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
+        $this->action->setDispatcher($this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
     }
 
     public function testInitializeWithNamedOptions()
@@ -199,16 +198,6 @@ class AddActivityTargetTest extends \PHPUnit_Framework_TestCase
                 $this->equalTo(true)
             );
 
-        $this->activityListChainProvider->expects($this->any())
-            ->method('getActivityListEntitiesByActivityEntity')
-            ->with(
-                $this->equalTo($email)
-            )->will($this->returnValue($list = new ActivityList()));
-
-        $this->entityManager->expects($this->once())
-            ->method('persist')
-            ->with($this->equalTo($list));
-
         $this->emailActivityManager->expects($this->once())
             ->method('addAssociation')
             ->with(
@@ -245,16 +234,6 @@ class AddActivityTargetTest extends \PHPUnit_Framework_TestCase
 
         $this->contextAccessor->expects($this->never())
             ->method('setValue');
-
-        $this->activityListChainProvider->expects($this->any())
-            ->method('getActivityListEntitiesByActivityEntity')
-            ->with(
-                $this->equalTo($email)
-            )->will($this->returnValue($list = new ActivityList()));
-
-        $this->entityManager->expects($this->once())
-            ->method('persist')
-            ->with($this->equalTo($list));
 
         $this->emailActivityManager->expects($this->once())
             ->method('addAssociation')

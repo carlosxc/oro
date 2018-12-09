@@ -9,9 +9,9 @@ use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Form\Util\EnumTypeHelper;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 
-class EnumTypeHelperTest extends \PHPUnit_Framework_TestCase
+class EnumTypeHelperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $configManager;
 
     /** @var EnumTypeHelper */
@@ -394,7 +394,7 @@ class EnumTypeHelperTest extends \PHPUnit_Framework_TestCase
     {
         $className = 'Test\Entity';
 
-        $config = new Config($this->getMock('Oro\Bundle\EntityConfigBundle\Config\Id\ConfigIdInterface'));
+        $config = new Config($this->createMock('Oro\Bundle\EntityConfigBundle\Config\Id\ConfigIdInterface'));
         $config->set('owner', $owner);
 
         $configProvider = $this->getConfigProviderMock();
@@ -513,7 +513,7 @@ class EnumTypeHelperTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function getConfigProviderMock()
     {

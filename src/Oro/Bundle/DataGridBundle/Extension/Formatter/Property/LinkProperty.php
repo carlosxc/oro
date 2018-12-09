@@ -2,10 +2,10 @@
 
 namespace Oro\Bundle\DataGridBundle\Extension\Formatter\Property;
 
-use Symfony\Component\Routing\RouterInterface;
-
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface;
 use Oro\Bundle\UIBundle\Twig\Environment;
+use Symfony\Component\Routing\Exception\InvalidParameterException;
+use Symfony\Component\Routing\RouterInterface;
 
 class LinkProperty extends UrlProperty
 {
@@ -32,17 +32,23 @@ class LinkProperty extends UrlProperty
     public function getRawValue(ResultRecordInterface $record)
     {
         $label = null;
+        $link = null;
 
         try {
-            $label = $record->getValue($this->getOr(self::DATA_NAME_KEY) ?: $this->get(self::NAME_KEY));
+            $label = $record->getValue($this->getOr(self::DATA_NAME_KEY, $this->get(self::NAME_KEY)));
         } catch (\LogicException $e) {
+        }
+
+        try {
+            $link = parent::getRawValue($record);
+        } catch (InvalidParameterException $e) {
         }
 
         return $this->twig
             ->loadTemplate(self::TEMPLATE)
             ->render(
                 [
-                    'url'   => parent::getRawValue($record),
+                    'url'   => $link,
                     'label' => $label
                 ]
             );

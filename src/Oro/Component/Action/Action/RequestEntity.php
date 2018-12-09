@@ -4,12 +4,11 @@ namespace Oro\Component\Action\Action;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityManager;
-
-use Symfony\Component\PropertyAccess\PropertyPathInterface;
-
 use Oro\Component\Action\Exception\InvalidParameterException;
 use Oro\Component\Action\Exception\NotManageableEntityException;
-use Oro\Component\Action\Model\ContextAccessor;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
+use Symfony\Component\PropertyAccess\PropertyPathInterface;
 
 class RequestEntity extends AbstractAction
 {
@@ -80,8 +79,9 @@ class RequestEntity extends AbstractAction
             );
         }
 
-        if (!empty($options['where']) && !is_array($options['where'])) {
-            throw new InvalidParameterException('Parameter "where" must be array');
+        if (!empty($options['where']) && !is_array($options['where']) &&
+                !$options['where'] instanceof PropertyPathInterface) {
+            throw new InvalidParameterException('Parameter "where" must be array or property');
         } elseif (empty($options['where'])) {
             $options['where'] = [];
         }
@@ -108,7 +108,7 @@ class RequestEntity extends AbstractAction
      */
     protected function getEntityReference($context)
     {
-        $entityClassName = $this->getEntityClassName();
+        $entityClassName = $this->getEntityClassName($context);
         $entityManager = $this->getEntityManager($entityClassName);
 
         $entityIdentifier = $this->getEntityIdentifier($context);
@@ -126,7 +126,7 @@ class RequestEntity extends AbstractAction
      */
     protected function getEntityByConditions($context)
     {
-        $entityClassName = $this->getEntityClassName();
+        $entityClassName = $this->getEntityClassName($context);
         $entityManager = $this->getEntityManager($entityClassName);
 
         $where = $this->getWhere($context);
@@ -141,6 +141,7 @@ class RequestEntity extends AbstractAction
         // apply where condition
         $counter = 0;
         foreach ($where as $field => $value) {
+            QueryBuilderUtil::checkIdentifier($field);
             $parameter = 'parameter_' . $counter;
             $field = 'e.' . $field;
             if ($this->isCaseInsensitive()) {
@@ -152,8 +153,9 @@ class RequestEntity extends AbstractAction
 
         // apply sorting
         foreach ($orderBy as $field => $direction) {
+            QueryBuilderUtil::checkIdentifier($field);
             $field = 'e.' . $field;
-            $queryBuilder->orderBy($field, $direction);
+            $queryBuilder->orderBy($field, QueryBuilderUtil::getSortOrder($direction));
         }
         // should be one result
         $queryBuilder->setMaxResults(1);
@@ -178,11 +180,14 @@ class RequestEntity extends AbstractAction
     }
 
     /**
+     * @param mixed $context
      * @return string
      */
-    protected function getEntityClassName()
+    protected function getEntityClassName($context)
     {
-        return $this->options['class'];
+        $class = $this->options['class'];
+
+        return $this->contextAccessor->getValue($context, $class);
     }
 
     /**
@@ -208,7 +213,15 @@ class RequestEntity extends AbstractAction
      */
     protected function getWhere($context)
     {
-        return $this->parseArrayValues($context, $this->options['where']);
+        $where = $this->options['where'];
+
+        if (is_array($where)) {
+            $where = $this->parseArrayValues($context, $where);
+        } else {
+            $where = $this->contextAccessor->getValue($context, $where);
+        }
+
+        return $where;
     }
 
     /**
@@ -274,7 +287,7 @@ class RequestEntity extends AbstractAction
         if (is_array($data)) {
             foreach ($data as $key => $value) {
                 if (is_scalar($value)) {
-                    $data[$key] = trim($value);
+                    $data[$key] = is_bool($value) ? $value : trim($value);
                 }
             }
         } elseif (is_string($data)) {

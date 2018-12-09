@@ -2,17 +2,15 @@
 
 namespace Oro\Bundle\ActionBundle\Tests\Unit\Model\Assembler;
 
-use Symfony\Component\PropertyAccess\PropertyPath;
-
 use Oro\Bundle\ActionBundle\Model\Assembler\FormOptionsAssembler;
 use Oro\Bundle\ActionBundle\Model\Attribute;
-
 use Oro\Component\ConfigExpression\ConfigurationPass\ConfigurationPassInterface;
+use Symfony\Component\PropertyAccess\PropertyPath;
 
-class FormOptionsAssemblerTest extends \PHPUnit_Framework_TestCase
+class FormOptionsAssemblerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var ConfigurationPassInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigurationPassInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $configurationPass;
 
@@ -23,7 +21,7 @@ class FormOptionsAssemblerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->configurationPass = $this->getMock(
+        $this->configurationPass = $this->createMock(
             'Oro\Component\ConfigExpression\ConfigurationPass\ConfigurationPassInterface'
         );
 
@@ -93,7 +91,8 @@ class FormOptionsAssemblerTest extends \PHPUnit_Framework_TestCase
         $expectedException,
         $expectedExceptionMessage
     ) {
-        $this->setExpectedException($expectedException, $expectedExceptionMessage);
+        $this->expectException($expectedException);
+        $this->expectExceptionMessage($expectedExceptionMessage);
         $this->assembler->assemble($options, $attributes);
     }
 

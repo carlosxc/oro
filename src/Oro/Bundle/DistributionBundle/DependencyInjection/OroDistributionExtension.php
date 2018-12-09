@@ -2,10 +2,11 @@
 
 namespace Oro\Bundle\DistributionBundle\DependencyInjection;
 
+use Oro\Bundle\DistributionBundle\Translation\Translator;
+use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
-use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -23,9 +24,10 @@ class OroDistributionExtension extends Extension
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
 
         $loader->load('services.yml');
+        $loader->load('commands.yml');
 
-        $this->mergeAsseticBundles($container);
         $this->mergeTwigResources($container);
+        $this->replaceTranslator($container);
 
         if ($config = $this->processConfiguration(new Configuration(), $configs)) {
             if (isset($config['entry_point'])) {
@@ -35,25 +37,9 @@ class OroDistributionExtension extends Extension
         }
     }
 
-    protected function mergeAsseticBundles(ContainerBuilder $container)
-    {
-        $data = array();
-
-        $bundles = $container->getParameter('kernel.bundles');
-        foreach ($bundles as $bundle) {
-            $reflection = new \ReflectionClass($bundle);
-            $file       = dirname($reflection->getFilename()) . '/Resources/config/oro/assetic.yml';
-            if (is_file($file)) {
-                $data = array_merge($data, Yaml::parse(file_get_contents(realpath($file)))['bundles']);
-            }
-        }
-
-        $container->setParameter(
-            'assetic.bundles',
-            array_unique(array_merge((array)$container->getParameter('assetic.bundles'), $data))
-        );
-    }
-
+    /**
+     * @param ContainerBuilder $container
+     */
     protected function mergeTwigResources(ContainerBuilder $container)
     {
         $data = array();
@@ -61,7 +47,7 @@ class OroDistributionExtension extends Extension
         $bundles = $container->getParameter('kernel.bundles');
         foreach ($bundles as $bundle) {
             $reflection = new \ReflectionClass($bundle);
-            $file       = dirname($reflection->getFilename()) . '/Resources/config/oro/twig.yml';
+            $file = dirname($reflection->getFileName()) . '/Resources/config/oro/twig.yml';
             if (is_file($file)) {
                 $data = array_merge($data, Yaml::parse(file_get_contents(realpath($file)))['bundles']);
             }
@@ -71,5 +57,17 @@ class OroDistributionExtension extends Extension
             'twig.form.resources',
             array_unique(array_merge((array)$container->getParameter('twig.form.resources'), $data))
         );
+    }
+
+    /**
+     * @param ContainerBuilder $container
+     */
+    protected function replaceTranslator(ContainerBuilder $container)
+    {
+        $bundles = $container->getParameter('kernel.bundles');
+        //Replace translator class only if not registered OroTranslationBundle
+        if (!isset($bundles['OroTranslationBundle'])) {
+            $container->setParameter('translator.class', Translator::class);
+        }
     }
 }

@@ -4,7 +4,7 @@ namespace Oro\Bundle\EntityMergeBundle\Tests\Unit\Model\Strategy;
 
 use Oro\Bundle\EntityMergeBundle\Model\Strategy\DelegateStrategy;
 
-class DelegateStrategyTest extends \PHPUnit_Framework_TestCase
+class DelegateStrategyTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var DelegateStrategy $strategy
@@ -170,7 +170,7 @@ class DelegateStrategyTest extends \PHPUnit_Framework_TestCase
 
     protected function createStrategy($name)
     {
-        $result = $this->getMock('Oro\Bundle\EntityMergeBundle\Model\Strategy\StrategyInterface');
+        $result = $this->createMock('Oro\Bundle\EntityMergeBundle\Model\Strategy\StrategyInterface');
         $result->expects($this->any())
             ->method('getName')
             ->will($this->returnValue($name));

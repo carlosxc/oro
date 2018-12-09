@@ -1,5 +1,5 @@
-/*global $*/
-/*jshint -W098*/
+/* global $ */
+// eslint-disable-next-line no-unused-vars
 function PackageManager(Urls, util) {
     'use strict';
 
@@ -30,9 +30,7 @@ function PackageManager(Urls, util) {
         });
     }
 
-    function installCompleteCallback(xhr) {
-        var response = xhr.responseJSON;
-
+    function installCompleteCallback(response) {
         switch (response && response.code) {
             case InstallStatus.INSTALLED:
                 util.redirect(Urls.installed, 'Package installed successfully');
@@ -46,7 +44,7 @@ function PackageManager(Urls, util) {
             case InstallStatus.CONFIRM:
                 var title = 'Confirm installation of ' + response.params.packageName;
                 var message = '';
-                message += '\n' + '<label>' +
+                message += '\n<label>' +
                     ' <input type="checkbox" id="load-demo-data" checked="checked" />' +
                     '<span>Load demo data</span>' +
                     '</label>';
@@ -78,12 +76,9 @@ function PackageManager(Urls, util) {
                 );
                 break;
         }
-
     }
 
-    function updateCompleteCallback(xhr) {
-        var response = xhr.responseJSON;
-
+    function updateCompleteCallback(response) {
         switch (response && response.code) {
             case UpdateStatus.UPDATED:
                 util.redirect(Urls.installed, 'Package updated successfully');

@@ -10,10 +10,21 @@ define(function(require) {
             routeName: 'oro_security_access_levels'
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function AccessLevelsCollection() {
+            AccessLevelsCollection.__super__.constructor.apply(this, arguments);
+        },
+
         parse: function(resp, options) {
             return _.map(_.pairs(resp), function(item) {
                 return {access_level: parseInt(item[0], 10), access_level_label: item[1]};
             });
+        },
+
+        getRouteName: function() {
+            return this._route.get('routeName');
         }
     });
 

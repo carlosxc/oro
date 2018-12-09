@@ -2,20 +2,18 @@
 
 namespace Oro\Bundle\SearchBundle\Engine;
 
-use Doctrine\Common\Persistence\ObjectManager;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
 use Oro\Bundle\SearchBundle\Query\Expression\Lexer;
 use Oro\Bundle\SearchBundle\Query\Expression\Parser as ExpressionParser;
 use Oro\Bundle\SearchBundle\Query\Mode;
 use Oro\Bundle\SearchBundle\Query\Query;
 use Oro\Bundle\SearchBundle\Query\Result;
 use Oro\Bundle\SearchBundle\Security\SecurityProvider;
-
 use Oro\Bundle\SecurityBundle\Search\AclHelper;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
+ * Search index accesser class.
+ *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  * @SuppressWarnings(PHPMD.TooManyMethods)
@@ -34,9 +32,6 @@ class Indexer
     /** @var EngineInterface */
     protected $engine;
 
-    /** @var ObjectManager */
-    protected $em;
-
     /** @var ObjectMapper */
     protected $mapper;
 
@@ -50,22 +45,19 @@ class Indexer
     protected $isAllowedApplyAcl = true;
 
     /**
-     * @param ObjectManager       $em
-     * @param EngineInterface     $engine
+     * @param EngineInterface   $engine
      * @param ObjectMapper        $mapper
      * @param SecurityProvider    $securityProvider
      * @param AclHelper           $searchAclHelper
      * @param EventDispatcherInterface $dispatcher
      */
     public function __construct(
-        ObjectManager            $em,
-        EngineInterface          $engine,
+        EngineInterface        $engine,
         ObjectMapper             $mapper,
         SecurityProvider         $securityProvider,
         AclHelper                $searchAclHelper,
         EventDispatcherInterface $dispatcher
     ) {
-        $this->em               = $em;
         $this->engine           = $engine;
         $this->mapper           = $mapper;
         $this->securityProvider = $securityProvider;
@@ -185,7 +177,6 @@ class Indexer
         $query = new Query();
 
         $query->setMappingConfig($this->mapper->getMappingConfig());
-        $query->setEntityManager($this->em);
 
         return $query;
     }
@@ -200,7 +191,8 @@ class Indexer
     {
         $this->prepareQuery($query);
         // we haven't allowed entities, so return null search result
-        if (count($query->getFrom()) == 0) {
+        $from = $query->getFrom();
+        if (is_array($from) && count($from) == 0) {
             return new Result($query, [], 0);
         }
 

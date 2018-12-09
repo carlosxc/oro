@@ -1,32 +1,40 @@
 <?php
 
-namespace Oro\Bundle\LocaleBundle\Tests\EventListener;
+namespace Oro\Bundle\LocaleBundle\Tests\Unit\EventListener;
 
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\RequestContext;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
-
+use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\EventListener\LocaleListener;
+use Oro\Bundle\LocaleBundle\Provider\CurrentLocalizationProvider;
+use Oro\Bundle\TranslationBundle\Entity\Language;
+use Oro\Component\Testing\Unit\EntityTrait;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\Routing\RequestContext;
 
-class LocaleListenerTest extends \PHPUnit_Framework_TestCase
+class LocaleListenerTest extends \PHPUnit\Framework\TestCase
 {
+    use EntityTrait;
+
     /** @var LocaleListener */
     protected $listener;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $localeSettings;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $transListener;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $router;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $container;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
+
+    /** @var CurrentLocalizationProvider|\PHPUnit\Framework\MockObject\MockObject */
+    protected $currentLocalizationProvider;
 
     /** @var string */
     protected $defaultLocale;
@@ -36,9 +44,10 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
         $this->localeSettings = $this->getMockBuilder('Oro\Bundle\LocaleBundle\Model\LocaleSettings')
             ->disableOriginalConstructor()
             ->getMock();
-        $this->translator =  $this->getMock('Symfony\Component\Translation\TranslatorInterface');
-        $this->transListener = $this->getMock('Gedmo\Translatable\TranslatableListener');
-        $this->router = $this->getMock('Symfony\Component\Routing\RequestContextAwareInterface');
+        $this->translator =  $this->createMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->transListener = $this->createMock('Gedmo\Translatable\TranslatableListener');
+        $this->router = $this->createMock('Symfony\Component\Routing\RequestContextAwareInterface');
+        $this->currentLocalizationProvider = $this->createMock(CurrentLocalizationProvider::class);
 
         $this->defaultLocale = \Locale::getDefault();
 
@@ -62,6 +71,9 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
                     if ($serviceName === 'translator') {
                         return $this->translator;
                     }
+                    if ($serviceName === 'oro_locale.provider.current_localization') {
+                        return $this->currentLocalizationProvider;
+                    }
                 }
             );
     }
@@ -72,11 +84,13 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @param mixed $installed
+     * @param bool|null $installed
      * @param bool $isSetLocale
+     * @param string $expectedLanguage
+     * @param Localization|null $localization
      * @dataProvider onKernelRequestDataProvider
      */
-    public function testOnKernelRequest($installed, $isSetLocale)
+    public function testOnKernelRequest($installed, $isSetLocale, $expectedLanguage, Localization $localization = null)
     {
         $customLanguage = 'ru';
         $customLocale = 'fr';
@@ -86,7 +100,9 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
         $request->setDefaultLocale($this->defaultLocale);
 
         if ($isSetLocale) {
-            $this->localeSettings->expects($this->once())->method('getLanguage')
+            $this->currentLocalizationProvider->expects($this->once())->method('getCurrentLocalization')
+                ->willReturn($localization);
+            $this->localeSettings->expects($localization ? $this->never() : $this->once())->method('getLanguage')
                 ->will($this->returnValue($customLanguage));
             $this->localeSettings->expects($this->once())->method('getLocale')
                 ->will($this->returnValue($customLocale));
@@ -104,8 +120,8 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
         $this->listener->onKernelRequest($this->createGetResponseEvent($request));
 
         if ($isSetLocale) {
-            $this->assertEquals($customLanguage, $request->getLocale());
-            $this->assertEquals($customLanguage, $context->getParameter('_locale'));
+            $this->assertEquals($expectedLanguage, $request->getLocale());
+            $this->assertEquals($expectedLanguage, $context->getParameter('_locale'));
             $this->assertEquals($customLocale, \Locale::getDefault());
         } else {
             $this->assertEquals($this->defaultLocale, $request->getLocale());
@@ -113,26 +129,45 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
         }
     }
 
+    /**
+     * @return array
+     */
     public function onKernelRequestDataProvider()
     {
-        return array(
-            'application not installed with null' => array(
+        return [
+            'application not installed with null' => [
                 'installed' => null,
                 'isSetLocale' => false,
-            ),
-            'application not installed with false' => array(
+                'language' => 'ru',
+                'localization' => null,
+            ],
+            'application not installed with false' => [
                 'installed' => false,
                 'isSetLocale' => false,
-            ),
-            'application installed with flag' => array(
+                'language' => 'ru',
+                'localization' => null,
+            ],
+            'application installed with flag' => [
                 'installed' => true,
                 'isSetLocale' => true,
-            ),
-            'application installed with date' => array(
+                'language' => 'ru',
+                'localization' => null,
+            ],
+            'application installed with date' => [
                 'installed' => '2012-12-12T12:12:12+02:00',
                 'isSetLocale' => true,
-            ),
-        );
+                'language' => 'ru',
+                'localization' => null,
+            ],
+            'application installed and localization' => [
+                'installed' => '2012-12-12T12:12:12+02:00',
+                'isSetLocale' => true,
+                'language' => 'en_US',
+                'localization' => (new Localization())->setLanguage(
+                    $this->getEntity(Language::class, ['code' => 'en_US',])
+                ),
+            ],
+        ];
     }
 
     public function testOnConsoleCommand()
@@ -186,7 +221,7 @@ class LocaleListenerTest extends \PHPUnit_Framework_TestCase
     {
         $event = $this->getMockBuilder('Symfony\Component\HttpKernel\Event\GetResponseEvent')
             ->disableOriginalConstructor()
-            ->setMethods(array('getRequest'))
+            ->setMethods(['getRequest'])
             ->getMock();
 
         $event->expects($this->once())

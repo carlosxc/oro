@@ -2,11 +2,9 @@
 
 namespace Oro\Bundle\EmailBundle\Tests\Functional\Api\Rest;
 
+use Oro\Bundle\EmailBundle\Tests\Functional\DataFixtures\LoadAdminOwnerEmailData;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 
-/**
- * @dbIsolation
- */
 class EmailControllerTest extends WebTestCase
 {
     const INCORRECT_ID = -1;
@@ -24,13 +22,13 @@ class EmailControllerTest extends WebTestCase
         'importance' => 'low',
         'body' => 'Test body',
         'bodyType' => 'text',
-        'receivedAt' => '2015-06-19 12:17:51'
+        'receivedAt' => '2015-06-19T12:17:51Z'
     ];
 
     protected function setUp()
     {
         $this->initClient([], $this->generateWsseAuthHeader());
-        $this->loadFixtures(['Oro\Bundle\EmailBundle\Tests\Functional\DataFixtures\LoadEmailData']);
+        $this->loadFixtures([LoadAdminOwnerEmailData::class]);
     }
 
     /**
@@ -138,8 +136,8 @@ class EmailControllerTest extends WebTestCase
 
         $this->client->request('GET', $this->getUrl('oro_api_get_email', ['id' => $response['id']]));
         $email = $this->getJsonResponseContent($this->client->getResponse(), 200);
-        $this->assertNotNull($email['subject'], "The Subject cannot be null. It should be empty string");
-        $this->assertNotNull($email['body'], "The Body cannot be null. It should be empty string");
+        $this->assertNotNull($email['subject'], 'The Subject cannot be null. It should be empty string');
+        $this->assertNotNull($email['body'], 'The Body cannot be null. It should be empty string');
     }
 
     /**
@@ -169,7 +167,7 @@ class EmailControllerTest extends WebTestCase
             $this->getUrl('oro_api_put_email', ['id' => $id]),
             [
                 'seen'    => 1,
-                'receivedAt' => '2015-06-19 12:17:51',
+                'receivedAt' => '2015-06-19T12:17:51Z',
                 'folders' => $folders
             ]
         );

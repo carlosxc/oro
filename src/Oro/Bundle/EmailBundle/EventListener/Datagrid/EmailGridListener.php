@@ -2,46 +2,71 @@
 
 namespace Oro\Bundle\EmailBundle\EventListener\Datagrid;
 
-use Doctrine\Bundle\DoctrineBundle\Registry;
+use Doctrine\ORM\Query\Expr\GroupBy;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
-
-use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecord;
 use Oro\Bundle\DataGridBundle\Event\BuildAfter;
 use Oro\Bundle\DataGridBundle\Event\OrmResultAfter;
 use Oro\Bundle\DataGridBundle\Event\OrmResultBeforeQuery;
+use Oro\Bundle\DataGridBundle\Provider\State\DatagridStateProviderInterface;
+use Oro\Bundle\EmailBundle\Datagrid\EmailGridResultHelper;
 use Oro\Bundle\EmailBundle\Datagrid\EmailQueryFactory;
-use Oro\Component\DoctrineUtils\ORM\QueryUtils;
 
+/**
+ * The grid listener that adds dynamic changes to email grids.
+ */
 class EmailGridListener
 {
-    /**
-     * @var Registry
-     */
-    protected $registry;
-
-    /**
-     * @var EmailQueryFactory
-     */
+    /** @var EmailQueryFactory */
     protected $factory;
 
-    /**
-     * @var QueryBuilder|null
-     */
-    protected $qb;
+    /** @var DatagridStateProviderInterface */
+    private $filtersStateProvider;
+
+    /** @var ConfigManager */
+    protected $configManager;
+
+    /** @var EmailGridResultHelper */
+    protected $resultHelper;
 
     /**
-     * @var string|null
+     * Stores join's root and alias if joins for filters are added - ['eu' => ['alias1']]
+     *
+     * @var []
      */
-    protected $select;
+    protected $filterJoins;
 
     /**
      * @param EmailQueryFactory $factory
+     * @param DatagridStateProviderInterface $filtersStateProvider
+     * @param ConfigManager $configManager
+     * @param EmailGridResultHelper $resultHelper
      */
-    public function __construct(EmailQueryFactory $factory)
-    {
+    public function __construct(
+        EmailQueryFactory $factory,
+        DatagridStateProviderInterface $filtersStateProvider,
+        ConfigManager $configManager,
+        EmailGridResultHelper $resultHelper
+    ) {
         $this->factory = $factory;
+        $this->filtersStateProvider = $filtersStateProvider;
+        $this->configManager = $configManager;
+        $this->resultHelper = $resultHelper;
+    }
+
+    /**
+     * @param OrmResultBeforeQuery $event
+     */
+    public function onResultBeforeQuery(OrmResultBeforeQuery $event)
+    {
+        $qb = $event->getQueryBuilder();
+        if ($this->filterJoins) {
+            $this->removeJoinByRootAndAliases($qb, $this->filterJoins);
+            $this->removeGroupByPart($qb, 'eu.id');
+        }
     }
 
     /**
@@ -51,39 +76,47 @@ class EmailGridListener
      */
     public function onBuildAfter(BuildAfter $event)
     {
-        /** @var OrmDatasource $ormDataSource */
-        $ormDataSource = $event->getDatagrid()->getDatasource();
-        $queryBuilder = $ormDataSource->getQueryBuilder();
-        $parameters = $event->getDatagrid()->getParameters();
+        $datagrid = $event->getDatagrid();
 
-        $this->factory->applyAcl($queryBuilder);
+        /** @var OrmDatasource $ormDataSource */
+        $ormDataSource = $datagrid->getDatasource();
+        $queryBuilder  = $ormDataSource->getQueryBuilder();
+        $countQb       = $ormDataSource->getCountQb();
+        $parameters    = $datagrid->getParameters();
+
+        $isThreadGroupingEnabled = $this->configManager->get('oro_email.threads_grouping');
+
+        $this->factory->addEmailsCount($queryBuilder, $isThreadGroupingEnabled);
+        $filtersState = $this->filtersStateProvider->getState($datagrid->getConfig(), $parameters);
+
+        if ($isThreadGroupingEnabled) {
+            $this->factory->applyAclThreadsGrouping(
+                $queryBuilder,
+                $datagrid,
+                $filtersState
+            );
+            if ($countQb) {
+                $this->factory->applyAclThreadsGrouping($countQb, $datagrid, $filtersState);
+            }
+        } else {
+            $this->factory->applyAcl($queryBuilder);
+            if ($countQb) {
+                $this->factory->applyAcl($countQb);
+            }
+        }
 
         if ($parameters->has('emailIds')) {
             $emailIds = $parameters->get('emailIds');
             if (!is_array($emailIds)) {
                 $emailIds = explode(',', $emailIds);
             }
-            $queryBuilder->andWhere($queryBuilder->expr()->in('e.id', $emailIds));
+            $queryBuilder->andWhere($queryBuilder->expr()->in('e.id', ':emailIds'))
+                ->setParameter('emailIds', $emailIds);
         }
 
-        $this->prepareQueryToFilter($parameters, $queryBuilder);
-    }
-
-    /**
-     * @param OrmResultBeforeQuery $event
-     */
-    public function onResultBeforeQuery(OrmResultBeforeQuery $event)
-    {
-        $this->qb = $event->getQueryBuilder();
-
-        $selectParts = $this->qb->getDQLPart('select');
-        $stringSelectParts = [];
-        foreach ($selectParts as $selectPart) {
-            $stringSelectParts[] = (string) $selectPart;
+        if ($filtersState) {
+            $this->prepareQueryToFilter($filtersState, $queryBuilder, $countQb);
         }
-        $this->select = implode(', ', $stringSelectParts);
-
-        $this->qb->select('eu.id');
     }
 
     /**
@@ -91,49 +124,99 @@ class EmailGridListener
      */
     public function onResultAfter(OrmResultAfter $event)
     {
-        $originalRecords = $event->getRecords();
-        if (!$originalRecords) {
-            return;
-        }
-
-        $ids = [];
-        foreach ($originalRecords as $record) {
-            $ids[] = $record->getValue('id');
-        }
-
-        $this->qb
-            ->select($this->select)
-            ->resetDQLPart('groupBy')
-            ->where($this->qb->expr()->in('eu.id', ':ids'))
-            ->setMaxResults(null)
-            ->setFirstResult(null)
-            ->setParameter('ids', $ids);
-        QueryUtils::removeUnusedParameters($this->qb);
-        $result = $this->qb
-            ->getQuery()
-            ->getResult();
-
-        $records = [];
-        foreach ($result as $row) {
-            $records[] = new ResultRecord($row);
-        }
-        $event->setRecords($records);
+        /** @var ResultRecord[] $records */
+        $records = $event->getRecords();
+        $this->resultHelper->addEmailDirections($records);
+        $this->resultHelper->addEmailMailboxNames($records);
+        $this->resultHelper->addEmailRecipients($records);
     }
 
     /**
-     * Add join for query just if filter used. For performance optimization - BAP-10674
+     * Add joins and group by for query just if filter used. For performance optimization - BAP-10674
      *
-     * @param ParameterBag $parameters
+     * @param array $filtersState
      * @param QueryBuilder $queryBuilder
+     * @param QueryBuilder $countQb
      */
-    protected function prepareQueryToFilter($parameters, $queryBuilder)
+    protected function prepareQueryToFilter($filtersState, QueryBuilder $queryBuilder, QueryBuilder $countQb = null)
     {
-        $filters = $parameters->get('_filter');
-        if ($filters && array_key_exists('cc', $filters)) {
-            $queryBuilder->leftJoin('e.recipients', 'r_cc', 'WITH', "r_cc.type = 'cc'");
+        $this->filterJoins = [];
+        $groupByFilters = ['cc', 'bcc', 'to', 'folders', 'folder', 'mailbox'];
+
+        // As now optimizer could not automatically remove joins for these filters
+        // (they do not affect number of rows)
+        // adding group by statement
+        if (array_intersect_key($filtersState, array_flip($groupByFilters))) {
+            // CountQb doesn't need group by statement cos it already added in grid config
+            $queryBuilder->addGroupBy('eu.id');
         }
-        if ($filters && array_key_exists('bcc', $filters)) {
-            $queryBuilder->leftJoin('e.recipients', 'r_bcc', 'WITH', "r_bcc.type = 'bcc'");
+        $rFilters = [
+            'cc'  => ['r_cc', 'WITH', 'r_cc.type = :ccType', ['ccType' => 'cc']],
+            'bcc' => ['r_bcc', 'WITH', 'r_bcc.type = :bccType', ['bccType' => 'bcc']],
+            'to'  => ['r_to', null, null, []],
+        ];
+        $rParams  = [];
+        // Add join for each filter which is based on e.recipients table
+        foreach ($rFilters as $rKey => $rFilter) {
+            if (array_key_exists($rKey, $filtersState)) {
+                $queryBuilder->leftJoin('e.recipients', $rFilter[0], $rFilter[1], $rFilter[2]);
+                $countQb->leftJoin('e.recipients', $rFilter[0], $rFilter[1], $rFilter[2]);
+                $rParams = array_merge($rParams, $rFilter[3]);
+                $this->filterJoins['eu'][] = $rFilter[0];
+            }
+        }
+        foreach ($rParams as $rParam => $rParamValue) {
+            $queryBuilder->setParameter($rParam, $rParamValue);
+            $countQb->setParameter($rParam, $rParamValue);
+        }
+        $fFilters = ['folder', 'folders', 'mailbox'];
+        if (array_intersect_key($filtersState, array_flip($fFilters))) {
+            $queryBuilder->leftJoin('eu.folders', 'f');
+            $this->filterJoins['eu'][] = 'f';
+        }
+    }
+
+    /**
+     *
+     * @param QueryBuilder $qb
+     * @param              $part
+     */
+    protected function removeGroupByPart(QueryBuilder $qb, $part)
+    {
+        $groupByParts = $qb->getDQLPart('groupBy');
+        $qb->resetDQLPart('groupBy');
+        /** @var GroupBy $groupByPart */
+        foreach ($groupByParts as $groupByPart) {
+            $newGroupByPart = [];
+            foreach ($groupByPart->getParts() as $val) {
+                if ($val !== $part) {
+                    $newGroupByPart[] = $val;
+                }
+            }
+            if ($newGroupByPart) {
+                call_user_func_array([$qb, 'addGroupBy'], $newGroupByPart);
+            }
+        }
+    }
+
+    /**
+     * @param QueryBuilder $qb
+     * @param array        $rootAndAliases ['root1' => ['aliasToRemove1', 'aliasToRemove2', ...], ...]
+     */
+    protected function removeJoinByRootAndAliases(QueryBuilder $qb, array $rootAndAliases)
+    {
+        $joins = $qb->getDQLPart('join');
+
+        /** @var Join $join */
+        foreach ($joins as $root => $rJoins) {
+            if (!empty($rootAndAliases[$root]) && is_array($rootAndAliases[$root])) {
+                foreach ($rJoins as $key => $join) {
+                    if (in_array($join->getAlias(), $rootAndAliases[$root], true)) {
+                        unset($rJoins[$key]);
+                    }
+                }
+            }
+            $qb->add('join', [$root => $rJoins]);
         }
     }
 }

@@ -7,13 +7,41 @@ define(function(require) {
     var PermissionView = require('orouser/js/datagrid/permission/permission-view');
     var RolePermissionsActionView = require('orouser/js/datagrid/role-permissions-action-view');
     var ActionPermissionsReadonlyRowView = require('./action-permissions-readonly-row-view');
+    var AccessLevelsCollection = require('orouser/js/models/role/access-levels-collection');
     var FieldView = require('orouser/js/datagrid/action-permissions-field-view');
 
     ActionPermissionsRowView = ActionPermissionsReadonlyRowView.extend({
         permissionItemView: PermissionView,
+
         fieldItemView: FieldView,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActionPermissionsRowView() {
+            ActionPermissionsRowView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             ActionPermissionsRowView.__super__.initialize.call(this, options);
+            var fields = this.model.get('fields');
+            if (fields.length) {
+                var routeName = this.model.get('permissions').accessLevels.getRouteName();
+                _.each(fields, function(field) {
+                    field.permissions.each(function(model) {
+                        model.accessLevels = new AccessLevelsCollection([], {
+                            routeParameters: {
+                                oid: model.get('identity').replace(/\\/g, '_'),
+                                permission: model.get('name'),
+                                routeName: routeName
+                            }
+                        });
+                    });
+                });
+            }
             this.listenTo(this.model.get('permissions'), 'change', this.onAccessLevelChange);
         },
 
@@ -24,12 +52,11 @@ define(function(require) {
                 accessLevels: this.model.get('permissions').accessLevels
             });
             this.subview('row-action', rolePermissionsActionView);
-            rolePermissionsActionView.on('row-access-level-change', _.bind(function(data) {
+            this.listenTo(rolePermissionsActionView, 'row-access-level-change', function(data) {
                 this.model.get('permissions').each(function(model) {
                     model.set(data);
                 });
-            }, this));
-
+            });
             return this;
         },
 

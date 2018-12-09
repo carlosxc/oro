@@ -2,10 +2,10 @@
 
 namespace Oro\Bundle\DashboardBundle\Tests\Unit\DependencyInjection;
 
-use Oro\Component\Config\CumulativeResourceManager;
 use Oro\Bundle\DashboardBundle\DependencyInjection\OroDashboardExtension;
+use Oro\Component\Config\CumulativeResourceManager;
 
-class OroDashboardExtensionTest extends \PHPUnit_Framework_TestCase
+class OroDashboardExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /** @var OroDashboardExtension */
     protected $target;
@@ -28,10 +28,10 @@ class OroDashboardExtensionTest extends \PHPUnit_Framework_TestCase
      */
     public function testLoad(array $bundles, array $configs, array $expectedConfiguration)
     {
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         CumulativeResourceManager::getInstance()->setBundles($bundles);
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $definition->expects($this->once())->method('replaceArgument')->with(
             0,
@@ -77,15 +77,15 @@ class OroDashboardExtensionTest extends \PHPUnit_Framework_TestCase
                                 ],
                                 'index'  => [
                                     'label'            => 'List',
-                                    'route'            => 'orocrm_sales_opportunity_index',
-                                    'acl'              => 'orocrm_sales_opportunity_view',
+                                    'route'            => 'oro_sales_opportunity_index',
+                                    'acl'              => 'oro_sales_opportunity_view',
                                     'route_parameters' => [],
                                     'enabled'          => true
                                 ],
                                 'create' => [
                                     'label'            => 'Create opportunity',
-                                    'route'            => 'orocrm_sales_opportunity_create',
-                                    'acl'              => 'orocrm_sales_opportunity_create',
+                                    'route'            => 'oro_sales_opportunity_create',
+                                    'acl'              => 'oro_sales_opportunity_create',
                                     'route_parameters' => [],
                                     'enabled'          => true
                                 ],

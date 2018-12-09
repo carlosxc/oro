@@ -2,11 +2,25 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Model;
 
+use Oro\Bundle\ActionBundle\Button\ButtonSearchContext;
 use Oro\Bundle\ActionBundle\Model\Attribute;
+use Oro\Bundle\ActionBundle\Model\AttributeGuesser;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Model\AttributeAssembler;
+use Oro\Component\Action\Exception\AssemblerException;
+use Symfony\Bundle\FrameworkBundle\Tests\Templating\Helper\Fixtures\StubTranslator;
+use Symfony\Component\Translation\TranslatorInterface;
 
-class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
+class AttributeAssemblerTest extends \PHPUnit\Framework\TestCase
 {
+    /** @var TranslatorInterface */
+    protected $translator;
+
+    protected function setUp()
+    {
+        $this->translator = new StubTranslator();
+    }
+
     /**
      * @dataProvider invalidOptionsDataProvider
      *
@@ -16,26 +30,27 @@ class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
      */
     public function testAssembleRequiredOptionException($configuration, $exception, $message)
     {
-        $this->setExpectedException($exception, $message);
+        $this->expectException($exception);
+        $this->expectExceptionMessage($message);
 
-        $assembler = new AttributeAssembler($this->getAttributeGuesser());
+        $assembler = new AttributeAssembler($this->getAttributeGuesser(), $this->translator);
         $definition = $this->getWorkflowDefinition();
         $assembler->assemble($definition, $configuration);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return WorkflowDefinition|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getWorkflowDefinition()
     {
-        $definition = $this->getMockBuilder('Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $definition = $this->createMock(WorkflowDefinition::class);
+        $definition->expects($this->any())->method('getLabel')->willReturn('test_workflow_label');
+
         return $definition;
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return AttributeGuesser|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getAttributeGuesser()
     {
@@ -72,6 +87,12 @@ class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
                 'Invalid attribute type "text", allowed types are "bool", "boolean", "int", "integer", ' .
                     '"float", "string", "array", "object", "entity"'
             ),
+            'can_not_guess_type' => [
+                ['test_name' => ['property_path' => 'test.property']],
+                AssemblerException::class,
+                'Workflow "[trans]test_workflow_label[/trans]": Option "type" for attribute "test_name" ' .
+                'with property path "test.property" can not be guessed'
+            ],
             'invalid_type_class' => array(
                 array(
                     'name' => array(
@@ -120,21 +141,26 @@ class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
      * @param array $configuration
      * @param Attribute $expectedAttribute
      * @param array $guessedParameters
+     * @param array $transitionConfigurations
      */
-    public function testAssemble($configuration, $expectedAttribute, array $guessedParameters = array())
-    {
+    public function testAssemble(
+        $configuration,
+        $expectedAttribute,
+        array $guessedParameters = [],
+        array $transitionConfigurations = []
+    ) {
         $relatedEntity = '\stdClass';
 
         $attributeGuesser = $this->getAttributeGuesser();
         $attributeConfiguration = current($configuration);
         if ($guessedParameters && array_key_exists('property_path', $attributeConfiguration)) {
             $attributeGuesser->expects($this->any())
-                ->method('guessAttributeParameters')
+                ->method('guessParameters')
                 ->with($relatedEntity, $attributeConfiguration['property_path'])
                 ->will($this->returnValue($guessedParameters));
         }
 
-        $assembler = new AttributeAssembler($attributeGuesser);
+        $assembler = new AttributeAssembler($attributeGuesser, $this->translator);
         $definition = $this->getWorkflowDefinition();
         $definition->expects($this->once())
             ->method('getEntityAttributeName')
@@ -143,12 +169,12 @@ class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
             ->method('getRelatedEntity')
             ->will($this->returnValue($relatedEntity));
 
-        $expectedAttributesCount = 1;
+        $expectedAttributesCount = count($configuration) + count($transitionConfigurations);
         if (!array_key_exists('entity_attribute', $configuration)) {
             $expectedAttributesCount++;
         }
 
-        $attributes = $assembler->assemble($definition, $configuration);
+        $attributes = $assembler->assemble($definition, $configuration, $transitionConfigurations);
         $this->assertInstanceOf('Doctrine\Common\Collections\ArrayCollection', $attributes);
         $this->assertCount($expectedAttributesCount, $attributes);
         $this->assertTrue($attributes->containsKey($expectedAttribute->getName()));
@@ -295,6 +321,20 @@ class AttributeAssemblerTest extends \PHPUnit_Framework_TestCase
                     'type' => 'object',
                     'options' => array('class' => 'GuessedClass'),
                 ),
+            ),
+            'add_init_context_attribute' => array(
+                array(),
+                $this->getAttribute(
+                    'attribute_one',
+                    'attribute_one',
+                    'object',
+                    array('class' => ButtonSearchContext::class)
+                ),
+                array(),
+                array(
+                    'transition1' => array('init_context_attribute' => 'attribute_one'),
+                    'transition2' => array('init_context_attribute' => 'source')
+                )
             ),
         );
     }

@@ -2,13 +2,11 @@
 
 namespace Oro\Bundle\WorkflowBundle\Entity;
 
-use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\Mapping as ORM;
-
 use JMS\Serializer\Annotation as Serializer;
-
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\WorkflowBundle\Exception\WorkflowException;
@@ -27,7 +25,8 @@ use Oro\Bundle\WorkflowBundle\Serializer\WorkflowAwareSerializer;
  *          @ORM\UniqueConstraint(name="oro_workflow_item_entity_definition_unq",columns={"entity_id", "workflow_name"})
  *      },
  *      indexes={
- *          @ORM\Index(name="oro_workflow_item_workflow_name_idx", columns={"workflow_name"})
+ *          @ORM\Index(name="oro_workflow_item_workflow_name_idx", columns={"workflow_name"}),
+ *          @ORM\Index(name="oro_workflow_item_entity_idx", columns={"entity_class", "entity_id"})
  *      }
  *  )
  * @ORM\Entity(repositoryClass="Oro\Bundle\WorkflowBundle\Entity\Repository\WorkflowItemRepository")
@@ -226,6 +225,18 @@ class WorkflowItem extends ExtendWorkflowItem implements EntityAwareInterface
         $this->restrictionIdentities = new ArrayCollection();
         $this->data = new WorkflowData();
         $this->result = new WorkflowResult();
+    }
+
+    /**
+     * @param WorkflowItem $source
+     * @return $this
+     */
+    public function merge(WorkflowItem $source)
+    {
+        $this->getData()->add($source->getData()->toArray());
+        $this->getResult()->add($source->getResult()->toArray());
+
+        return $this;
     }
 
     /**
@@ -704,5 +715,32 @@ class WorkflowItem extends ExtendWorkflowItem implements EntityAwareInterface
     public function setUpdated()
     {
         $this->updated = new \DateTime('now', new \DateTimeZone('UTC'));
+    }
+
+    /**
+     * This method should be exists for compatibility with redirect action
+     *
+     * @param string $url
+     * @return $this
+     */
+    public function setRedirectUrl($url)
+    {
+        $this->getResult()->set('redirectUrl', $url);
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function __toString()
+    {
+        return sprintf(
+            '[%s] %s:%s %s',
+            $this->workflowName,
+            $this->entityClass,
+            $this->entityId,
+            $this->currentStep ? $this->currentStep->getName() : null
+        );
     }
 }

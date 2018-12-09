@@ -45,6 +45,7 @@ oro:
                 manyToMany:         Many to many
                 enum:               Select
                 multiEnum:          Multi-Select
+                html_escaped:       HTML
 
                 ref-one:            System relation
                 ref-many:           System relation
@@ -54,6 +55,8 @@ oro:
                 object:             Binary (Object)
 
                 inverse_relation:   Reuse "%field_name%" of %entity_name%
+                currency:           Currency
+                money_value:        Money Value
             field_name.label:       Field name
             name.label:             Name
             key.label:              Key
@@ -69,13 +72,14 @@ oro:
         enum_options: Options
         enum_name.tooltip: ""
         enum_public.tooltip: Public option sets can be reused in other entities.
-        enum_options.tooltip: > 
-            Some options could be defined as system and can't be deleted. 
+        enum_options.tooltip: >
+            Some options could be defined as system and can't be deleted.
             Deleting an option will remove it from all records that use it.
         enum_options.priority.tooltip: Click and drag to reorder.
         enum_options.default.tooltip: If marked, this option will be selected by default for new records.
         action:
             apply_changes: "Apply entityconfig changes"
+            apply_attribute_schema_changes: "Apply attributes changes"
             config_entity_grid:
                 unique: "Unique entity unique keys"
                 create: "Create custom entity"
@@ -93,6 +97,9 @@ oro:
             config_field:
                 message:
                     saved: "Field saved"
+                    deleted: "Field successfully deleted"
+                    restored: "Field was restored"
+                    cannot_be_restored: "This field cannot be restored because a field with similar name exists."
         unique_keys: "Unique Keys"
 
         entity_config:
@@ -123,14 +130,14 @@ oro:
                         precision: "Precision"
                         scale: "Scale"
                         is_deleted: "Deleted"
-
+                        bidirectional: "Bidirectional"
             search:
                 field:
                     items:
                         searchable: "Searchable"
                         searchable.tooltip: The field will appear in search results after the completion of reindex job that might take some time.
-                        title_field: "The search result title"
-                        title_field.tooltip: Field value will be included into the search result title
+                        title_field: "The search result title (deprecated)"
+                        title_field.tooltip: This setting is deprecated since 2.0. Create table-column string fields instead to be used as human-readable title.
                 entity:
                     items:
                         searchable.tooltip: The entity will appear in search results after the completion of reindex job that might take some time.

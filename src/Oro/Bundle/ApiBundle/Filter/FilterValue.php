@@ -3,25 +3,31 @@
 namespace Oro\Bundle\ApiBundle\Filter;
 
 /**
- * Represents input option that is used to filter data requested by Data API.
+ * Represents input value that is used to filter data requested by Data API.
  */
-class FilterValue
+final class FilterValue
 {
     /** @var string */
-    protected $path;
+    private $path;
 
     /** @var mixed */
-    protected $value;
+    private $value;
 
-    /** @var string */
-    protected $operator;
+    /** @var string|null */
+    private $operator;
+
+    /** @var string|null */
+    private $sourceKey;
+
+    /** @var string|null */
+    private $sourceValue;
 
     /**
      * @param string      $path
      * @param mixed       $value
      * @param string|null $operator
      */
-    public function __construct($path, $value, $operator = null)
+    public function __construct(string $path, $value, string $operator = null)
     {
         $this->path = $path;
         $this->value = $value;
@@ -29,11 +35,41 @@ class FilterValue
     }
 
     /**
+     * @param string      $sourceKey
+     * @param string      $path
+     * @param mixed       $value
+     * @param string|null $operator
+     *
+     * @return FilterValue
+     */
+    public static function createFromSource(
+        string $sourceKey,
+        string $path,
+        string $value,
+        string $operator = null
+    ): FilterValue {
+        $filterValue = new FilterValue($path, $value, $operator);
+        $filterValue->sourceKey = $sourceKey;
+        $filterValue->sourceValue = $value;
+
+        return $filterValue;
+    }
+
+    /**
+     * @param FilterValue $source
+     */
+    public function setSource(FilterValue $source): void
+    {
+        $this->sourceKey = $source->sourceKey;
+        $this->sourceValue = $source->sourceValue;
+    }
+
+    /**
      * Gets a path the filter is applied.
      *
      * @return string
      */
-    public function getPath()
+    public function getPath(): string
     {
         return $this->path;
     }
@@ -43,7 +79,7 @@ class FilterValue
      *
      * @param string $path
      */
-    public function setPath($path)
+    public function setPath(string $path): void
     {
         $this->path = $path;
     }
@@ -63,7 +99,7 @@ class FilterValue
      *
      * @param mixed $value
      */
-    public function setValue($value)
+    public function setValue($value): void
     {
         $this->value = $value;
     }
@@ -73,7 +109,7 @@ class FilterValue
      *
      * @return string|null
      */
-    public function getOperator()
+    public function getOperator(): ?string
     {
         return $this->operator;
     }
@@ -83,8 +119,30 @@ class FilterValue
      *
      * @param string|null $operator
      */
-    public function setOperator($operator)
+    public function setOperator(?string $operator): void
     {
         $this->operator = $operator;
+    }
+
+    /**
+     * Gets a key this value was come from a request.
+     * E.g. it can be URI query parameter for REST API filters.
+     *
+     * @return string|null
+     */
+    public function getSourceKey(): ?string
+    {
+        return $this->sourceKey;
+    }
+
+    /**
+     * Gets a value was come from a request.
+     * E.g. it can be URI query parameter value for REST API filters.
+     *
+     * @return string|null
+     */
+    public function getSourceValue(): ?string
+    {
+        return $this->sourceValue;
     }
 }

@@ -7,11 +7,15 @@ use Oro\Bundle\ImportExportBundle\Context\ContextInterface;
 class TestContext implements ContextInterface
 {
     /**
+     * @var array
+     */
+    private $postponedRows = [];
+
+    /**
      * {@inheritdoc}
      */
     public function addError($message)
     {
-
     }
 
     /**
@@ -19,7 +23,6 @@ class TestContext implements ContextInterface
      */
     public function addErrors(array $messages)
     {
-
     }
 
     /**
@@ -33,9 +36,38 @@ class TestContext implements ContextInterface
     /**
      * {@inheritdoc}
      */
+    public function addPostponedRow(array $row)
+    {
+        $this->postponedRows[] = $row;
+
+        return $this;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function addPostponedRows(array $rows)
+    {
+        foreach ($rows as $row) {
+            $this->addPostponedRow($row);
+        }
+
+        return $this;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getPostponedRows()
+    {
+        return $this->postponedRows;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function getFailureExceptions()
     {
-
     }
 
     /**
@@ -43,7 +75,6 @@ class TestContext implements ContextInterface
      */
     public function incrementReadCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -59,7 +90,6 @@ class TestContext implements ContextInterface
      */
     public function incrementReadOffset()
     {
-
     }
 
     /**
@@ -67,7 +97,6 @@ class TestContext implements ContextInterface
      */
     public function getReadOffset()
     {
-
     }
 
     /**
@@ -75,7 +104,6 @@ class TestContext implements ContextInterface
      */
     public function incrementAddCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -91,7 +119,6 @@ class TestContext implements ContextInterface
      */
     public function incrementUpdateCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -107,7 +134,6 @@ class TestContext implements ContextInterface
      */
     public function incrementReplaceCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -123,7 +149,6 @@ class TestContext implements ContextInterface
      */
     public function incrementDeleteCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -139,7 +164,6 @@ class TestContext implements ContextInterface
      */
     public function incrementErrorEntriesCount($incrementBy = 1)
     {
-
     }
 
     /**
@@ -155,7 +179,6 @@ class TestContext implements ContextInterface
      */
     public function setValue($name, $value)
     {
-
     }
 
     /**
@@ -163,7 +186,6 @@ class TestContext implements ContextInterface
      */
     public function getValue($name)
     {
-
     }
 
     /**
@@ -171,7 +193,6 @@ class TestContext implements ContextInterface
      */
     public function getConfiguration()
     {
-
     }
 
     /**
@@ -179,7 +200,6 @@ class TestContext implements ContextInterface
      */
     public function hasOption($name)
     {
-
     }
 
     /**
@@ -187,7 +207,6 @@ class TestContext implements ContextInterface
      */
     public function getOption($name, $default = null)
     {
-
     }
 
     /**

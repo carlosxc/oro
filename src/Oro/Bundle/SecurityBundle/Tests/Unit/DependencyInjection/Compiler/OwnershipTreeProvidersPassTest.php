@@ -2,15 +2,14 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\DependencyInjection\Compiler;
 
+use Oro\Bundle\SecurityBundle\DependencyInjection\Compiler\OwnershipTreeProvidersPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
-use Oro\Bundle\SecurityBundle\DependencyInjection\Compiler\OwnershipTreeProvidersPass;
-
-class OwnershipTreeProvidersPassTest extends \PHPUnit_Framework_TestCase
+class OwnershipTreeProvidersPassTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ContainerBuilder
+     * @var \PHPUnit\Framework\MockObject\MockObject|ContainerBuilder
      */
     protected $containerBuilder;
 
@@ -21,7 +20,7 @@ class OwnershipTreeProvidersPassTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->containerBuilder = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $this->containerBuilder = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
         $this->compilerPass = new OwnershipTreeProvidersPass();
     }
 
@@ -46,7 +45,7 @@ class OwnershipTreeProvidersPassTest extends \PHPUnit_Framework_TestCase
 
     public function testProcess()
     {
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $definition->expects($this->at(0))
             ->method('addMethodCall')
@@ -68,8 +67,8 @@ class OwnershipTreeProvidersPassTest extends \PHPUnit_Framework_TestCase
             ->with(OwnershipTreeProvidersPass::TAG_NAME)
             ->willReturn(
                 [
-                    'treeProvider1' => [['class' => 'Test\Class1']],
-                    'treeProvider2' => [['class' => 'Test\Class2']],
+                    'treeprovider1' => [['class' => 'Test\Class1']],
+                    'treeprovider2' => [['class' => 'Test\Class2']],
                 ]
             );
 
@@ -78,7 +77,7 @@ class OwnershipTreeProvidersPassTest extends \PHPUnit_Framework_TestCase
 
     public function testProcessNoTagged()
     {
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $definition->expects($this->never())
             ->method('addMethodCall');

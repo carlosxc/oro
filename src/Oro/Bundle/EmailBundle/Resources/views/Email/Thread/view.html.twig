@@ -2,14 +2,14 @@
 {% import "OroActivityBundle::macros.html.twig" as AC %}
 {% import "OroEmailBundle::actions.html.twig" as Actions %}
 
-{% oro_title_set({params : {"%subject%": entity.subject} }) %}
+{% oro_title_set({params : {"%subject%": entity.subject|oro_html_strip_tags} }) %}
 
 {% block pageHeader %}
     {% set breadcrumbs = {
         'entity':      entity,
         'indexPath':   path('oro_email_user_emails'),
         'indexLabel':  'oro.email.entity_plural_label'|trans,
-        'entityTitle': entity.subject,
+        'entityTitle': entity.subject|oro_html_strip_tags,
     } %}
     {{ parent() }}
 {% endblock pageHeader %}
@@ -49,7 +49,8 @@
             {{ oro_widget_render({
                 'widgetType': 'block',
                 'wid': 'thread-view',
-                'url': path('oro_email_thread_widget', {'id': entity.id, 'renderContexts': false}),
+                'url': path('oro_email_thread_widget', {'id': entity.id, 'renderContexts': false,
+                    'showSingleEmail': not oro_config_value('oro_email.threads_grouping')}),
                 'alias': 'thread-view',
                 'contextsRendered': true
             }) }}

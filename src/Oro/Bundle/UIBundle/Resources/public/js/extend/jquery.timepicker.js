@@ -4,7 +4,21 @@ define(function(require) {
     var $ = require('jquery');
     var mask = require('oroui/js/dropdown-mask');
     require('oroui/js/jquery-timepicker-l10n');
-    require('oroui/lib/jquery.timepicker-1.4.13/jquery.timepicker');
+    require('jquery.timepicker');
+
+    var origTimepicker = $.fn.timepicker;
+    $.fn.timepicker = function(method) {
+        var options;
+        var result;
+        if (typeof method === 'object' || !method || method === 'init') {
+            options = method === 'init' ? arguments[1] : method;
+            options = $.extend(true, {}, origTimepicker.defaults, options);
+            result = origTimepicker.call(this, options);
+        } else {
+            result = origTimepicker.apply(this, arguments);
+        }
+        return result;
+    };
 
     $(document)
         .on('showTimepicker', function(e) {

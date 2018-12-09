@@ -1,6 +1,7 @@
 Oro\Bundle\OrganizationBundle\Entity\BusinessUnit:
     constraints:
         - Oro\Bundle\OrganizationBundle\Validator\Constraints\BusinessUnitOwner: ~
+        - Oro\Bundle\OrganizationBundle\Validator\Constraints\ParentBusinessUnit: ~
     properties:
         name:
             - NotBlank:     ~
@@ -14,5 +15,3 @@ Oro\Bundle\OrganizationBundle\Entity\BusinessUnit:
                 min:        6
                 max:        255
             - Email:        ~
-        organization:
-            - NotBlank: ~

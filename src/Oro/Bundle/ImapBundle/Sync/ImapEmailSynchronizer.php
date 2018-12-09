@@ -3,20 +3,29 @@
 namespace Oro\Bundle\ImapBundle\Sync;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
-
 use Oro\Bundle\EmailBundle\Entity\EmailOrigin;
+use Oro\Bundle\EmailBundle\Sync\AbstractEmailSynchronizationProcessor;
 use Oro\Bundle\EmailBundle\Sync\AbstractEmailSynchronizer;
 use Oro\Bundle\EmailBundle\Sync\KnownEmailAddressCheckerFactory;
+use Oro\Bundle\EmailBundle\Sync\Model\SynchronizationProcessorSettings;
+use Oro\Bundle\ImapBundle\Async\Topics;
 use Oro\Bundle\ImapBundle\Connector\ImapConfig;
 use Oro\Bundle\ImapBundle\Connector\ImapConnectorFactory;
+use Oro\Bundle\ImapBundle\Entity\UserEmailOrigin;
+use Oro\Bundle\ImapBundle\Exception\InvalidCredentialsException;
+use Oro\Bundle\ImapBundle\Exception\SocketTimeoutException;
+use Oro\Bundle\ImapBundle\Mail\Storage\Exception\OAuth2ConnectException;
 use Oro\Bundle\ImapBundle\Manager\ImapEmailGoogleOauth2Manager;
 use Oro\Bundle\ImapBundle\Manager\ImapEmailManager;
-use Oro\Bundle\ImapBundle\Entity\UserEmailOrigin;
-use Oro\Bundle\SecurityBundle\Encoder\Mcrypt;
+use Oro\Bundle\ImapBundle\OriginSyncCredentials\SyncCredentialsIssueManager;
+use Oro\Bundle\SecurityBundle\Encoder\SymmetricCrypterInterface;
 
+/**
+ * This class provides ability to synchronize email with IMAP
+ */
 class ImapEmailSynchronizer extends AbstractEmailSynchronizer
 {
-    static protected $jobCommand = 'oro:cron:imap-sync';
+    protected static $messageQueueTopic = Topics::SYNC_EMAILS;
 
     /** @var ImapEmailSynchronizationProcessorFactory */
     protected $syncProcessorFactory;
@@ -24,18 +33,21 @@ class ImapEmailSynchronizer extends AbstractEmailSynchronizer
     /** @var ImapConnectorFactory */
     protected $connectorFactory;
 
-    /** @var Mcrypt */
+    /** @var SymmetricCrypterInterface */
     protected $encryptor;
 
     /** @var ImapEmailGoogleOauth2Manager */
     protected $imapEmailGoogleOauth2Manager;
+
+    /** @var SyncCredentialsIssueManager */
+    private $credentialsIssueManager;
 
     /**
      * @param ManagerRegistry $doctrine
      * @param KnownEmailAddressCheckerFactory $knownEmailAddressCheckerFactory
      * @param ImapEmailSynchronizationProcessorFactory $syncProcessorFactory
      * @param ImapConnectorFactory $connectorFactory
-     * @param Mcrypt $encryptor
+     * @param SymmetricCrypterInterface $encryptor
      * @param ImapEmailGoogleOauth2Manager $imapEmailGoogleOauth2Manager
      */
     public function __construct(
@@ -43,7 +55,7 @@ class ImapEmailSynchronizer extends AbstractEmailSynchronizer
         KnownEmailAddressCheckerFactory $knownEmailAddressCheckerFactory,
         ImapEmailSynchronizationProcessorFactory $syncProcessorFactory,
         ImapConnectorFactory $connectorFactory,
-        Mcrypt $encryptor,
+        SymmetricCrypterInterface $encryptor,
         ImapEmailGoogleOauth2Manager $imapEmailGoogleOauth2Manager
     ) {
         parent::__construct($doctrine, $knownEmailAddressCheckerFactory);
@@ -52,6 +64,15 @@ class ImapEmailSynchronizer extends AbstractEmailSynchronizer
         $this->connectorFactory     = $connectorFactory;
         $this->encryptor            = $encryptor;
         $this->imapEmailGoogleOauth2Manager = $imapEmailGoogleOauth2Manager;
+    }
+
+
+    /**
+     * @param SyncCredentialsIssueManager $credentialsIssueManager
+     */
+    public function setCredentialsManager(SyncCredentialsIssueManager $credentialsIssueManager)
+    {
+        $this->credentialsIssueManager = $credentialsIssueManager;
     }
 
     /**
@@ -99,5 +120,55 @@ class ImapEmailSynchronizer extends AbstractEmailSynchronizer
             new ImapEmailManager($this->connectorFactory->createImapConnector($config)),
             $this->getKnownEmailAddressChecker()
         );
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function delegateToProcessor(
+        EmailOrigin $origin,
+        AbstractEmailSynchronizationProcessor $processor,
+        SynchronizationProcessorSettings $settings = null
+    ) {
+        try {
+            parent::delegateToProcessor($origin, $processor, $settings);
+        } catch (SocketTimeoutException $ex) {
+            $this->logger->warning(
+                sprintf(
+                    'Exit because of "%s" origin\'s socket timed out. Error: "%s"',
+                    $origin->getId(),
+                    $ex->getMessage()
+                ),
+                $ex->getSocketMetadata()
+            );
+            $this->changeOriginSyncState($origin, self::SYNC_CODE_SUCCESS);
+
+            return;
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function doSyncOrigin(EmailOrigin $origin, SynchronizationProcessorSettings $settings = null)
+    {
+        try {
+            parent::doSyncOrigin($origin, $settings);
+        } catch (InvalidCredentialsException $ex) {
+            // save information of invalid origin
+            $this->credentialsIssueManager->addInvalidOrigin($origin);
+
+            throw $ex;
+        } catch (OAuth2ConnectException $ex) {
+            // save information of invalid origin
+            $this->credentialsIssueManager->addInvalidOrigin($origin);
+
+            throw $ex;
+        } catch (\Exception $ex) {
+            throw $ex;
+        }
+
+        // remove success processed origin
+        $this->credentialsIssueManager->removeOriginFromTheFailed($origin);
     }
 }

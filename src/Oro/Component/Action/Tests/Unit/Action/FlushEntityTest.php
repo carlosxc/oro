@@ -2,19 +2,16 @@
 
 namespace Oro\Component\Action\Tests\Unit\Action;
 
-use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\PropertyAccess\PropertyPath;
-
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManager;
-
 use Oro\Bundle\ActionBundle\Model\ActionData;
-
 use Oro\Component\Action\Action\FlushEntity;
-use Oro\Component\Action\Model\ContextAccessor;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\PropertyAccess\PropertyPath;
 
-class FlushEntityTest extends \PHPUnit_Framework_TestCase
+class FlushEntityTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ContextAccessor
@@ -22,7 +19,7 @@ class FlushEntityTest extends \PHPUnit_Framework_TestCase
     protected $contextAccessor;
 
     /**
-     * @var ManagerRegistry|\PHPUnit_Framework_MockObject_MockObject
+     * @var ManagerRegistry|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $registry;
 
@@ -38,7 +35,7 @@ class FlushEntityTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
         $this->action = new FlushEntity($this->contextAccessor, $this->registry);
-        /** @var EventDispatcher|\PHPUnit_Framework_MockObject_MockObject $dispatcher */
+        /** @var EventDispatcher|\PHPUnit\Framework\MockObject\MockObject $dispatcher */
         $dispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcher')
             ->disableOriginalConstructor()
             ->getMock();
@@ -58,7 +55,8 @@ class FlushEntityTest extends \PHPUnit_Framework_TestCase
         $this->assertEntityManagerCalled($entity, $flushException);
 
         if ($flushException) {
-            $this->setExpectedException('\Exception', 'Flush exception');
+            $this->expectException('\Exception');
+            $this->expectExceptionMessage('Flush exception');
         }
 
         $this->action->initialize($options);
@@ -103,8 +101,8 @@ class FlushEntityTest extends \PHPUnit_Framework_TestCase
      */
     protected function assertEntityManagerCalled($entity, $throwException = false)
     {
-        /** @var \PHPUnit_Framework_MockObject_MockObject|EntityManager $entityManager */
-        $entityManager = $this->getMock('Doctrine\ORM\EntityManagerInterface');
+        /** @var \PHPUnit\Framework\MockObject\MockObject|EntityManager $entityManager */
+        $entityManager = $this->createMock('Doctrine\ORM\EntityManagerInterface');
         $entityManager->expects($this->once())->method('beginTransaction');
 
         if ($throwException) {
@@ -115,6 +113,7 @@ class FlushEntityTest extends \PHPUnit_Framework_TestCase
         } else {
             $entityManager->expects($this->once())->method('persist');
             $entityManager->expects($this->once())->method('flush');
+            $entityManager->expects($this->once())->method('refresh');
             $entityManager->expects($this->once())->method('commit');
         }
 

@@ -2,16 +2,16 @@
 
 namespace Oro\Bundle\HelpBundle\DependencyInjection;
 
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
-
 class OroHelpExtension extends Extension
 {
+    const HELP_FILE_CONFIG_ROOT = 'help';
     /**
      * {@inheritDoc}
      */
@@ -53,11 +53,13 @@ class OroHelpExtension extends Extension
 
         $configLoader = new CumulativeConfigLoader(
             'oro_help',
-            new YamlCumulativeFileLoader('Resources/config/oro_help.yml')
+            new YamlCumulativeFileLoader('Resources/config/oro/help.yml')
         );
-        $resources    = $configLoader->load($container);
+        $resources = $configLoader->load($container);
         foreach ($resources as $resource) {
-            $result[] = $resource->data;
+            if (array_key_exists(self::HELP_FILE_CONFIG_ROOT, $resource->data)) {
+                $result[] = $resource->data[self::HELP_FILE_CONFIG_ROOT];
+            }
         }
 
         return $result;

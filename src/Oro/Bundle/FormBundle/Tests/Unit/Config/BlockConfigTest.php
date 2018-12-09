@@ -5,7 +5,7 @@ namespace Oro\Bundle\FormBundle\Tests\Unit\Config;
 use Oro\Bundle\FormBundle\Config\BlockConfig;
 use Oro\Bundle\FormBundle\Config\SubBlockConfig;
 
-class BlockConfigTest extends \PHPUnit_Framework_TestCase
+class BlockConfigTest extends \PHPUnit\Framework\TestCase
 {
     /** @var  BlockConfig */
     private $blockConfig;
@@ -122,6 +122,19 @@ class BlockConfigTest extends \PHPUnit_Framework_TestCase
         /** test hasSubBlock */
         $this->assertFalse($this->blockConfig->hasSubBlock('testSubBlock'));
 
+        $this->assertEquals(
+            array(
+                'title'       => $this->testTitle,
+                'class'       => $this->testClass,
+                'subblocks'   => [],
+                'description' => $this->testDescription,
+            ),
+            $this->blockConfig->toArray()
+        );
+    }
+
+    public function testSubBlockProperties()
+    {
         /** test setSubBlock */
         $subblocks = array();
         foreach ($this->testSubBlocksConfig as $code => $data) {
@@ -171,10 +184,10 @@ class BlockConfigTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(
             array(
-                'title'       => $this->testTitle,
-                'class'       => $this->testClass,
+                'title'       => null,
+                'class'       => null,
                 'subblocks'   => $subblocks,
-                'description' => $this->testDescription,
+                'description' => null,
             ),
             $this->blockConfig->toArray()
         );
@@ -183,10 +196,8 @@ class BlockConfigTest extends \PHPUnit_Framework_TestCase
     public function testException()
     {
         /** test getSubBlock Exception */
-        $this->setExpectedException(
-            '\PHPUnit_Framework_Error_Notice',
-            'Undefined index: testSubBlock'
-        );
+        $this->expectException(\PHPUnit\Framework\Error\Notice::class);
+        $this->expectExceptionMessage('Undefined index: testSubBlock');
         $this->blockConfig->getSubBlock('testSubBlock');
     }
 

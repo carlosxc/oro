@@ -3,47 +3,41 @@
 namespace Oro\Bundle\WorkflowBundle\Model;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Persistence\ManagerRegistry;
-use Doctrine\Common\Util\ClassUtils;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManager;
-
-use Oro\Bundle\FeatureToggleBundle\Checker\FeatureChecker;
-use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
+use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
 use Oro\Bundle\WorkflowBundle\Entity\Repository\WorkflowDefinitionRepository;
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Exception\WorkflowNotFoundException;
+use Oro\Bundle\WorkflowBundle\Model\Filter\WorkflowDefinitionFilters;
 
 class WorkflowRegistry
 {
-    const FEATURE_CONFIG_WORKFLOW_KEY = 'workflows';
-
-    /** @var ManagerRegistry */
-    protected $managerRegistry;
-
     /** @var WorkflowAssembler */
     protected $workflowAssembler;
 
     /** @var Workflow[] */
     protected $workflowByName = [];
 
-    /** @var array */
-    protected $workflowByEntityClass = [];
+    /** @var WorkflowDefinitionFilters */
+    protected $definitionFilters;
 
-    /** @var FeatureChecker  */
-    protected $featureChecker;
+    /** @var DoctrineHelper */
+    protected $doctrineHelper;
 
     /**
-     * @param ManagerRegistry $managerRegistry
+     * @param DoctrineHelper $doctrineHelper
      * @param WorkflowAssembler $workflowAssembler
-     * @param FeatureChecker $featureChecker
+     * @param WorkflowDefinitionFilters $definitionFilters
      */
     public function __construct(
-        ManagerRegistry $managerRegistry,
+        DoctrineHelper $doctrineHelper,
         WorkflowAssembler $workflowAssembler,
-        FeatureChecker $featureChecker
+        WorkflowDefinitionFilters $definitionFilters
     ) {
-        $this->managerRegistry = $managerRegistry;
+        $this->doctrineHelper = $doctrineHelper;
         $this->workflowAssembler = $workflowAssembler;
-        $this->featureChecker = $featureChecker;
+        $this->definitionFilters = $definitionFilters;
     }
 
     /**
@@ -65,25 +59,25 @@ class WorkflowRegistry
             );
         }
 
-        if (!$this->featureChecker->isResourceEnabled($name, self::FEATURE_CONFIG_WORKFLOW_KEY)) {
+        if (!array_key_exists($name, $this->workflowByName)) {
+            $definition = $this->getEntityRepository()->find($name);
+        } else {
+            $definition = $this->workflowByName[$name]->getDefinition();
+        }
+
+        if ($definition) {
+            $definition = $this->processDefinitionFilters(new ArrayCollection([$definition]))->first();
+        }
+
+        if (!$definition) {
+            if ($exceptionOnNotFound) {
+                throw new WorkflowNotFoundException($name);
+            }
+
             return null;
         }
 
-        if (!array_key_exists($name, $this->workflowByName)) {
-            /** @var WorkflowDefinition $definition */
-            $definition = $this->getEntityRepository()->find($name);
-            if (!$definition) {
-                if ($exceptionOnNotFound) {
-                    throw new WorkflowNotFoundException($name);
-                } else {
-                    return null;
-                }
-            }
-
-            return $this->getAssembledWorkflow($definition);
-        }
-
-        return $this->refreshWorkflow($this->workflowByName[$name]);
+        return $this->getAssembledWorkflow($definition);
     }
 
     /**
@@ -109,74 +103,135 @@ class WorkflowRegistry
      */
     public function hasActiveWorkflowsByEntityClass($entityClass)
     {
-        $class = ClassUtils::getRealClass($entityClass);
+        return $this->isWorkflowsArrayEmpty($this->getEntityRepository()->findActiveForRelatedEntity($entityClass));
+    }
 
-        if (array_key_exists($class, $this->workflowByEntityClass)) {
-            return true;
-        }
+    /**
+     * @param string $entityClass
+     * @return bool
+     */
+    public function hasWorkflowsByEntityClass($entityClass)
+    {
+        return $this->isWorkflowsArrayEmpty($this->getEntityRepository()->findForRelatedEntity($entityClass));
+    }
 
-        $activeWorkflowDefinitions = $this->getEntityRepository()->findActiveForRelatedEntity($class);
+    /**
+     * @param array|WorkflowDefinition[] $workflowDefinitions
+     * @return bool
+     */
+    private function isWorkflowsArrayEmpty(array $workflowDefinitions)
+    {
+        $items = $this->processDefinitionFilters($this->getNamedDefinitionsCollection($workflowDefinitions));
 
-        $items = $this->filterEnabledFeaturesWorkflows($activeWorkflowDefinitions);
-
-        return count($items) > 0;
+        return !$items->isEmpty();
     }
 
     /**
      * Get Active Workflows that applicable to entity class
      *
      * @param string $entityClass
-     * @return Workflow[]|ArrayCollection Named collection of active Workflow instances
-     *                                    with structure: ['workflowName' => Workflow $worfklowInstance]
+     * @return Workflow[]|Collection Named collection of active Workflow instances
+     *                               with structure: ['workflowName' => Workflow $workflowInstance]
      */
     public function getActiveWorkflowsByEntityClass($entityClass)
     {
-        $class = ClassUtils::getRealClass($entityClass);
+        return $this->getAssembledWorkflows($this->getEntityRepository()->findActiveForRelatedEntity($entityClass));
+    }
 
-        if (!array_key_exists($class, $this->workflowByEntityClass)) {
-            $workflows = new ArrayCollection();
-            foreach ($this->getEntityRepository()->findActiveForRelatedEntity($class) as $definition) {
-                $workflowName = $definition->getName();
-                if ($this->featureChecker->isResourceEnabled($workflowName, self::FEATURE_CONFIG_WORKFLOW_KEY)) {
-                    /** @var WorkflowDefinition $definition */
-                    $workflows->set($workflowName, $this->getAssembledWorkflow($definition));
-                }
-            }
-
-            $this->workflowByEntityClass[$class] = $workflows;
-        }
-
-        return $this->workflowByEntityClass[$class];
+    /**
+     * Get Workflows that applicable to entity class
+     *
+     * @param string $entityClass
+     * @return Workflow[]|Collection Named collection of Workflow instances
+     *                               with structure: ['workflowName' => Workflow $workflowInstance]
+     */
+    public function getWorkflowsByEntityClass($entityClass)
+    {
+        return $this->getAssembledWorkflows($this->getEntityRepository()->findForRelatedEntity($entityClass));
     }
 
     /**
      * Get Active Workflows by active groups
      *
      * @param array $groupNames
-     * @return Workflow[]|array
+     * @return Workflow[]|Collection Named collection of active Workflow instances
+     *                               with structure: ['workflowName' => Workflow $workflowInstance]
      */
     public function getActiveWorkflowsByActiveGroups(array $groupNames)
     {
         $groupNames = array_map('strtolower', $groupNames);
+
         $definitions = array_filter(
-            $this->getEntityRepository()->findBy(['active' => true]),
+            $this->getEntityRepository()->findActive(),
             function (WorkflowDefinition $definition) use ($groupNames) {
-                $isResourceEnabled = $this->featureChecker->isResourceEnabled(
-                    $definition->getName(),
-                    self::FEATURE_CONFIG_WORKFLOW_KEY
-                );
                 $exclusiveActiveGroups = $definition->getExclusiveActiveGroups();
 
-                return $isResourceEnabled && (bool)array_intersect($groupNames, $exclusiveActiveGroups);
+                return (bool)array_intersect($groupNames, $exclusiveActiveGroups);
             }
         );
 
-        return array_map(
-            function ($definition) {
-                return $this->getAssembledWorkflow($definition);
-            },
-            $definitions
-        );
+        return $this->getAssembledWorkflows($definitions);
+    }
+
+    /**
+     * Returns named collection of active Workflow instances with structure:
+     *      ['workflowName' => Workflow $workflowInstance]
+     *
+     * @return Workflow[]|Collection
+     */
+    public function getActiveWorkflows()
+    {
+        return $this->getAssembledWorkflows($this->getEntityRepository()->findActive());
+    }
+
+    /**
+     * @param WorkflowDefinition[] $definitions
+     *
+     * @return Collection
+     */
+    private function getAssembledWorkflows(array $definitions)
+    {
+        $definitions = $this->getNamedDefinitionsCollection($definitions);
+
+        return $this->processDefinitionFilters($definitions)
+            ->map(
+                function (WorkflowDefinition $workflowDefinition) {
+                    return $this->getAssembledWorkflow($workflowDefinition);
+                }
+            );
+    }
+
+    /**
+     * @param Collection|WorkflowDefinition[] $workflowDefinitions
+     * @return Collection|WorkflowDefinition[]
+     */
+    private function processDefinitionFilters(Collection $workflowDefinitions)
+    {
+        if ($workflowDefinitions->isEmpty()) {
+            return $workflowDefinitions;
+        }
+
+        foreach ($this->definitionFilters->getFilters() as $definitionFilter) {
+            $workflowDefinitions = $definitionFilter->filter($workflowDefinitions);
+        }
+
+        return $workflowDefinitions;
+    }
+
+    /**
+     * @param WorkflowDefinition[] $workflowDefinitions
+     * @return Collection|Workflow[]
+     */
+    private function getNamedDefinitionsCollection(array $workflowDefinitions)
+    {
+        $workflows = new ArrayCollection();
+        foreach ($workflowDefinitions as $definition) {
+            $workflowName = $definition->getName();
+            /** @var WorkflowDefinition $definition */
+            $workflows->set($workflowName, $definition);
+        }
+
+        return $workflows;
     }
 
     /**
@@ -184,7 +239,7 @@ class WorkflowRegistry
      */
     protected function getEntityManager()
     {
-        return $this->managerRegistry->getManagerForClass(WorkflowDefinition::class);
+        return $this->doctrineHelper->getEntityManagerForClass(WorkflowDefinition::class);
     }
 
     /**
@@ -227,21 +282,5 @@ class WorkflowRegistry
         }
 
         return $definition;
-    }
-    
-    /**
-     * @param WorkflowDefinition[] $workflowDefinitions
-     * @return WorkflowDefinition[]|array
-     */
-    protected function filterEnabledFeaturesWorkflows(array $workflowDefinitions)
-    {
-        $enabledFeaturesWorkflows = [];
-        foreach ($workflowDefinitions as $definition) {
-            if ($this->featureChecker->isResourceEnabled($definition->getName(), self::FEATURE_CONFIG_WORKFLOW_KEY)) {
-                $enabledFeaturesWorkflows[] = $definition;
-            }
-        }
-
-        return $enabledFeaturesWorkflows;
     }
 }

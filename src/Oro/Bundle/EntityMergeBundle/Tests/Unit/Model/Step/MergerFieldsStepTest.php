@@ -3,11 +3,10 @@
 namespace Oro\Bundle\EntityMergeBundle\Tests\Unit\Model\Step;
 
 use Oro\Bundle\EntityMergeBundle\Event\FieldDataEvent;
-
-use Oro\Bundle\EntityMergeBundle\Model\Step\MergeFieldsStep;
 use Oro\Bundle\EntityMergeBundle\MergeEvents;
+use Oro\Bundle\EntityMergeBundle\Model\Step\MergeFieldsStep;
 
-class MergeFieldsStepTest extends \PHPUnit_Framework_TestCase
+class MergerFieldsStepTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var MergeFieldsStep
@@ -15,19 +14,19 @@ class MergeFieldsStepTest extends \PHPUnit_Framework_TestCase
     protected $step;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $eventDispatcher;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $strategy;
 
     protected function setUp()
     {
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-        $this->strategy = $this->getMock('Oro\Bundle\EntityMergeBundle\Model\Strategy\StrategyInterface');
+        $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->strategy = $this->createMock('Oro\Bundle\EntityMergeBundle\Model\Strategy\StrategyInterface');
         $this->step = new MergeFieldsStep($this->strategy, $this->eventDispatcher);
     }
 
@@ -35,7 +34,7 @@ class MergeFieldsStepTest extends \PHPUnit_Framework_TestCase
     {
         $data = $this->createEntityData();
 
-                $fooField = $this->createFieldData();
+        $fooField = $this->createFieldData();
         $barField = $this->createFieldData();
 
         $data->expects($this->once())

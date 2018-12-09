@@ -1,6 +1,7 @@
-define(['underscore', 'orolocale/js/locale-settings/data'
-    ], function(_, settings) {
+define(['underscore', 'orolocale/js/locale-settings/data', 'module'], function(_, settings, moduleInst) {
     'use strict';
+
+    var moduleConfig = moduleInst.config();
 
     /**
      * Locale settings
@@ -26,9 +27,10 @@ define(['underscore', 'orolocale/js/locale-settings/data'
             timezone: 'UTC',
             timezone_offset: '+00:00',
             format_address_by_address_country: true,
+            apiKey: null,
             unit: {
-                'temperature': 'fahrenheit',
-                'wind_speed':  'miles_per_hour'
+                temperature: 'fahrenheit',
+                wind_speed: 'miles_per_hour'
             },
             locale_data: {
                 US: {
@@ -117,7 +119,7 @@ define(['underscore', 'orolocale/js/locale-settings/data'
             },
             calendar: {
                 dow: {
-                    wide: {
+                    'wide': {
                         1: 'Sunday',
                         2: 'Monday',
                         3: 'Tuesday',
@@ -126,35 +128,35 @@ define(['underscore', 'orolocale/js/locale-settings/data'
                         6: 'Friday',
                         7: 'Saturday'
                     },
-                    abbreviated: {1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'},
-                    short:       {1: 'Su',  2: 'Mo',  3: 'Tu',  4: 'We',  5: 'Th',  6: 'Fr',  7: 'Sa'},
-                    narrow:      {1: 'S',   2: 'M',   3: 'T',   4: 'W',   5: 'T',   6: 'F',   7: 'S'}
+                    'abbreviated': {1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'},
+                    'short': {1: 'Su', 2: 'Mo', 3: 'Tu', 4: 'We', 5: 'Th', 6: 'Fr', 7: 'Sa'},
+                    'narrow': {1: 'S', 2: 'M', 3: 'T', 4: 'W', 5: 'T', 6: 'F', 7: 'S'}
                 },
                 months: {
                     wide: {
-                        1:  'January',
-                        2:  'February',
-                        3:  'March',
-                        4:  'April',
-                        5:  'May',
-                        6:  'June',
-                        7:  'July',
-                        8:  'August',
-                        9:  'September',
+                        1: 'January',
+                        2: 'February',
+                        3: 'March',
+                        4: 'April',
+                        5: 'May',
+                        6: 'June',
+                        7: 'July',
+                        8: 'August',
+                        9: 'September',
                         10: 'October',
                         11: 'November',
                         12: 'December'
                     },
                     abbreviated: {
-                        1:  'Jan',
-                        2:  'Feb',
-                        3:  'Mar',
-                        4:  'Apr',
-                        5:  'May',
-                        6:  'Jun',
-                        7:  'Jul',
-                        8:  'Aug',
-                        9:  'Sep',
+                        1: 'Jan',
+                        2: 'Feb',
+                        3: 'Mar',
+                        4: 'Apr',
+                        5: 'May',
+                        6: 'Jun',
+                        7: 'Jul',
+                        8: 'Aug',
+                        9: 'Sep',
                         10: 'Oct',
                         11: 'Nov',
                         12: 'Dec'
@@ -320,7 +322,9 @@ define(['underscore', 'orolocale/js/locale-settings/data'
             width = (width && this.settings.calendar.months.hasOwnProperty(width)) ? width : 'wide';
             var result = this.settings.calendar.months[width];
             if (asArray) {
-                result = _.map(result, function(v) { return v; });
+                result = _.map(result, function(v) {
+                    return v;
+                });
             }
             return result;
         },
@@ -337,10 +341,7 @@ define(['underscore', 'orolocale/js/locale-settings/data'
         getCalendarDayOfWeekNames: function(width, asArray) {
             width = (width && this.settings.calendar.dow.hasOwnProperty(width)) ? width : 'wide';
             var result = this.settings.calendar.dow[width];
-            if (asArray) {
-                result = _.map(result, function(v) { return v; });
-            }
-            return result;
+            return asArray ? _.values(result) : _.clone(result);
         },
 
         /**
@@ -351,10 +352,10 @@ define(['underscore', 'orolocale/js/locale-settings/data'
          */
         getSortedDayOfWeekNames: function(width) {
             var dowNames = this.getCalendarDayOfWeekNames(width, true);
-            _.times(this.getCalendarFirstDayOfWeek() - 1, function() {
-                dowNames.push(dowNames.shift());
-            });
-
+            var splitPoint = this.getCalendarFirstDayOfWeek() - 1;
+            if (splitPoint > 0 && splitPoint < dowNames.length) {
+                dowNames = dowNames.slice(splitPoint).concat(dowNames.slice(0, splitPoint));
+            }
             return dowNames;
         },
 
@@ -393,6 +394,8 @@ define(['underscore', 'orolocale/js/locale-settings/data'
     };
 
     localeSettings.extendSettings(settings);
+    localeSettings.extendDefaults(moduleConfig.defaults);
+    localeSettings.extendSettings(moduleConfig.settings);
 
     return localeSettings;
 });

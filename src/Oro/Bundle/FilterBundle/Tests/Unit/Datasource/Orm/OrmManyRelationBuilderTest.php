@@ -4,13 +4,12 @@ namespace Oro\Bundle\FilterBundle\Tests\Unit\Datasource\Orm;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
-
 use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter;
 use Oro\Bundle\FilterBundle\Datasource\Orm\OrmManyRelationBuilder;
 use Oro\Bundle\FilterBundle\Tests\Unit\Datasource\Orm\Fixtures\Entity as Stub;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\OrmTestCase;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\Mocks\EntityManagerMock;
+use Oro\Component\TestUtils\ORM\Mocks\EntityManagerMock;
+use Oro\Component\TestUtils\ORM\OrmTestCase;
 
 class OrmManyRelationBuilderTest extends OrmTestCase
 {
@@ -61,7 +60,7 @@ class OrmManyRelationBuilderTest extends OrmTestCase
         );
         $this->assertFalse(
             $this->builder->supports(
-                $this->getMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface')
+                $this->createMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface')
             )
         );
     }
@@ -197,12 +196,11 @@ class OrmManyRelationBuilderTest extends OrmTestCase
      */
     protected function getFilterDatasourceAdapter(QueryBuilder $qb)
     {
-        /** @var OrmFilterDatasourceAdapter|\PHPUnit_Framework_MockObject_MockObject $ds */
-        $ds = $this->getMock(
-            'Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter',
-            ['generateParameterName'],
-            [$qb]
-        );
+        /** @var OrmFilterDatasourceAdapter|\PHPUnit\Framework\MockObject\MockObject $ds */
+        $ds = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter')
+            ->setMethods(['generateParameterName'])
+            ->setConstructorArgs([$qb])
+            ->getMock();
         $ds->expects($this->any())
             ->method('generateParameterName')
             ->will($this->returnValue(sprintf('param%d', ++$this->paramIndex)));

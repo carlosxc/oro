@@ -4,14 +4,17 @@ namespace Oro\Bundle\LocaleBundle\Translation\Strategy;
 
 use Doctrine\Common\Cache\CacheProvider;
 use Doctrine\Common\Persistence\ManagerRegistry;
-
+use Oro\Bundle\LocaleBundle\DependencyInjection\Configuration;
 use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\Entity\Repository\LocalizationRepository;
 use Oro\Bundle\TranslationBundle\Strategy\TranslationStrategyInterface;
 
+/**
+ * Provides a tree of locale fallbacks configured by a user.
+ */
 class LocalizationFallbackStrategy implements TranslationStrategyInterface
 {
-    const NAME = 'oro_localalization_fallback_strategy';
+    const NAME = 'oro_localization_fallback_strategy';
     const CACHE_KEY = 'localization_fallbacks';
 
     /**
@@ -40,6 +43,14 @@ class LocalizationFallbackStrategy implements TranslationStrategyInterface
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function isApplicable()
+    {
+        return true;
+    }
+
+    /**
      * @param string $entityClass
      */
     public function setEntityClass($entityClass)
@@ -60,14 +71,22 @@ class LocalizationFallbackStrategy implements TranslationStrategyInterface
      */
     public function getLocaleFallbacks()
     {
-        $key = static::CACHE_KEY;
-        if ($this->cacheProvider->contains($key)) {
-            return $this->cacheProvider->fetch($key);
+        $fallbacks = $this->cacheProvider->fetch(static::CACHE_KEY);
+        if (false === $fallbacks) {
+            /** All localizations always should have only one parent that equals to default language */
+            $fallbacks = [
+                Configuration::DEFAULT_LOCALE => array_reduce(
+                    $this->getRootLocalizations(),
+                    function ($result, Localization $localization) {
+                        return array_merge($result, $this->localizationToArray($localization));
+                    },
+                    []
+                )
+            ];
+
+            $this->cacheProvider->save(static::CACHE_KEY, $fallbacks);
         }
-        $fallbacks = array_reduce($this->getRootLocalizations(), function ($result, Localization $localization) {
-            return array_merge($result, $this->localizationToArray($localization));
-        }, []);
-        $this->cacheProvider->save($key, $fallbacks);
+
         return $fallbacks;
     }
 

@@ -3,31 +3,28 @@
 namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Grid\Extension;
 
 use Doctrine\ORM\QueryBuilder;
-
-use Symfony\Component\Form\Extension\Csrf\CsrfExtension;
-use Symfony\Component\Form\Forms;
-use Symfony\Component\Form\FormFactoryInterface;
-use Symfony\Component\Form\PreloadedExtension;
-
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\OrmTestCase;
-
+use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\FilterBundle\Filter\DateFilterUtility;
 use Oro\Bundle\FilterBundle\Filter\DateTimeRangeFilter;
+use Oro\Bundle\FilterBundle\Filter\FilterInterface;
+use Oro\Bundle\FilterBundle\Filter\FilterUtility;
+use Oro\Bundle\FilterBundle\Filter\StringFilter;
 use Oro\Bundle\FilterBundle\Form\Type\DateRangeType;
 use Oro\Bundle\FilterBundle\Form\Type\DateTimeRangeType;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\DateRangeFilterType;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\DateTimeRangeFilterType;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\FilterType;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\TextFilterType;
+use Oro\Bundle\FilterBundle\Provider\DateModifierProvider;
 use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
-use Oro\Bundle\FilterBundle\Filter\StringFilter;
-use Oro\Bundle\FilterBundle\Filter\FilterUtility;
 use Oro\Bundle\QueryDesignerBundle\QueryDesigner\RestrictionBuilder;
 use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Stubs\OrmDatasourceExtension;
-use Oro\Bundle\FilterBundle\Filter\FilterInterface;
-use Oro\Bundle\FilterBundle\Filter\DateFilterUtility;
-use Oro\Bundle\FilterBundle\Provider\DateModifierProvider;
 use Oro\Bundle\TestFrameworkBundle\Test\Form\MutableFormEventSubscriber;
+use Oro\Component\Testing\Unit\PreloadedExtension;
+use Oro\Component\TestUtils\ORM\OrmTestCase;
+use Symfony\Component\Form\Extension\Csrf\CsrfExtension;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\Forms;
 
 class OrmDatasourceExtensionTest extends OrmTestCase
 {
@@ -39,9 +36,9 @@ class OrmDatasourceExtensionTest extends OrmTestCase
         $configManager   = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
             ->disableOriginalConstructor()
             ->getMock();
-        $calendarFactory = $this->getMock('Oro\Bundle\LocaleBundle\Model\CalendarFactoryInterface');
+        $calendarFactory = $this->createMock('Oro\Bundle\LocaleBundle\Model\CalendarFactoryInterface');
 
-        $translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $translator->expects($this->any())->method('trans')->will($this->returnArgument(0));
         $localeSettings = new LocaleSettings($configManager, $calendarFactory);
 
@@ -54,22 +51,22 @@ class OrmDatasourceExtensionTest extends OrmTestCase
         $this->formFactory = Forms::createFormFactoryBuilder()
             ->addExtensions(
                 array(
-                     new PreloadedExtension(
-                         array(
-                              'oro_type_text_filter'           => new TextFilterType($translator),
-                              'oro_type_datetime_range_filter' =>
-                                  new DateTimeRangeFilterType($translator, new DateModifierProvider(), $subscriber),
-                              'oro_type_date_range_filter'     =>
-                                  new DateRangeFilterType($translator, new DateModifierProvider(), $subscriber),
-                              'oro_type_datetime_range'        => new DateTimeRangeType($localeSettings),
-                              'oro_type_date_range'            => new DateRangeType(),
-                              'oro_type_filter'                => new FilterType($translator),
-                         ),
-                         array()
-                     ),
-                     new CsrfExtension(
-                         $this->getMock('Symfony\Component\Form\Extension\Csrf\CsrfProvider\CsrfProviderInterface')
-                     )
+                    new PreloadedExtension(
+                        array(
+                            'oro_type_text_filter'           => new TextFilterType($translator),
+                            'oro_type_datetime_range_filter' =>
+                                new DateTimeRangeFilterType($translator, new DateModifierProvider(), $subscriber),
+                            'oro_type_date_range_filter'     =>
+                                new DateRangeFilterType($translator, new DateModifierProvider(), $subscriber),
+                            'oro_type_datetime_range'        => new DateTimeRangeType($localeSettings),
+                            'oro_type_date_range'            => new DateRangeType($localeSettings),
+                            'oro_type_filter'                => new FilterType($translator),
+                        ),
+                        array()
+                    ),
+                    new CsrfExtension(
+                        $this->createMock('Symfony\Component\Security\Csrf\CsrfTokenManagerInterface')
+                    )
                 )
             )
             ->getFormFactory();
@@ -200,25 +197,10 @@ class OrmDatasourceExtensionTest extends OrmTestCase
                     . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser user '
                     . 'INNER JOIN user.address address '
                     . 'WHERE user_name NOT LIKE :string1 AND ('
-                    . '(user_status < :datetime2 OR user_status > :datetime3) '
-                    . 'AND ((EXISTS('
-                    . 'SELECT string4.id '
-                    . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser string4 '
-                    . 'INNER JOIN string4.address string5 '
-                    . 'WHERE string5.country LIKE :string4 AND string4.id = user.id)) '
-                    . 'OR (EXISTS('
-                    . 'SELECT string7.id '
-                    . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser string7 '
-                    . 'INNER JOIN string7.address string8 '
-                    . 'WHERE string8.city LIKE :string5 AND string7.id = user.id)) OR '
-                    . '(EXISTS('
-                    . 'SELECT string10.id '
-                    . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser string10 '
-                    . 'INNER JOIN string10.address string11 '
-                    . 'WHERE string11.zip LIKE :string6 AND string10.id = user.id'
-                    . '))'
-                    . ')'
-                    . ')'
+                    . '(user_status < :datetime2 OR user_status >= :datetime3) '
+                    . 'AND (address.country LIKE :string4 '
+                    . 'OR address.city LIKE :string5 OR '
+                    . 'address.zip LIKE :string6))'
             ],
             'test with OR conditions' => [
                 'source'   => [
@@ -267,14 +249,8 @@ class OrmDatasourceExtensionTest extends OrmTestCase
                     . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser user '
                     . 'INNER JOIN user.address address '
                     . 'WHERE user_name NOT LIKE :string1 OR ('
-                    . 'user_status < :datetime2 OR user_status > :datetime3 '
-                    . 'OR (EXISTS('
-                    . 'SELECT string4.id '
-                    . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser string4 '
-                    . 'INNER JOIN string4.address string5 '
-                    . 'WHERE string5.country LIKE :string4 AND string4.id = user.id'
-                    . '))'
-                    . ')'
+                    . 'user_status < :datetime2 OR user_status >= :datetime3 '
+                    . 'OR address.country LIKE :string4)'
             ],
             'test with OR filters between simple and group conditions' => [
                 'source'   => [
@@ -323,14 +299,8 @@ class OrmDatasourceExtensionTest extends OrmTestCase
                     . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser user '
                     . 'INNER JOIN user.address address '
                     . 'WHERE user_name NOT LIKE :string1 OR ('
-                    . '(user_status < :datetime2 OR user_status > :datetime3) '
-                    . 'AND (EXISTS('
-                    . 'SELECT string4.id '
-                    . 'FROM Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\Models\CMS\CmsUser string4 '
-                    . 'INNER JOIN string4.address string5 '
-                    . 'WHERE string5.country LIKE :string4 AND string4.id = user.id'
-                    . '))'
-                    . ')'
+                    . '(user_status < :datetime2 OR user_status >= :datetime3) '
+                    . 'AND address.country LIKE :string4)'
             ],
         ];
     }

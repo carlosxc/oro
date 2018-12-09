@@ -3,21 +3,24 @@
 namespace Oro\Bundle\EntityExtendBundle\Tools;
 
 use Doctrine\Common\Cache\ClearableCache;
+use Doctrine\Common\Cache\FlushableCache;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
-
-use Symfony\Component\Filesystem\Filesystem;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Config\EntityManagerBag;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
+use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Oro\Bundle\EntityConfigBundle\Provider\ExtendEntityConfigProviderInterface;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Extend\FieldTypeHelper;
 use Oro\Bundle\EntityExtendBundle\Extend\RelationType;
-use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
 use Oro\Bundle\EntityExtendBundle\Tools\DumperExtensions\AbstractEntityConfigDumperExtension;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Finder\Finder;
 
 /**
+ * Dumper for extended entity configs
+ *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
 class ExtendConfigDumper
@@ -54,13 +57,17 @@ class ExtendConfigDumper
     /** @var AbstractEntityConfigDumperExtension[]|null */
     protected $sortedExtensions;
 
+    /** @var ExtendEntityConfigProviderInterface */
+    protected $extendEntityConfigProvider;
+
     /**
-     * @param EntityManagerBag                $entityManagerBag
-     * @param ConfigManager                   $configManager
+     * @param EntityManagerBag $entityManagerBag
+     * @param ConfigManager $configManager
      * @param ExtendDbIdentifierNameGenerator $nameGenerator
-     * @param FieldTypeHelper                 $fieldTypeHelper
-     * @param EntityGenerator                 $entityGenerator
-     * @param string                          $cacheDir
+     * @param FieldTypeHelper $fieldTypeHelper
+     * @param EntityGenerator $entityGenerator
+     * @param ExtendEntityConfigProviderInterface $extendEntityConfigProvider
+     * @param string $cacheDir
      */
     public function __construct(
         EntityManagerBag $entityManagerBag,
@@ -68,6 +75,7 @@ class ExtendConfigDumper
         ExtendDbIdentifierNameGenerator $nameGenerator,
         FieldTypeHelper $fieldTypeHelper,
         EntityGenerator $entityGenerator,
+        ExtendEntityConfigProviderInterface $extendEntityConfigProvider,
         $cacheDir
     ) {
         $this->entityManagerBag = $entityManagerBag;
@@ -75,6 +83,7 @@ class ExtendConfigDumper
         $this->nameGenerator    = $nameGenerator;
         $this->fieldTypeHelper  = $fieldTypeHelper;
         $this->entityGenerator  = $entityGenerator;
+        $this->extendEntityConfigProvider = $extendEntityConfigProvider;
         $this->cacheDir         = $cacheDir;
     }
 
@@ -112,6 +121,8 @@ class ExtendConfigDumper
      *
      * @param callable|null $filter function (ConfigInterface $config) : bool
      * @param bool $updateCustom
+     *
+     * @SuppressWarnings(PHPMD.NPathComplexity)
      */
     public function updateConfig($filter = null, $updateCustom = false)
     {
@@ -131,16 +142,11 @@ class ExtendConfigDumper
         }
 
         $configProvider = $this->configManager->getProvider('extend');
+        $extendConfigs = $this->extendEntityConfigProvider->getExtendEntityConfigs($filter);
 
-        $extendConfigs = null === $filter
-            ? $configProvider->getConfigs(null, true)
-            : $configProvider->filter($filter, null, true);
         foreach ($extendConfigs as $extendConfig) {
             if ($extendConfig->is('upgradeable')) {
-                if ($extendConfig->is('is_extend')) {
-                    $this->checkSchema($extendConfig, $configProvider, $aliases, $filter);
-                }
-
+                $this->checkSchema($extendConfig, $configProvider, $aliases, $filter);
                 $this->updateStateValues($extendConfig, $configProvider);
             }
         }
@@ -166,7 +172,7 @@ class ExtendConfigDumper
 
             if ($schema) {
                 $schemas[$className]                 = $schema;
-                $schemas[$className]['relationData'] = $extendConfig->get('relation', false, []);
+                $schemas[$className]['relationData'] = $this->getRelationDataForEntity($extendConfigs, $extendConfig);
             }
         }
 
@@ -186,11 +192,43 @@ class ExtendConfigDumper
     }
 
     /**
+     * Load relation data and add state of scope extend  of entity config
+     *
+     * @param ConfigInterface[] $extendConfigs
+     * @param ConfigInterface $entityExtendConfig
+     *
+     * @return mixed|null
+     */
+    protected function getRelationDataForEntity($extendConfigs, ConfigInterface $entityExtendConfig)
+    {
+        $relationData = $entityExtendConfig->get('relation', false, []);
+
+        if (is_array($relationData)) {
+            foreach ($relationData as $key => &$item) {
+                /** @var ConfigInterface $extendConfig */
+                foreach ($extendConfigs as $extendConfig) {
+                    if ($extendConfig->getId()->getClassName() === $item['target_entity']) {
+                        $values = $extendConfig->getValues();
+                        $item['state'] = null;
+                        if (isset($values['state'])) {
+                            $item['state'] = $extendConfig->getValues();
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $relationData;
+    }
+
+    /**
      * Makes sure that extended entity configs are ready to be processing by other config related commands
      */
     public function checkConfig()
     {
-        $hasAliases = file_exists(ExtendClassLoadingUtils::getAliasesPath($this->cacheDir));
+        $hasAliases = ExtendClassLoadingUtils::aliasesExist($this->cacheDir);
         if ($hasAliases) {
             return;
         }
@@ -248,18 +286,21 @@ class ExtendConfigDumper
                 $filesystem->remove($aliasesPath);
             }
         } else {
-            $baseCacheDir = ExtendClassLoadingUtils::getEntityBaseCacheDir($this->cacheDir);
+            $baseCacheDir = ExtendClassLoadingUtils::getEntityCacheDir($this->cacheDir);
             if ($filesystem->exists($baseCacheDir)) {
-                $filesystem->remove([$baseCacheDir]);
+                $finder = new Finder();
+                $finder->files()->in($baseCacheDir);
+                $filesystem->remove($finder);
             }
-            $filesystem->mkdir(ExtendClassLoadingUtils::getEntityCacheDir($this->cacheDir));
         }
 
         foreach ($this->entityManagerBag->getEntityManagers() as $em) {
             /** @var ClassMetadataFactory $metadataFactory */
             $metadataFactory = $em->getMetadataFactory();
             $metadataCache   = $metadataFactory->getCacheDriver();
-            if ($metadataCache instanceof ClearableCache) {
+            if ($metadataCache instanceof FlushableCache) {
+                $metadataCache->flushAll();
+            } elseif ($metadataCache instanceof ClearableCache) {
                 $metadataCache->deleteAll();
             }
         }
@@ -333,6 +374,7 @@ class ExtendConfigDumper
                     'length'    => $fieldConfig->get('length'),
                     'precision' => $fieldConfig->get('precision'),
                     'scale'     => $fieldConfig->get('scale'),
+                    'default'   => $fieldConfig->get('default'),
                 ];
             }
         }

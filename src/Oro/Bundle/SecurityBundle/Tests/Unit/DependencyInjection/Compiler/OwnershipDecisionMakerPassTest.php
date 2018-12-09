@@ -2,15 +2,14 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\DependencyInjection\Compiler;
 
+use Oro\Bundle\SecurityBundle\DependencyInjection\Compiler\OwnershipDecisionMakerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
-use Oro\Bundle\SecurityBundle\DependencyInjection\Compiler\OwnershipDecisionMakerPass;
-
-class OwnershipDecisionMakerPassTest extends \PHPUnit_Framework_TestCase
+class OwnershipDecisionMakerPassTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ContainerBuilder
+     * @var \PHPUnit\Framework\MockObject\MockObject|ContainerBuilder
      */
     protected $container;
 
@@ -21,7 +20,7 @@ class OwnershipDecisionMakerPassTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
         $this->compilerPass = new OwnershipDecisionMakerPass();
     }
 
@@ -46,7 +45,7 @@ class OwnershipDecisionMakerPassTest extends \PHPUnit_Framework_TestCase
 
     public function testProcess()
     {
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $definition->expects($this->at(0))
             ->method('addMethodCall')
@@ -76,7 +75,7 @@ class OwnershipDecisionMakerPassTest extends \PHPUnit_Framework_TestCase
 
     public function testProcessEmptyOwnershipDecisionMakers()
     {
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $definition = $this->createMock('Symfony\Component\DependencyInjection\Definition');
 
         $definition->expects($this->never())
             ->method('addMethodCall');

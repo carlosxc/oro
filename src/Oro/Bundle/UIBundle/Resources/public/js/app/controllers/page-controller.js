@@ -6,15 +6,15 @@ define([
     'orotranslation/js/translator',
     'oroui/js/app/controllers/base/controller',
     'oroui/js/app/models/page-model',
-    'module'
-], function(asap, $, _, Chaplin, __, BaseController, PageModel, module) {
+    'module',
+    'oroui/js/error'
+], function(asap, $, _, Chaplin, __, BaseController, PageModel, module, errorHandler) {
     'use strict';
 
     var PageController;
     var document = window.document;
     var location = window.location;
     var history = window.history;
-    var console = window.console;
     var utils = Chaplin.utils;
     var mediator = Chaplin.mediator;
 
@@ -53,6 +53,7 @@ define([
             mediator.setHandler('isInAction', function() {
                 return isInAction;
             });
+            this._setNavigationHandlers();
         },
 
         /**
@@ -79,7 +80,6 @@ define([
             var cacheItem;
 
             var url = this._combineRouteUrl(route);
-            this._setNavigationHandlers(url);
             var args = {// collect arguments to reuse in events of page_fetch state change
                 params: params,
                 route: route,
@@ -182,12 +182,27 @@ define([
 
             this.publishEvent('page:update', pageData, actionArgs, jqXHR, updatePromises);
 
-            // once all views has been updated, trigger page:afterChange
-            $.when.apply($, updatePromises).done(function() {
-                // let all embedded inline scripts finish their execution
-                asap(function() {
-                    self.publishEvent('page:afterChange');
+            // execute callback function when all promises are either resolved or rejected
+            function waitPromises(promises, callback) {
+                $.when.apply($, promises).always(function() {
+                    var pendingPromises = _.filter(promises, function(promise) {
+                        return promise.state() === 'pending';
+                    });
+                    if (pendingPromises.length) {
+                        waitPromises(pendingPromises, callback);
+                    } else {
+                        callback();
+                    }
+                }).catch(function(error) {
+                    if (error) {
+                        errorHandler.showError(error);
+                    }
                 });
+            }
+
+            // once all views has been updated, trigger page:afterChange
+            waitPromises(updatePromises, function() {
+                self.publishEvent('page:afterChange');
             });
         },
 
@@ -201,10 +216,16 @@ define([
          */
         onPageInvalid: function(model, error, options) {
             var pathDesc;
+            var redirectOptions;
             if (error.redirect) {
                 pathDesc = {url: error.location};
-                _.extend(options.actionArgs.options, _.pick(error, ['redirect', 'fullRedirect']));
-                this._processRedirect(pathDesc, options.actionArgs.options);
+                redirectOptions = _.extend(
+                    {replace: true},
+                    options.actionArgs.options,
+                    _.pick(error, ['redirect', 'fullRedirect'])
+                );
+
+                this._processRedirect(pathDesc, redirectOptions);
             }
         },
 
@@ -237,15 +258,7 @@ define([
             if (_.isObject(data)) {
                 model.set(data, options);
             } else {
-                if (mediator.execute('retrieveOption', 'debug')) {
-                    // jshint -W060
-                    document.writeln(rawData);
-                    if (console) {
-                        console.error('Unexpected content format');
-                    }
-                } else {
-                    mediator.execute('showMessage', 'error', __('Sorry, page was not loaded correctly'));
-                }
+                errorHandler.showError(new Error(__('oro.ui.error.unexpected')));
             }
 
             this.publishEvent('page:error', model.getAttributes(), options.actionArgs, jqXHR);
@@ -277,10 +290,10 @@ define([
                 // fetch from URL only pathname and query
                 parser = document.createElement('a');
                 parser.href = pathDesc.url;
-                pathname = parser.pathname;
-                query = parser.search.substr(1);
                 // IE removes starting slash
-                pathDesc.url = (pathname[0] === '/' ? '' : '/') + pathname + (query && ('?' + query));
+                pathname = (parser.pathname[0] === '/' ? '' : '/') + parser.pathname;
+                query = parser.search.substr(1);
+                pathDesc.url = pathname + (query && ('?' + query));
             }
             options = _.defaults(options, {
                 fullRedirect: this.fullRedirect
@@ -294,8 +307,8 @@ define([
                 return;
             }
             if (options.redirect) {
-                this.publishEvent('page:redirect');
                 _.extend(options, {forceStartup: true, force: true, redirection: true});
+                this.publishEvent('page:redirect', pathDesc, options);
                 utils.redirectTo(pathDesc, options);
                 return;
             }
@@ -305,10 +318,9 @@ define([
         /**
          * Register handler for page reload and redirect
          *
-         * @param {string} url
          * @private
          */
-        _setNavigationHandlers: function(url) {
+        _setNavigationHandlers: function() {
             mediator.setHandler('redirectTo', function(pathDesc, params, options) {
                 var queue = [];
                 mediator.trigger('page:beforeRedirectTo', queue, pathDesc, params, options);
@@ -324,7 +336,7 @@ define([
                 _.defaults(options, {forceStartup: true, force: true});
                 $.when.apply($, queue).done(_.bind(function(customOptions) {
                     _.extend(options, customOptions || {});
-                    this._processRedirect({url: url}, options);
+                    this._processRedirect({url: location.href}, options);
                     mediator.trigger('page:afterRefresh');
                 }, this));
             }, this);
@@ -364,9 +376,12 @@ define([
             }
 
             if (additionalData) {
-                additionalData = '<div class="alert alert-info fade in top-messages">' +
-                    '<a class="close" data-dismiss="alert" href="#">&times;</a>' +
-                    '<div class="message">' + additionalData + '</div></div>';
+                additionalData = '<div class="alert alert-info fade in top-messages alert-dismissible " role="alert">' +
+                    '<button type="button" class="close" data-dismiss="alert" aria-label="' + __('Close') + '">' +
+                    '<span aria-hidden="true">&times;</span>' +
+                    '</button>' +
+                    '<div class="message">' + additionalData + '</div>' +
+                    '</div>';
             }
 
             if (dataObj.content !== undefined) {

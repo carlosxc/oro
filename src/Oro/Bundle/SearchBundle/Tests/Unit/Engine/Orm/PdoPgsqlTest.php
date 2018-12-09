@@ -1,35 +1,15 @@
 <?php
+
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Engine\Orm;
 
 use Oro\Bundle\SearchBundle\Engine\Orm\PdoPgsql;
 
-class PdoPgsqlTest extends \PHPUnit_Framework_TestCase
+class PdoPgsqlTest extends AbstractPdoTest
 {
-    public function testGetPlainSql()
+    protected function setUp()
     {
-        $recordString = PdoPgsql::getPlainSql();
-        $this->assertTrue(strpos($recordString, 'to_tsvector') > 0);
-    }
+        parent::setUp();
 
-    public function testInitRepo()
-    {
-        $config = $this->getMock('Doctrine\ORM\Configuration');
-        $config->expects($this->any())
-            ->method('addCustomStringFunction');
-
-        $om = $this->getMockBuilder('Doctrine\ORM\EntityManager')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $om->expects($this->once())
-            ->method('getConfiguration')
-            ->will($this->returnValue($config));
-
-        $classMetadata = $this
-            ->getMockBuilder('Doctrine\ORM\Mapping\ClassMetadata')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $driver = new PdoPgsql();
-        $driver->initRepo($om, $classMetadata);
+        $this->driver = new PdoPgsql();
     }
 }

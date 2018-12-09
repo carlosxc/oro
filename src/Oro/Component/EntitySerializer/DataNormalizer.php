@@ -2,6 +2,9 @@
 
 namespace Oro\Component\EntitySerializer;
 
+/**
+ * Normalizes result data of the EntitySerializer.
+ */
 class DataNormalizer
 {
     /**
@@ -28,8 +31,8 @@ class DataNormalizer
      */
     protected function normalizeRows(array &$rows, EntityConfig $config)
     {
-        foreach ($rows as &$row) {
-            if (is_array($row)) {
+        foreach ($rows as $key => &$row) {
+            if (ConfigUtil::INFO_RECORD_KEY !== $key && is_array($row)) {
                 $this->normalizeRow($row, $config);
             }
         }
@@ -43,97 +46,63 @@ class DataNormalizer
     {
         $fields = $config->getFields();
         foreach ($fields as $field => $fieldConfig) {
-            $targetConfig = $fieldConfig->getTargetEntity();
-            if (!$fieldConfig->isExcluded()) {
-                $propertyPath = $fieldConfig->getPropertyPath();
-                if ($propertyPath) {
-                    $path = ConfigUtil::explodePropertyPath($propertyPath);
-                    if (!array_key_exists($path[0], $row) || null !== $row[$path[0]]) {
-                        $this->applyPropertyPath($row, $field, $path);
-                    } else {
-                        $row[$field] = null;
-                    }
-                }
+            if ($fieldConfig->isExcluded()) {
+                continue;
             }
+
+            $targetConfig = $fieldConfig->getTargetEntity();
             if (null !== $targetConfig && !empty($row[$field]) && is_array($row[$field])) {
-                if (array_key_exists(0, $row[$field])) {
+                if ($fieldConfig->isCollapsed() && $targetConfig->get(ConfigUtil::COLLAPSE_FIELD)) {
+                    $this->normalizeCollapsed($row, $field, $targetConfig->get(ConfigUtil::COLLAPSE_FIELD));
+                } elseif (array_key_exists(0, $row[$field])) {
                     $this->normalizeRows($row[$field], $targetConfig);
                 } else {
                     $this->normalizeRow($row[$field], $targetConfig);
                 }
             }
         }
+        $this->removeExcludedFields($row, $config);
     }
 
     /**
-     * @param array    $row
-     * @param string   $field
-     * @param string[] $propertyPath
+     * @param array  $row
+     * @param string $field
+     * @param string $targetField
      */
-    protected function applyPropertyPath(array &$row, $field, array $propertyPath)
+    protected function normalizeCollapsed(array &$row, $field, $targetField)
     {
-        if (!array_key_exists($field, $row)) {
-            $row[$field] = $this->extractValueByPropertyPath($row, $propertyPath);
-        } elseif (is_array($row[$field])) {
-            $childPropertyPath = array_slice($propertyPath, 1);
-            if (array_key_exists(0, $row[$field])) {
-                foreach ($row[$field] as &$subRow) {
-                    $subRow = $this->extractValueByPropertyPath($subRow, $childPropertyPath, $subRow);
+        if (array_key_exists(0, $row[$field])) {
+            // to-many association
+            $values = [];
+            foreach ($row[$field] as $key => $value) {
+                if (ConfigUtil::INFO_RECORD_KEY !== $key
+                    && is_array($value)
+                    && array_key_exists($targetField, $value)
+                ) {
+                    $value = $value[$targetField];
                 }
-            } else {
-                $row[$field] = $this->extractValueByPropertyPath($row[$field], $childPropertyPath);
+                $values[$key] = $value;
             }
-        } elseif (1 === count($propertyPath)) {
-            $srcName = $propertyPath[0];
-            if (array_key_exists($srcName, $row) && $field !== $srcName) {
-                $row[$field] = $row[$srcName];
-                unset($row[$srcName]);
+            $row[$field] = $values;
+        } else {
+            // to-one association
+            if (array_key_exists($targetField, $row[$field])) {
+                $row[$field] = $row[$field][$targetField];
             }
         }
     }
 
     /**
-     * @param array    $row
-     * @param string[] $propertyPath
-     * @param mixed    $defaultValue
-     *
-     * @return mixed
+     * @param array        $row
+     * @param EntityConfig $config
      */
-    protected function extractValueByPropertyPath(array &$row, array $propertyPath, $defaultValue = null)
+    protected function removeExcludedFields(array &$row, EntityConfig $config)
     {
-        $result     = null;
-        $lastIndex  = count($propertyPath) - 1;
-        $i          = 0;
-        $path       = [];
-        $currentRow = &$row;
-        while ($i <= $lastIndex) {
-            $property = $propertyPath[$i];
-            if (null === $currentRow || !array_key_exists($property, $currentRow)) {
-                $result = $defaultValue;
-                break;
+        $excludedFields = $config->get(ConfigUtil::EXCLUDED_FIELDS);
+        if (!empty($excludedFields)) {
+            foreach ($excludedFields as $field) {
+                unset($row[$field]);
             }
-            if ($i === $lastIndex) {
-                // get property value
-                $result = $currentRow[$property];
-                // remove extracted property
-                unset($currentRow[$property]);
-                // remove empty containers
-                $p = count($path) - 1;
-                while ($p >= 0) {
-                    $currentRow = &$path[$p][0];
-                    if (!empty($currentRow[$path[$p][1]])) {
-                        break;
-                    }
-                    unset($currentRow[$path[$p][1]]);
-                    $p--;
-                }
-                break;
-            }
-            $path[]     = [&$currentRow, $property];
-            $currentRow = &$currentRow[$property];
-            $i++;
         }
-
-        return $result;
     }
 }

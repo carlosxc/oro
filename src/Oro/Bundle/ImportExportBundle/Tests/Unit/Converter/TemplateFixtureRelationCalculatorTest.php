@@ -4,15 +4,15 @@ namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Converter;
 
 use Oro\Bundle\ImportExportBundle\Converter\TemplateFixtureRelationCalculator;
 
-class TemplateFixtureRelationCalculatorTest extends \PHPUnit_Framework_TestCase
+class TemplateFixtureRelationCalculatorTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $templateManager;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $fieldHelper;
 
@@ -27,7 +27,7 @@ class TemplateFixtureRelationCalculatorTest extends \PHPUnit_Framework_TestCase
             ->getMockBuilder('Oro\Bundle\ImportExportBundle\TemplateFixture\TemplateManager')
             ->disableOriginalConstructor()
             ->getMock();
-        $this->fieldHelper = $this->getMockBuilder('Oro\Bundle\ImportExportBundle\Field\FieldHelper')
+        $this->fieldHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\Helper\FieldHelper')
             ->disableOriginalConstructor()
             ->getMock();
         $this->calculator = new TemplateFixtureRelationCalculator($this->templateManager, $this->fieldHelper);
@@ -43,7 +43,7 @@ class TemplateFixtureRelationCalculatorTest extends \PHPUnit_Framework_TestCase
     {
         $entityName = 'stdClass';
 
-        $fixture = $this->getMock('Oro\Bundle\ImportExportBundle\TemplateFixture\TemplateFixtureInterface');
+        $fixture = $this->createMock('Oro\Bundle\ImportExportBundle\TemplateFixture\TemplateFixtureInterface');
         $fixture->expects($this->once())
             ->method('getData')
             ->will($this->returnValue($fixtureData));

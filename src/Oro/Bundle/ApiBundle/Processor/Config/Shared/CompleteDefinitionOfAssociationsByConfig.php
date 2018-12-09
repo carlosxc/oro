@@ -3,16 +3,16 @@
 namespace Oro\Bundle\ApiBundle\Processor\Config\Shared;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
-
-use Oro\Component\ChainProcessor\ContextInterface;
-use Oro\Component\ChainProcessor\ProcessorInterface;
 use Oro\Bundle\ApiBundle\Config\ConfigExtraInterface;
 use Oro\Bundle\ApiBundle\Config\ConfigExtraSectionInterface;
 use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
 use Oro\Bundle\ApiBundle\Processor\Config\ConfigContext;
+use Oro\Bundle\ApiBundle\Provider\EntityOverrideProviderRegistry;
 use Oro\Bundle\ApiBundle\Provider\RelationConfigProvider;
 use Oro\Bundle\ApiBundle\Request\RequestType;
 use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
+use Oro\Component\ChainProcessor\ContextInterface;
+use Oro\Component\ChainProcessor\ProcessorInterface;
 
 /**
  * Loads configuration from the "relations" section of "Resources/config/oro/api.yml"
@@ -21,21 +21,27 @@ use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
 class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
 {
     /** @var DoctrineHelper */
-    protected $doctrineHelper;
+    private $doctrineHelper;
 
     /** @var RelationConfigProvider */
-    protected $relationConfigProvider;
+    private $relationConfigProvider;
+
+    /** @var EntityOverrideProviderRegistry */
+    private $entityOverrideProviderRegistry;
 
     /**
-     * @param DoctrineHelper         $doctrineHelper
-     * @param RelationConfigProvider $relationConfigProvider
+     * @param DoctrineHelper                 $doctrineHelper
+     * @param RelationConfigProvider         $relationConfigProvider
+     * @param EntityOverrideProviderRegistry $entityOverrideProviderRegistry
      */
     public function __construct(
         DoctrineHelper $doctrineHelper,
-        RelationConfigProvider $relationConfigProvider
+        RelationConfigProvider $relationConfigProvider,
+        EntityOverrideProviderRegistry $entityOverrideProviderRegistry
     ) {
-        $this->doctrineHelper         = $doctrineHelper;
+        $this->doctrineHelper = $doctrineHelper;
         $this->relationConfigProvider = $relationConfigProvider;
+        $this->entityOverrideProviderRegistry = $entityOverrideProviderRegistry;
     }
 
     /**
@@ -77,13 +83,14 @@ class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
      * @param RequestType            $requestType
      * @param ConfigExtraInterface[] $extras
      */
-    protected function completeEntityAssociations(
+    private function completeEntityAssociations(
         ClassMetadata $metadata,
         EntityDefinitionConfig $definition,
         $version,
         RequestType $requestType,
         array $extras
     ) {
+        $entityOverrideProvider = $this->entityOverrideProviderRegistry->getEntityOverrideProvider($requestType);
         $associations = $metadata->getAssociationMappings();
         foreach ($associations as $propertyPath => $mapping) {
             $fieldName = $definition->findFieldNameByPropertyPath($propertyPath);
@@ -91,14 +98,21 @@ class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
                 continue;
             }
 
-            $this->completeAssociation(
-                $definition,
-                $fieldName ?: $propertyPath,
-                $mapping['targetEntity'],
-                $version,
-                $requestType,
-                $extras
-            );
+            $targetClass = $mapping['targetEntity'];
+            $substituteTargetClass = $entityOverrideProvider->getSubstituteEntityClass($targetClass);
+            if ($substituteTargetClass) {
+                $targetClass = $substituteTargetClass;
+            }
+            if (!$fieldName) {
+                $fieldName = $propertyPath;
+            }
+            $this->completeAssociation($definition, $fieldName, $targetClass, $version, $requestType, $extras);
+            $field = $definition->getField($fieldName);
+            if (null !== $field && $field->getTargetClass()) {
+                $field->setTargetType(
+                    $this->getAssociationTargetType(!($mapping['type'] & ClassMetadata::TO_ONE))
+                );
+            }
         }
     }
 
@@ -108,7 +122,7 @@ class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
      * @param RequestType            $requestType
      * @param ConfigExtraInterface[] $extras
      */
-    protected function completeObjectAssociations(
+    private function completeObjectAssociations(
         EntityDefinitionConfig $definition,
         $version,
         RequestType $requestType,
@@ -143,7 +157,7 @@ class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
      * @param RequestType            $requestType
      * @param ConfigExtraInterface[] $extras
      */
-    protected function completeAssociation(
+    private function completeAssociation(
         EntityDefinitionConfig $definition,
         $fieldName,
         $targetClass,
@@ -176,5 +190,15 @@ class CompleteDefinitionOfAssociationsByConfig implements ProcessorInterface
             }
             $field->setTargetEntity($targetEntity);
         }
+    }
+
+    /**
+     * @param bool $isCollection
+     *
+     * @return string
+     */
+    private function getAssociationTargetType($isCollection)
+    {
+        return $isCollection ? 'to-many' : 'to-one';
     }
 }

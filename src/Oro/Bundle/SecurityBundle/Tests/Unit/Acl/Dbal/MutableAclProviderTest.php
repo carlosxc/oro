@@ -8,12 +8,12 @@ use Symfony\Component\Security\Acl\Domain\RoleSecurityIdentity;
 use Symfony\Component\Security\Acl\Domain\UserSecurityIdentity;
 use Symfony\Component\Security\Acl\Model\SecurityIdentityInterface;
 
-class MutableAclProviderTest extends \PHPUnit_Framework_TestCase
+class MutableAclProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var MutableAclProvider */
     private $provider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $connection;
 
     protected function setUp()
@@ -53,7 +53,7 @@ class MutableAclProviderTest extends \PHPUnit_Framework_TestCase
                 )
             );
 
-        $strategy = $this->getMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
+        $strategy = $this->createMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
 
         $this->provider = new MutableAclProvider(
             $this->connection,
@@ -160,16 +160,15 @@ class MutableAclProviderTest extends \PHPUnit_Framework_TestCase
     {
         $oid = new ObjectIdentity('entity', 'Test\Class');
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject|MutableAclProvider $provider */
-        $provider = $this->getMock(
-            'Oro\Bundle\SecurityBundle\Acl\Dbal\MutableAclProvider',
-            ['deleteAcl'],
-            [
+        /** @var \PHPUnit\Framework\MockObject\MockObject|MutableAclProvider $provider */
+        $provider = $this->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Dbal\MutableAclProvider')
+            ->setMethods(['deleteAcl'])
+            ->setConstructorArgs([
                 $this->connection,
-                $this->getMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface'),
+                $this->createMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface'),
                 ['class_table_name' => 'acl_classes']
-            ]
-        );
+            ])
+            ->getMock();
 
         $this->connection->expects($this->once())
             ->method('beginTransaction');
@@ -193,16 +192,15 @@ class MutableAclProviderTest extends \PHPUnit_Framework_TestCase
     {
         $oid = new ObjectIdentity('entity', 'Test\Class');
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject|MutableAclProvider $provider */
-        $provider = $this->getMock(
-            'Oro\Bundle\SecurityBundle\Acl\Dbal\MutableAclProvider',
-            ['deleteAcl'],
-            [
+        /** @var \PHPUnit\Framework\MockObject\MockObject|MutableAclProvider $provider */
+        $provider = $this->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Dbal\MutableAclProvider')
+            ->setMethods(['deleteAcl'])
+            ->setConstructorArgs([
                 $this->connection,
-                $this->getMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface'),
+                $this->createMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface'),
                 ['class_table_name' => 'acl_classes']
-            ]
-        );
+            ])
+            ->getMock();
 
         $this->connection->expects($this->once())
             ->method('beginTransaction');

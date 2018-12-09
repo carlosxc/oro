@@ -2,28 +2,33 @@
 
 namespace Oro\Bundle\UserBundle\Form\Type;
 
-use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
-use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
-
 use Oro\Bundle\UserBundle\Form\EventListener\ChangePasswordSubscriber;
+use Oro\Bundle\UserBundle\Form\Provider\PasswordFieldOptionsProvider;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
 
 class ChangePasswordType extends AbstractType
 {
     const NAME = 'oro_change_password';
 
-    /**
-     * @var ChangePasswordSubscriber
-     */
+    /** @var ChangePasswordSubscriber */
     protected $subscriber;
+
+    /** @var PasswordFieldOptionsProvider */
+    protected $optionsProvider;
 
     /**
      * @param ChangePasswordSubscriber $subscriber
+     * @param PasswordFieldOptionsProvider $optionsProvider
      */
-    public function __construct(ChangePasswordSubscriber $subscriber)
+    public function __construct(ChangePasswordSubscriber $subscriber, PasswordFieldOptionsProvider $optionsProvider)
     {
         $this->subscriber = $subscriber;
+        $this->optionsProvider = $optionsProvider;
     }
 
     /**
@@ -32,11 +37,10 @@ class ChangePasswordType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder->addEventSubscriber($this->subscriber);
-
         $builder
             ->add(
                 'currentPassword',
-                'password',
+                PasswordType::class,
                 [
                     'required' => false,
                     'label' => $options['current_password_label'],
@@ -48,26 +52,32 @@ class ChangePasswordType extends AbstractType
             )
             ->add(
                 'plainPassword',
-                'repeated',
+                RepeatedType::class,
                 [
-                    'required' => true,
-                    'type' => 'password',
+                    'required' => false,
+                    'type' => PasswordType::class,
                     'invalid_message' => $options['plain_password_invalid_message'],
                     'options' => [
                         'attr' => [
                             'class' => 'password-field'
                         ]
                     ],
-                    'first_options' => ['label' => $options['first_options_label']],
-                    'second_options' => ['label' => $options['second_options_label']],
+                    'first_options' => [
+                        'label' => $options['first_options_label'],
+                        'tooltip' => $this->optionsProvider->getTooltip(),
+                        'attr' => [
+                            'data-validation' => $this->optionsProvider->getDataValidationOption(),
+                        ],
+                    ],
+                    'second_options' => ['label' => $options['second_options_label'],
+                    ],
                     'mapped' => false,
-                    'cascade_validation' => true,
                 ]
             );
     }
 
     /**
-     *M-BM- {@inheritdoc}
+     * {@inheritdoc}
      */
     public function getName()
     {
@@ -83,16 +93,15 @@ class ChangePasswordType extends AbstractType
     }
 
     /**
-     *M-BM- {@inheritdoc}
+     * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefaults(
             [
                 'inherit_data' => true,
-                'cascade_validation' => true,
                 'current_password_label' => 'oro.user.password.label',
-                'plain_password_invalid_message' => 'The password fields must match.',
+                'plain_password_invalid_message' => 'oro.user.message.password_mismatch',
                 'first_options_label' => 'oro.user.new_password.label',
                 'second_options_label' => 'oro.user.new_password_re.label',
             ]

@@ -2,10 +2,28 @@
 
 namespace Oro\Bundle\ApiBundle\Tests\Unit\Processor\Config\GetConfig;
 
+use Oro\Bundle\ApiBundle\Config\Config;
 use Oro\Bundle\ApiBundle\Config\ConfigLoaderFactory;
 use Oro\Bundle\ApiBundle\Config\DescriptionsConfigExtra;
+use Oro\Bundle\ApiBundle\Config\EntityConfigMerger;
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
+use Oro\Bundle\ApiBundle\Config\FiltersConfig;
 use Oro\Bundle\ApiBundle\Config\FiltersConfigExtra;
+use Oro\Bundle\ApiBundle\Config\SortersConfig;
+use Oro\Bundle\ApiBundle\Config\SortersConfigExtra;
 use Oro\Bundle\ApiBundle\Processor\Config\GetConfig\LoadFromConfigBag;
+use Oro\Bundle\ApiBundle\Processor\Config\Shared\MergeConfig\MergeActionConfigHelper;
+use Oro\Bundle\ApiBundle\Processor\Config\Shared\MergeConfig\MergeFilterConfigHelper;
+use Oro\Bundle\ApiBundle\Processor\Config\Shared\MergeConfig\MergeParentResourceHelper;
+use Oro\Bundle\ApiBundle\Processor\Config\Shared\MergeConfig\MergeSubresourceConfigHelper;
+use Oro\Bundle\ApiBundle\Provider\ConfigBagInterface;
+use Oro\Bundle\ApiBundle\Provider\ConfigBagRegistry;
+use Oro\Bundle\ApiBundle\Provider\ConfigProvider;
+use Oro\Bundle\ApiBundle\Provider\ResourcesProvider;
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Account;
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\AdvancedUserProfile;
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\User;
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\UserProfile;
 use Oro\Bundle\ApiBundle\Tests\Unit\Processor\Config\ConfigProcessorTestCase;
 use Oro\Bundle\ApiBundle\Util\ConfigUtil;
 
@@ -14,31 +32,43 @@ use Oro\Bundle\ApiBundle\Util\ConfigUtil;
  */
 class LoadFromConfigBagTest extends ConfigProcessorTestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityHierarchyProvider;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ConfigBagInterface */
+    private $configBag;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $configBag;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ResourcesProvider */
+    private $resourcesProvider;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ConfigProvider */
+    private $configProvider;
 
     /** @var LoadFromConfigBag */
-    protected $processor;
+    private $processor;
 
     protected function setUp()
     {
         parent::setUp();
 
-        $this->entityHierarchyProvider = $this
-            ->getMock('Oro\Bundle\EntityBundle\Provider\EntityHierarchyProviderInterface');
-        $this->configBag = $this
-            ->getMockBuilder('Oro\Bundle\ApiBundle\Provider\ConfigBag')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->configBag = $this->createMock(ConfigBagInterface::class);
+
+        $configBagRegistry = $this->createMock(ConfigBagRegistry::class);
+        $configBagRegistry->expects(self::any())
+            ->method('getConfigBag')
+            ->willReturn($this->configBag);
+
+        $this->resourcesProvider = $this->createMock(ResourcesProvider::class);
+        $this->configProvider = $this->createMock(ConfigProvider::class);
+
+        $mergeActionConfigHelper = new MergeActionConfigHelper();
 
         $this->processor = new LoadFromConfigBag(
             $this->configExtensionRegistry,
             new ConfigLoaderFactory($this->configExtensionRegistry),
-            $this->entityHierarchyProvider,
-            $this->configBag
+            $configBagRegistry,
+            $this->resourcesProvider,
+            new EntityConfigMerger($this->configExtensionRegistry),
+            new MergeParentResourceHelper($this->configProvider),
+            $mergeActionConfigHelper,
+            new MergeSubresourceConfigHelper($mergeActionConfigHelper, new MergeFilterConfigHelper())
         );
     }
 
@@ -46,7 +76,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
     {
         $config = [];
 
-        $this->configBag->expects($this->never())
+        $this->configBag->expects(self::never())
             ->method('getConfig');
 
         $this->context->setResult($this->createConfigObject($config));
@@ -60,59 +90,45 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
 
     public function testProcessWhenNoConfigIsReturnedFromConfigBag()
     {
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), null],
-                    ['Test\ParentClass', $this->context->getVersion(), null],
-                ]
-            );
+            ->willReturnMap([
+                [UserProfile::class, $this->context->getVersion(), null],
+                [User::class, $this->context->getVersion(), null]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn(['Test\ParentClass']);
-
+        $this->context->setClassName(UserProfile::class);
         $this->processor->process($this->context);
 
-        $this->assertFalse($this->context->hasResult());
+        self::assertFalse($this->context->hasResult());
     }
 
     public function testProcessWithInheritanceWhenNoParentConfigIsReturnedFromConfigBag()
     {
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), ['inherit' => true]],
-                    ['Test\ParentClass', $this->context->getVersion(), null],
-                ]
-            );
+            ->willReturnMap([
+                [UserProfile::class, $this->context->getVersion(), ['inherit' => true]],
+                [User::class, $this->context->getVersion(), null]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn(['Test\ParentClass']);
-
+        $this->context->setClassName(UserProfile::class);
         $this->processor->process($this->context);
 
-        $this->assertFalse($this->context->hasResult());
+        self::assertFalse($this->context->hasResult());
     }
 
     public function testProcessWhenConfigWithoutInheritanceIsReturnedFromConfigBag()
     {
-        $this->configBag->expects($this->once())
+        $this->configBag->expects(self::once())
             ->method('getConfig')
-            ->with(self::TEST_CLASS_NAME, $this->context->getVersion())
+            ->with(UserProfile::class, $this->context->getVersion())
             ->willReturn(['inherit' => false]);
 
-        $this->entityHierarchyProvider->expects($this->never())
-            ->method('getHierarchyForClassName');
-
+        $this->context->setClassName(UserProfile::class);
         $this->processor->process($this->context);
 
-        $this->assertFalse($this->context->hasResult());
+        self::assertFalse($this->context->hasResult());
     }
 
     public function testProcessWithDescriptions()
@@ -123,7 +139,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             'fields'       => [
                 'field1' => null,
                 'field2' => null,
-                'field3' => null,
+                'field3' => null
             ],
             'filters'      => [
                 'fields' => [
@@ -143,23 +159,23 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     ],
                     'description'  => 'Action Description',
                     'form_type'    => 'action_form',
-                    'form_options' => ['action_option' => 'action_value'],
+                    'form_options' => ['action_option' => 'action_value']
                 ]
             ]
         ];
 
-        $this->configBag->expects($this->once())
+        $this->configBag->expects(self::once())
             ->method('getConfig')
-            ->with(self::TEST_CLASS_NAME, $this->context->getVersion())
+            ->with(User::class, $this->context->getVersion())
             ->willReturn($config);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn([]);
-
+        $this->context->setClassName(User::class);
         $this->context->setTargetAction('create');
-        $this->context->setExtras([new DescriptionsConfigExtra(), new FiltersConfigExtra()]);
+        $this->context->setExtras([
+            new DescriptionsConfigExtra(),
+            new FiltersConfigExtra(),
+            new SortersConfigExtra()
+        ]);
         $this->processor->process($this->context);
 
         $this->assertConfig(
@@ -174,7 +190,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'fields'       => [
                     'field1' => null,
                     'field2' => null,
-                    'field3' => null,
+                    'field3' => null
                 ]
             ],
             $this->context->getResult()
@@ -182,13 +198,20 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
         $this->assertConfig(
             [
                 'fields' => [
-                    'field1' => null,
+                    'field1' => null
                 ]
             ],
             $this->context->getFilters()
         );
-        $this->assertFalse($this->context->hasSorters());
-        $this->assertFalse($this->context->has(ConfigUtil::ACTIONS));
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => null
+                ]
+            ],
+            $this->context->getSorters()
+        );
+        self::assertFalse($this->context->has(ConfigUtil::ACTIONS));
     }
 
     public function testProcessWithoutInheritance()
@@ -202,8 +225,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'field3' => [
                     'exclude'      => true,
                     'form_type'    => 'field_form',
-                    'form_options' => ['option' => 'value'],
-                ],
+                    'form_options' => ['option' => 'value']
+                ]
             ],
             'filters'      => [
                 'fields' => [
@@ -230,25 +253,21 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                         ],
                         'field3' => [
                             'form_type'    => 'action_field_form',
-                            'form_options' => ['action_option' => 'value'],
-                        ],
+                            'form_options' => ['action_option' => 'value']
+                        ]
                     ]
                 ]
             ]
         ];
 
-        $this->configBag->expects($this->once())
+        $this->configBag->expects(self::once())
             ->method('getConfig')
-            ->with(self::TEST_CLASS_NAME, $this->context->getVersion())
+            ->with(User::class, $this->context->getVersion())
             ->willReturn($config);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn([]);
-
+        $this->context->setClassName(User::class);
         $this->context->setTargetAction('create');
-        $this->context->setExtras([new FiltersConfigExtra()]);
+        $this->context->setExtras([new FiltersConfigExtra(), new SortersConfigExtra()]);
         $this->processor->process($this->context);
 
         $this->assertConfig(
@@ -264,8 +283,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     'field3' => [
                         'exclude'      => true,
                         'form_type'    => 'action_field_form',
-                        'form_options' => ['action_option' => 'value'],
-                    ],
+                        'form_options' => ['action_option' => 'value']
+                    ]
                 ]
             ],
             $this->context->getResult()
@@ -273,13 +292,20 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
         $this->assertConfig(
             [
                 'fields' => [
-                    'field1' => null,
+                    'field1' => null
                 ]
             ],
             $this->context->getFilters()
         );
-        $this->assertFalse($this->context->hasSorters());
-        $this->assertFalse($this->context->has(ConfigUtil::ACTIONS));
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => null
+                ]
+            ],
+            $this->context->getSorters()
+        );
+        self::assertFalse($this->context->has(ConfigUtil::ACTIONS));
     }
 
     public function testProcessForPrimaryResourceWithSubresourcesConfig()
@@ -295,8 +321,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'field4' => [
                     'exclude'      => true,
                     'form_type'    => 'field_form',
-                    'form_options' => ['option' => 'value'],
-                ],
+                    'form_options' => ['option' => 'value']
+                ]
             ],
             'actions'      => [
                 'create' => [
@@ -313,8 +339,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                         ],
                         'field4' => [
                             'form_type'    => 'action_field_form',
-                            'form_options' => ['action_option' => 'action_value'],
-                        ],
+                            'form_options' => ['action_option' => 'action_value']
+                        ]
                     ]
                 ]
             ],
@@ -336,8 +362,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                                 ],
                                 'field4' => [
                                     'form_type'    => 'subresource_field_form',
-                                    'form_options' => ['subresource_option' => 'subresource_value'],
-                                ],
+                                    'form_options' => ['subresource_option' => 'subresource_value']
+                                ]
                             ]
                         ]
                     ]
@@ -345,16 +371,12 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             ]
         ];
 
-        $this->configBag->expects($this->once())
+        $this->configBag->expects(self::once())
             ->method('getConfig')
-            ->with(self::TEST_CLASS_NAME, $this->context->getVersion())
+            ->with(User::class, $this->context->getVersion())
             ->willReturn($config);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn([]);
-
+        $this->context->setClassName(User::class);
         $this->context->setTargetAction('create');
         $this->processor->process($this->context);
 
@@ -372,14 +394,14 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     'field4' => [
                         'exclude'      => true,
                         'form_type'    => 'action_field_form',
-                        'form_options' => ['action_option' => 'action_value'],
-                    ],
+                        'form_options' => ['action_option' => 'action_value']
+                    ]
                 ]
             ],
             $this->context->getResult()
         );
-        $this->assertFalse($this->context->has(ConfigUtil::ACTIONS));
-        $this->assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
+        self::assertFalse($this->context->has(ConfigUtil::ACTIONS));
+        self::assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
     }
 
     /**
@@ -398,8 +420,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'field4' => [
                     'exclude'      => true,
                     'form_type'    => 'field_form',
-                    'form_options' => ['option' => 'value'],
-                ],
+                    'form_options' => ['option' => 'value']
+                ]
             ],
             'actions'      => [
                 'create' => [
@@ -416,8 +438,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                         ],
                         'field4' => [
                             'form_type'    => 'action_field_form',
-                            'form_options' => ['action_option' => 'action_value'],
-                        ],
+                            'form_options' => ['action_option' => 'action_value']
+                        ]
                     ]
                 ]
             ]
@@ -441,8 +463,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                                 ],
                                 'field4' => [
                                     'form_type'    => 'subresource_field_form',
-                                    'form_options' => ['subresource_option' => 'subresource_value'],
-                                ],
+                                    'form_options' => ['subresource_option' => 'subresource_value']
+                                ]
                             ]
                         ]
                     ]
@@ -450,26 +472,16 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass', $this->context->getVersion(), $parentConfig],
-                ]
-            );
+            ->willReturnMap([
+                [User::class, $this->context->getVersion(), $config],
+                [Account::class, $this->context->getVersion(), $parentConfig]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->exactly(2))
-            ->method('getHierarchyForClassName')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, []],
-                    ['Test\ParentClass', []],
-                ]
-            );
-
+        $this->context->setClassName(User::class);
         $this->context->setTargetAction('create');
-        $this->context->setParentClassName('Test\ParentClass');
+        $this->context->setParentClassName(Account::class);
         $this->context->setAssociationName('testSubresource');
         $this->processor->process($this->context);
 
@@ -489,14 +501,14 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     'field4' => [
                         'exclude'      => true,
                         'form_type'    => 'subresource_field_form',
-                        'form_options' => ['subresource_option' => 'subresource_value'],
-                    ],
+                        'form_options' => ['subresource_option' => 'subresource_value']
+                    ]
                 ]
             ],
             $this->context->getResult()
         );
-        $this->assertFalse($this->context->has(ConfigUtil::ACTIONS));
-        $this->assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
+        self::assertFalse($this->context->has(ConfigUtil::ACTIONS));
+        self::assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
     }
 
     /**
@@ -515,8 +527,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'field4' => [
                     'exclude'      => true,
                     'form_type'    => 'field_form',
-                    'form_options' => ['option' => 'value'],
-                ],
+                    'form_options' => ['option' => 'value']
+                ]
             ],
             'actions'      => [
                 'create' => [
@@ -533,8 +545,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                         ],
                         'field4' => [
                             'form_type'    => 'action_field_form',
-                            'form_options' => ['action_option' => 'action_value'],
-                        ],
+                            'form_options' => ['action_option' => 'action_value']
+                        ]
                     ]
                 ]
             ]
@@ -558,8 +570,8 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                                 ],
                                 'field4' => [
                                     'form_type'    => 'subresource_field_form',
-                                    'form_options' => ['subresource_option' => 'subresource_value'],
-                                ],
+                                    'form_options' => ['subresource_option' => 'subresource_value']
+                                ]
                             ]
                         ]
                     ]
@@ -567,27 +579,17 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass', $this->context->getVersion(), $parentConfig],
-                ]
-            );
+            ->willReturnMap([
+                [User::class, $this->context->getVersion(), $config],
+                [Account::class, $this->context->getVersion(), $parentConfig]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->exactly(2))
-            ->method('getHierarchyForClassName')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, []],
-                    ['Test\ParentClass', []],
-                ]
-            );
-
+        $this->context->setClassName(User::class);
         $this->context->setExtras([new DescriptionsConfigExtra()]);
         $this->context->setTargetAction('create');
-        $this->context->setParentClassName('Test\ParentClass');
+        $this->context->setParentClassName(Account::class);
         $this->context->setAssociationName('testSubresource');
         $this->processor->process($this->context);
 
@@ -613,14 +615,14 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     'field4' => [
                         'exclude'      => true,
                         'form_type'    => 'subresource_field_form',
-                        'form_options' => ['subresource_option' => 'subresource_value'],
-                    ],
+                        'form_options' => ['subresource_option' => 'subresource_value']
+                    ]
                 ]
             ],
             $this->context->getResult()
         );
-        $this->assertFalse($this->context->has(ConfigUtil::ACTIONS));
-        $this->assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
+        self::assertFalse($this->context->has(ConfigUtil::ACTIONS));
+        self::assertFalse($this->context->has(ConfigUtil::SUBRESOURCES));
     }
 
     public function testProcessMergeSubresourceFilters()
@@ -633,7 +635,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     ],
                     'field2' => [
                         'description' => 'filter 2'
-                    ],
+                    ]
                 ]
             ]
         ];
@@ -647,35 +649,25 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                             ],
                             'field3' => [
                                 'description' => 'Subresource filter 3'
-                            ],
+                            ]
                         ]
                     ]
                 ]
             ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass', $this->context->getVersion(), $parentConfig],
-                ]
-            );
+            ->willReturnMap([
+                [User::class, $this->context->getVersion(), $config],
+                [Account::class, $this->context->getVersion(), $parentConfig]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->exactly(2))
-            ->method('getHierarchyForClassName')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, []],
-                    ['Test\ParentClass', []],
-                ]
-            );
-
+        $this->context->setClassName(User::class);
         $this->context->setExtras([new DescriptionsConfigExtra()]);
         $this->context->setExtras([new FiltersConfigExtra()]);
         $this->context->setTargetAction('create');
-        $this->context->setParentClassName('Test\ParentClass');
+        $this->context->setParentClassName(Account::class);
         $this->context->setAssociationName('testSubresource');
         $this->processor->process($this->context);
 
@@ -690,7 +682,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     ],
                     'field3' => [
                         'description' => 'Subresource filter 3'
-                    ],
+                    ]
                 ]
             ],
             $this->context->getFilters()
@@ -707,7 +699,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     ],
                     'field2' => [
                         'description' => 'filter 2'
-                    ],
+                    ]
                 ]
             ]
         ];
@@ -722,35 +714,25 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                             ],
                             'field3' => [
                                 'description' => 'Subresource filter 3'
-                            ],
+                            ]
                         ]
                     ]
                 ]
             ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass', $this->context->getVersion(), $parentConfig],
-                ]
-            );
+            ->willReturnMap([
+                [User::class, $this->context->getVersion(), $config],
+                [Account::class, $this->context->getVersion(), $parentConfig]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->exactly(2))
-            ->method('getHierarchyForClassName')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, []],
-                    ['Test\ParentClass', []],
-                ]
-            );
-
+        $this->context->setClassName(User::class);
         $this->context->setExtras([new DescriptionsConfigExtra()]);
         $this->context->setExtras([new FiltersConfigExtra()]);
         $this->context->setTargetAction('create');
-        $this->context->setParentClassName('Test\ParentClass');
+        $this->context->setParentClassName(Account::class);
         $this->context->setAssociationName('testSubresource');
         $this->processor->process($this->context);
 
@@ -763,7 +745,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     ],
                     'field3' => [
                         'description' => 'Subresource filter 3'
-                    ],
+                    ]
                 ]
             ],
             $this->context->getFilters()
@@ -772,8 +754,7 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
 
     public function testProcessMergeSubresourceFiltersWhenTargetEntityDoesNotHaveOwnFilters()
     {
-        $config = [
-        ];
+        $config = [];
         $parentConfig = [
             'subresources' => [
                 'testSubresource' => [
@@ -788,28 +769,18 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass', $this->context->getVersion(), $parentConfig],
-                ]
-            );
+            ->willReturnMap([
+                [User::class, $this->context->getVersion(), $config],
+                [Account::class, $this->context->getVersion(), $parentConfig]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->exactly(2))
-            ->method('getHierarchyForClassName')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, []],
-                    ['Test\ParentClass', []],
-                ]
-            );
-
+        $this->context->setClassName(User::class);
         $this->context->setExtras([new DescriptionsConfigExtra()]);
         $this->context->setExtras([new FiltersConfigExtra()]);
         $this->context->setTargetAction('create');
-        $this->context->setParentClassName('Test\ParentClass');
+        $this->context->setParentClassName(Account::class);
         $this->context->setAssociationName('testSubresource');
         $this->processor->process($this->context);
 
@@ -831,111 +802,89 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
     public function testProcessWithInheritance()
     {
         $config = [
-            'fields'       => [
-                'field1' => null,
-                'field2' => null,
-                'field3' => null,
-                'field4' => null,
-            ],
-            'filters'      => [
-                'fields' => [
-                    'field1' => null
-                ]
-            ],
-            'sorters'      => [
-                'fields' => [
-                    'field1' => null
-                ]
-            ],
-            'actions'      => [
-                'create' => [
-                    'fields' => [
-                        'field2' => [
-                            'form_type'    => 'field_form',
-                            'form_options' => ['option' => 'value'],
-                        ],
-                    ]
-                ]
-            ]
-        ];
-
-        $parentConfig1 = [
             'order_by' => [
                 'field2' => 'ASC'
             ],
             'fields'   => [
+                'field1' => null,
                 'field2' => [
                     'exclude' => true
                 ],
+                'field3' => null,
+                'field4' => null
             ],
             'filters'  => [
                 'fields' => [
-                    'field2' => null,
+                    'field1' => null,
+                    'field2' => null
                 ]
             ],
             'sorters'  => [
                 'fields' => [
-                    'field2' => null,
+                    'field1' => null,
+                    'field2' => null
                 ]
             ],
+            'actions'  => [
+                'create' => [
+                    'fields' => [
+                        'field2' => [
+                            'form_type'    => 'field_form',
+                            'form_options' => ['option' => 'value']
+                        ]
+                    ]
+                ]
+            ]
         ];
-
-        $parentConfig3 = [
-            'inherit'      => false,
-            'order_by'     => [
+        $parentConfig2 = [
+            'inherit'  => false,
+            'order_by' => [
                 'field3' => 'ASC'
             ],
-            'fields'       => [
+            'fields'   => [
                 'field3' => [
                     'exclude' => true
-                ],
-            ],
-            'filters'      => [
-                'fields' => [
-                    'field3' => null,
                 ]
             ],
-            'sorters'      => [
+            'filters'  => [
                 'fields' => [
-                    'field3' => null,
+                    'field3' => null
                 ]
             ],
-            'actions'      => [
+            'sorters'  => [
+                'fields' => [
+                    'field3' => null
+                ]
+            ],
+            'actions'  => [
                 'create' => [
                     'form_type'    => 'parent3_action_form',
                     'form_options' => ['parent3_action_option' => 'value'],
                     'fields'       => [
                         'field2' => [
                             'form_type'    => 'parent3_action_field_form',
-                            'form_options' => ['parent3_action_option' => 'value'],
+                            'form_options' => ['parent3_action_option' => 'value']
                         ],
                         'field3' => [
                             'form_type'    => 'parent3_action_field_form',
-                            'form_options' => ['parent3_action_option' => 'value'],
-                        ],
+                            'form_options' => ['parent3_action_option' => 'value']
+                        ]
                     ]
                 ]
             ]
         ];
 
-        $this->configBag->expects($this->exactly(4))
+        $this->configBag->expects(self::exactly(3))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), $config],
-                    ['Test\ParentClass1', $this->context->getVersion(), $parentConfig1],
-                    ['Test\ParentClass2', $this->context->getVersion(), null],
-                    ['Test\ParentClass3', $this->context->getVersion(), $parentConfig3],
-                ]
-            );
+            ->willReturnMap([
+                [AdvancedUserProfile::class, $this->context->getVersion(), $config],
+                [UserProfile::class, $this->context->getVersion(), null],
+                [User::class, $this->context->getVersion(), $parentConfig2]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn(['Test\ParentClass1', 'Test\ParentClass2', 'Test\ParentClass3', 'Test\ParentClass4']);
-
+        $this->context->setClassName(AdvancedUserProfile::class);
         $this->context->setTargetAction('create');
-        $this->context->setExtras([new FiltersConfigExtra()]);
+        $this->context->setExtras([new FiltersConfigExtra(), new SortersConfigExtra()]);
         $this->processor->process($this->context);
 
         $this->assertConfig(
@@ -950,14 +899,14 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                     'field2' => [
                         'exclude'      => true,
                         'form_type'    => 'field_form',
-                        'form_options' => ['option' => 'value'],
+                        'form_options' => ['option' => 'value']
                     ],
                     'field3' => [
                         'exclude'      => true,
                         'form_type'    => 'parent3_action_field_form',
-                        'form_options' => ['parent3_action_option' => 'value'],
+                        'form_options' => ['parent3_action_option' => 'value']
                     ],
-                    'field4' => null,
+                    'field4' => null
                 ]
             ],
             $this->context->getResult()
@@ -967,12 +916,21 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'fields' => [
                     'field1' => null,
                     'field2' => null,
-                    'field3' => null,
+                    'field3' => null
                 ]
             ],
             $this->context->getFilters()
         );
-        $this->assertFalse($this->context->hasSorters());
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => null,
+                    'field2' => null,
+                    'field3' => null
+                ]
+            ],
+            $this->context->getSorters()
+        );
     }
 
     public function testProcessWithInheritanceAndNoConfigIsReturnedFromConfigBag()
@@ -984,35 +942,29 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
             'fields'   => [
                 'field1' => [
                     'property_path' => 'realField1'
-                ],
+                ]
             ],
             'filters'  => [
                 'fields' => [
-                    'field1' => null,
+                    'field1' => null
                 ]
             ],
             'sorters'  => [
                 'fields' => [
-                    'field1' => null,
+                    'field1' => null
                 ]
-            ],
+            ]
         ];
 
-        $this->configBag->expects($this->exactly(2))
+        $this->configBag->expects(self::exactly(2))
             ->method('getConfig')
-            ->willReturnMap(
-                [
-                    [self::TEST_CLASS_NAME, $this->context->getVersion(), null],
-                    ['Test\ParentClass1', $this->context->getVersion(), $parentConfig1],
-                ]
-            );
+            ->willReturnMap([
+                [UserProfile::class, $this->context->getVersion(), null],
+                [User::class, $this->context->getVersion(), $parentConfig1]
+            ]);
 
-        $this->entityHierarchyProvider->expects($this->once())
-            ->method('getHierarchyForClassName')
-            ->with(self::TEST_CLASS_NAME)
-            ->willReturn(['Test\ParentClass1']);
-
-        $this->context->setExtras([new FiltersConfigExtra()]);
+        $this->context->setClassName(UserProfile::class);
+        $this->context->setExtras([new FiltersConfigExtra(), new SortersConfigExtra()]);
         $this->processor->process($this->context);
 
         $this->assertConfig(
@@ -1023,19 +975,115 @@ class LoadFromConfigBagTest extends ConfigProcessorTestCase
                 'fields'   => [
                     'field1' => [
                         'property_path' => 'realField1'
-                    ],
-                ],
+                    ]
+                ]
             ],
             $this->context->getResult()
         );
         $this->assertConfig(
             [
                 'fields' => [
-                    'field1' => null,
+                    'field1' => null
                 ]
             ],
             $this->context->getFilters()
         );
-        $this->assertFalse($this->context->hasSorters());
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => null
+                ]
+            ],
+            $this->context->getSorters()
+        );
+    }
+
+    public function testProcessWithInheritanceWhenParentClassIsAvailableAsStandaloneResource()
+    {
+        $config = [
+            'fields'  => [
+                'field1' => ['exclude' => true]
+            ],
+            'filters' => [
+                'fields' => [
+                    'field1' => ['exclude' => true]
+                ]
+            ],
+            'sorters' => [
+                'fields' => [
+                    'field1' => ['exclude' => true]
+                ]
+            ]
+        ];
+
+        $parentConfig = new Config();
+        $parentDefinition = new EntityDefinitionConfig();
+        $parentDefinition->setExcludeAll();
+        $parentDefinition->addField('field1');
+        $parentDefinition->addField('field2');
+        $parentConfig->setDefinition($parentDefinition);
+        $parentFilters = new FiltersConfig();
+        $parentFilters->setExcludeAll();
+        $parentFilters->addField('field1');
+        $parentFilters->addField('field2');
+        $parentConfig->setFilters($parentFilters);
+        $parentSorters = new SortersConfig();
+        $parentSorters->setExcludeAll();
+        $parentSorters->addField('field1');
+        $parentSorters->addField('field2');
+        $parentConfig->setSorters($parentSorters);
+
+        $this->context->setExtras([new FiltersConfigExtra(), new SortersConfigExtra()]);
+
+        $this->resourcesProvider->expects(self::once())
+            ->method('isResourceKnown')
+            ->with(UserProfile::class, $this->context->getVersion(), $this->context->getRequestType())
+            ->willReturn(true);
+        $this->configBag->expects(self::once())
+            ->method('getConfig')
+            ->with(AdvancedUserProfile::class, $this->context->getVersion())
+            ->willReturn($config);
+        $this->configProvider->expects(self::once())
+            ->method('getConfig')
+            ->with(
+                UserProfile::class,
+                $this->context->getVersion(),
+                $this->context->getRequestType(),
+                $this->context->getExtras()
+            )
+            ->willReturn($parentConfig);
+
+        $this->context->setClassName(AdvancedUserProfile::class);
+        $this->context->setTargetAction('create');
+        $this->processor->process($this->context);
+
+        $this->assertConfig(
+            [
+                'parent_resource_class' => UserProfile::class,
+                'fields'                => [
+                    'field1' => ['exclude' => true],
+                    'field2' => null
+                ]
+            ],
+            $this->context->getResult()
+        );
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => ['exclude' => true],
+                    'field2' => null
+                ]
+            ],
+            $this->context->getFilters()
+        );
+        $this->assertConfig(
+            [
+                'fields' => [
+                    'field1' => ['exclude' => true],
+                    'field2' => null
+                ]
+            ],
+            $this->context->getSorters()
+        );
     }
 }

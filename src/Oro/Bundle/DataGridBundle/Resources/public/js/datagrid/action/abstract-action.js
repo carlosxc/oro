@@ -1,18 +1,17 @@
-define([
-    'jquery',
-    'underscore',
-    'backbone',
-    'routing',
-    'orotranslation/js/translator',
-    'oroui/js/mediator',
-    'oroui/js/tools',
-    'oroui/js/error',
-    'oroui/js/modal',
-    'orodatagrid/js/datagrid/action-launcher'
-], function($, _, Backbone, routing, __, mediator, tools, error, Modal, ActionLauncher) {
+define(function(require) {
     'use strict';
 
     var AbstractAction;
+    var $ = require('jquery');
+    var _ = require('underscore');
+    var Backbone = require('backbone');
+    var routing = require('routing');
+    var __ = require('orotranslation/js/translator');
+    var mediator = require('oroui/js/mediator');
+    var tools = require('oroui/js/tools');
+    var Modal = require('oroui/js/modal');
+    var ActionLauncher = require('orodatagrid/js/datagrid/action-launcher');
+    var Chaplin = require('chaplin');
 
     /**
      * Abstract action class. Subclasses should override execute method which is invoked when action is running.
@@ -81,11 +80,22 @@ define([
         defaultMessages: {
             confirm_title: 'Execution Confirmation',
             confirm_content: 'Are you sure you want to do this?',
+            confirm_content_params: {},
             confirm_ok: 'Yes, do it',
             confirm_cancel: 'Cancel',
             success: 'Action performed.',
             error: 'Action is not performed.',
             empty_selection: 'Please, select item to perform action.'
+        },
+
+        /** @property {Object} */
+        configuration: {},
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function AbstractAction() {
+            AbstractAction.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -98,7 +108,15 @@ define([
             if (!options.datagrid) {
                 throw new TypeError('"datagrid" is required');
             }
-            this.order = options.order;
+            if (options.configuration) {
+                this.configuration = $.extend(true, {}, this.configuration, options.configuration);
+            }
+            if (options.requestType) {
+                this.requestType = options.requestType;
+            }
+            if (options.order) {
+                this.order = options.order;
+            }
             this.subviews = [];
             this.datagrid = options.datagrid;
             // make own messages property from prototype
@@ -170,14 +188,14 @@ define([
 
         executeConfiguredAction: function() {
             switch (this.frontend_handle) {
-            case 'ajax':
-                this._handleAjax();
-                break;
-            case 'redirect':
-                this._handleRedirect();
-                break;
-            default:
-                this._handleWidget();
+                case 'ajax':
+                    this._handleAjax();
+                    break;
+                case 'redirect':
+                    this._handleRedirect();
+                    break;
+                default:
+                    this._handleWidget();
             }
         },
 
@@ -188,7 +206,7 @@ define([
          * @protected
          */
         _getDefaultMessages: function() {
-            var defaultMessages = tools.getAllPropertyVersions(this, 'defaultMessages');
+            var defaultMessages = Chaplin.utils.getAllPropertyVersions(this, 'defaultMessages');
             defaultMessages.unshift({});
             defaultMessages = _.extend.apply(_, defaultMessages);
             return defaultMessages;
@@ -246,7 +264,6 @@ define([
         },
 
         _onAjaxError: function(jqXHR) {
-            error.handle({}, jqXHR, {enforce: true});
             if (this.reloadData) {
                 this.datagrid.hideLoading();
             }
@@ -279,11 +296,18 @@ define([
             if (_.isUndefined(parameters)) {
                 parameters = {};
             }
+
+            // Add original query parameters as them may be valuable for backend logic
+            var originalUrl = this.datagrid.collection.url;
+            var originalRequestParameters = tools.unpackFromQueryString(
+                originalUrl.substring(originalUrl.indexOf('?'), originalUrl.length)
+            );
+
             return routing.generate(
                 this.route,
                 _.extend(
                     _.extend([], this.route_parameters),
-                    parameters
+                    $.extend(true, {}, originalRequestParameters, parameters)
                 )
             );
         },
@@ -332,7 +356,7 @@ define([
          * @return {String}
          */
         getConfirmContentMessage: function() {
-            return __(this.messages.confirm_content);
+            return __(this.messages.confirm_content, this.messages.confirm_content_params);
         },
 
         /**

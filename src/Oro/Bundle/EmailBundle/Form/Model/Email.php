@@ -4,7 +4,7 @@ namespace Oro\Bundle\EmailBundle\Form\Model;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-
+use Oro\Bundle\EmailBundle\Entity\EmailOrigin;
 use Oro\Bundle\EmailBundle\Entity\EmailTemplate;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\OrganizationBundle\Entity\OrganizationAwareInterface;
@@ -14,6 +14,7 @@ use Oro\Bundle\OrganizationBundle\Entity\OrganizationInterface;
  * Class Email
  *
  * @SuppressWarnings(PHPMD.TooManyFields)
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  *
  * @package Oro\Bundle\EmailBundle\Form\Model
  */
@@ -37,6 +38,9 @@ class Email implements OrganizationAwareInterface
 
     /** @var string */
     protected $from;
+
+    /** @var EmailOrigin */
+    protected $origin;
 
     /** @var string[] */
     protected $to = [];
@@ -65,8 +69,8 @@ class Email implements OrganizationAwareInterface
     /** @var string */
     protected $bodyFooter = '';
 
-    /** @var object[] */
-    protected $contexts = [];
+    /** @var Collection */
+    protected $contexts;
 
     /** @var Collection */
     protected $attachments;
@@ -86,6 +90,7 @@ class Email implements OrganizationAwareInterface
     public function __construct()
     {
         $this->attachments = new ArrayCollection();
+        $this->contexts = new ArrayCollection();
     }
 
     /**
@@ -201,6 +206,14 @@ class Email implements OrganizationAwareInterface
      */
     public function getFrom()
     {
+        if (!$this->from && $this->getOrigin()) {
+            if ($this->getOrigin()->getMailbox()) {
+                $this->from = $this->getOrigin()->getMailbox()->getEmail();
+            } elseif ($this->getOrigin()->getOwner()) {
+                $this->from = $this->getOrigin()->getOwner()->getEmail();
+            }
+        }
+
         return $this->from;
     }
 
@@ -214,6 +227,30 @@ class Email implements OrganizationAwareInterface
     public function setFrom($from)
     {
         $this->from = $from;
+
+        return $this;
+    }
+
+    /**
+     * Get email origin
+     *
+     * @return EmailOrigin
+     */
+    public function getOrigin()
+    {
+        return $this->origin;
+    }
+
+    /**
+     * Set email origin
+     *
+     * @param EmailOrigin $origin
+     *
+     * @return $this
+     */
+    public function setOrigin($origin)
+    {
+        $this->origin = $origin;
 
         return $this;
     }
@@ -503,7 +540,7 @@ class Email implements OrganizationAwareInterface
     /**
      * Get contexts
      *
-     * @return object[]
+     * @return Collection
      */
     public function getContexts()
     {
@@ -513,12 +550,23 @@ class Email implements OrganizationAwareInterface
     /**
      * Set contexts
      *
-     * @param object[] $contexts
+     * @param object[]|Collection $contexts
      *
      * @return $this
      */
-    public function setContexts(array $contexts)
+    public function setContexts($contexts)
     {
+        if (!$contexts) {
+            $contexts = new ArrayCollection();
+        } elseif (is_array($contexts)) {
+            $contexts = new ArrayCollection($contexts);
+        } elseif (!$contexts instanceof Collection) {
+            throw new \InvalidArgumentException(sprintf(
+                'setContexts expects $contexts to be array or doctrine collection but "%s" given.',
+                is_object($contexts) ? get_class($contexts) : gettype($contexts)
+            ));
+        }
+
         $this->contexts = $contexts;
 
         return $this;

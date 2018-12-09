@@ -3,14 +3,12 @@
 namespace Oro\Bundle\FormBundle\Tests\Unit\EventListener;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Symfony\Component\Form\Test\FormInterface;
+use Oro\Bundle\FormBundle\Form\EventListener\CollectionTypeSubscriber;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
+use Symfony\Component\Form\Test\FormInterface;
 
-use Oro\Bundle\FormBundle\Form\EventListener\CollectionTypeSubscriber;
-
-class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
+class CollectionTypeSubscriberTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var CollectionTypeSubscriber
@@ -36,15 +34,15 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
 
     public function testPostSubmit()
     {
-        $itemEmpty = $this->getMock('Oro\Bundle\FormBundle\Entity\EmptyItem');
+        $itemEmpty = $this->createMock('Oro\Bundle\FormBundle\Entity\EmptyItem');
         $itemEmpty->expects($this->once())
             ->method('isEmpty')
             ->will($this->returnValue(true));
-        $itemNotEmpty = $this->getMock('Oro\Bundle\FormBundle\Entity\EmptyItem');
+        $itemNotEmpty = $this->createMock('Oro\Bundle\FormBundle\Entity\EmptyItem');
         $itemNotEmpty->expects($this->once())
             ->method('isEmpty')
             ->will($this->returnValue(false));
-        $itemNotEmptyType = $this->getMock('SomeClass');
+        $itemNotEmptyType = $this->createMock(\stdClass::class);
         $itemNotEmptyType->expects($this->never())->method($this->anything());
 
         $data = new ArrayCollection(array($itemEmpty, $itemNotEmpty, $itemNotEmptyType));
@@ -61,7 +59,7 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
 
     public function testPostSubmitNotCollectionData()
     {
-        $data = $this->getMock('SomeClass');
+        $data = $this->createMock(\stdClass::class);
         $data->expects($this->never())->method($this->anything());
 
         $this->subscriber->postSubmit($this->createEvent($data));
@@ -102,8 +100,8 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
 
     public function testPreSubmitWithIgnorePrimaryBehaviour()
     {
-        $form       = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
+        $form       = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
         $form->expects($this->once())->method('getConfig')
             ->will($this->returnValue($formConfig));
         $formConfig->expects($this->once())->method('getOption')
@@ -127,32 +125,17 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
      *
      * @param array $data
      * @param array $expected
-     * @param bool $checkIsNew
-     * @param mixed $parentDataId
      */
-    public function testPreSubmit(array $data, array $expected, $checkIsNew = false, $parentDataId = null)
+    public function testPreSubmit(array $data, array $expected)
     {
-        $form       = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
+        $form       = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
         $form->expects($this->once())->method('getConfig')
             ->will($this->returnValue($formConfig));
         $formConfig->expects($this->once())->method('getOption')
             ->with('handle_primary')
             ->will($this->returnValue(true));
 
-        if ($checkIsNew) {
-            $parentForm = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-            $parentFormData = $this->getMock('SomeClass', array('getId'));
-
-            $form->expects($this->once())->method('getParent')
-                ->will($this->returnValue($parentForm));
-
-            $parentForm->expects($this->once())->method('getData')
-                ->will($this->returnValue($parentFormData));
-
-            $parentFormData->expects($this->once())->method('getId')
-                ->will($this->returnValue($parentDataId));
-        }
 
         $event = $this->createEvent($data, $form);
         $this->subscriber->preSubmit($event);
@@ -165,20 +148,14 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
             'set_primary_for_new_data' => array(
                 'data' => array(array('k' => 'v')),
                 'expected' => array(array('k' => 'v', 'primary' => true)),
-                'check_is_new' => true,
-                'parent_data_id' => null
             ),
             'set_primary_for_one_item' => array(
                 'data' => array(array('k' => 'v')),
                 'expected' => array(array('k' => 'v', 'primary' => true)),
-                'check_is_new' => true,
-                'parent_data_id' => 1
             ),
-            'not_set_primary_for_not_new_data' => array(
+            'not_set_primary_for_two_items' => array(
                 'data' => array(array('k' => 'v'), array('k2' => 'v2')),
                 'expected' => array(array('k' => 'v'), array('k2' => 'v2')),
-                'check_is_new' => true,
-                'parent_data_id' => 1
             ),
             'primary_is_already_set' => array(
                 'data' => array(array('primary' => true), array(array('k' => 'v'))),
@@ -226,7 +203,7 @@ class CollectionTypeSubscriberTest extends \PHPUnit_Framework_TestCase
      */
     protected function createEvent($data, FormInterface $form = null)
     {
-        $form = $form ? $form : $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $form = $form ? $form : $this->createMock('Symfony\Component\Form\Test\FormInterface');
         return new FormEvent($form, $data);
     }
 }

@@ -4,29 +4,16 @@ namespace Oro\Bundle\EmailBundle\Form\DataTransformer;
 
 use Symfony\Component\Form\DataTransformerInterface;
 
-use Oro\Bundle\FormBundle\Form\DataTransformer\SanitizeHTMLTransformer;
-
 class EmailTemplateTransformer implements DataTransformerInterface
 {
-    /** @var SanitizeHTMLTransformer */
-    protected $transformer;
-
-    /**
-     * @param SanitizeHTMLTransformer $transformer
-     */
-    public function __construct(SanitizeHTMLTransformer $transformer)
-    {
-        $this->transformer = $transformer;
-    }
-
     /**
      * {@inheritdoc}
      */
     public function transform($value)
     {
-        $value = $this->transformer->transform($value);
+        $value = $this->decodeTemplateVariables($value);
 
-        return $this->decodeTemplateVariables($value);
+        return $this->decodeHtmlSpecialCharsFromTwigTags($value);
     }
 
     /**
@@ -34,9 +21,9 @@ class EmailTemplateTransformer implements DataTransformerInterface
      */
     public function reverseTransform($value)
     {
-        $value = $this->transformer->reverseTransform($value);
+        $value = $this->decodeTemplateVariables($value);
 
-        return $this->decodeTemplateVariables($value);
+        return $this->decodeHtmlSpecialCharsFromTwigTags($value);
     }
 
     /**
@@ -52,6 +39,24 @@ class EmailTemplateTransformer implements DataTransformerInterface
             '/%7B%7B.*%7D%7D/',
             function ($matches) {
                 return urldecode(reset($matches));
+            },
+            $value
+        );
+    }
+
+    /**
+     * Decodes all html special chars in the twig tags '{% %}' and '{{ }}' for example '{% if variable &gt; 1 %}'
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    private function decodeHtmlSpecialCharsFromTwigTags($value)
+    {
+        return preg_replace_callback(
+            '/({{|{%)[^}]+(%}|}})/',
+            function ($matches) {
+                return htmlspecialchars_decode(reset($matches));
             },
             $value
         );

@@ -2,57 +2,51 @@
 
 namespace Oro\Bundle\SearchBundle\Query;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
 use Doctrine\Common\Collections\ArrayCollection;
-
-use JMS\Serializer\Annotation\Type;
-use JMS\Serializer\Annotation\Exclude;
 
 class Result extends ArrayCollection
 {
     /**
-     * @Type("Oro\Bundle\SearchBundle\Query\Query")
-     * @Exclude
+     * @var Query
      */
     protected $query;
 
     /**
-     * @Soap\ComplexType("int")
-     * @Type("integer")
-     * @var integer
-     */
-    protected $recordsCount;
-
-    /**
-     * @Soap\ComplexType("int")
-     * @Type("integer")
-     * @var integer
-     */
-    protected $count;
-
-    /**
-     * @Soap\ComplexType("Oro\Bundle\SearchBundle\Query\Result\Item[]")
      * @var Result\Item[]
      */
-    protected $elements;
+    protected $elements = null;
 
     /**
-     * Initializes a new Result.
+     * @var integer
+     */
+    protected $recordsCount = null;
+
+    /**
+     * Format for count function: ['<aggregatingName>' => ['<fieldValue>' => <count>], ...]
+     * Format for mathematical functions: ['<aggregatingName>' => <aggregatedValue>, ...]
      *
+     * @var array
+     */
+    protected $aggregatedData = null;
+
+    /**
      * @param Query   $query
      * @param array   $elements
      * @param integer $recordsCount
+     * @param array   $aggregatedData
      */
-    public function __construct(Query $query, array $elements = array(), $recordsCount = 0)
-    {
-        $this->query        = $query;
+    public function __construct(
+        Query $query,
+        array $elements = [],
+        $recordsCount = 0,
+        array $aggregatedData = []
+    ) {
+        $this->query = $query;
+        $this->elements = $elements;
         $this->recordsCount = $recordsCount;
+        $this->aggregatedData = $aggregatedData;
 
         parent::__construct($elements);
-
-        $this->count    = $this->count();
-        $this->elements = $elements;
     }
 
     /**
@@ -66,6 +60,14 @@ class Result extends ArrayCollection
     }
 
     /**
+     * @return Result\Item[]
+     */
+    public function getElements()
+    {
+        return $this->elements;
+    }
+
+    /**
      * Return number of records of search query without limit parameters
      *
      * @return int
@@ -76,32 +78,36 @@ class Result extends ArrayCollection
     }
 
     /**
+     * Return aggregated data collected during the query execution
+     * Format for count function: ['<aggregatingName>' => ['<fieldValue>' => <count>], ...]
+     * Format for mathematical functions: ['<aggregatingName>' => <aggregatedValue>, ...]
+     *
+     * @return array
+     */
+    public function getAggregatedData()
+    {
+        return $this->aggregatedData;
+    }
+
+    /**
      * Gets the PHP array representation of this collection.
      * @return array
      */
     public function toSearchResultData()
     {
-        $resultData['records_count'] = $this->recordsCount;
+        $resultData =[
+            'records_count' => $this->getRecordsCount(),
+            'data' => [],
+            'count' => $this->count(),
+            'aggregated_data' => $this->getAggregatedData()
+        ];
 
         if ($this->count()) {
-            $resultData['count'] = $this->count();
-
-            /** @var Result\Item $resultRecord */
-            foreach ($this as $resultRecord) {
+            foreach ($this->getElements() as $resultRecord) {
                 $resultData['data'][] = $resultRecord->toArray();
             }
-        } else {
-            $resultData['count'] = 0;
         }
 
         return $resultData;
-    }
-
-    /**
-     * @return Result\Item[]
-     */
-    public function getElements()
-    {
-        return $this->elements;
     }
 }

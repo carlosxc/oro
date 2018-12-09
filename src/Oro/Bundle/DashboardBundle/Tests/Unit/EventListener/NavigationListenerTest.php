@@ -3,56 +3,67 @@
 namespace Oro\Bundle\DashboardBundle\Tests\Unit\EventListener;
 
 use Oro\Bundle\DashboardBundle\EventListener\NavigationListener;
+use Oro\Bundle\DashboardBundle\Model\Manager;
+use Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
 
-class NavigationListenerTest extends \PHPUnit_Framework_TestCase
+class NavigationListenerTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var NavigationListener
-     */
+    /** @var NavigationListener */
     protected $navigationListener;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
-    protected $securityFacade;
+    /** @var TokenAccessorInterface|\PHPUnit\Framework\MockObject\MockObject */
+    protected $tokenAccessor;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var Manager|\PHPUnit\Framework\MockObject\MockObject */
     protected $manager;
 
     protected function setUp()
     {
-        $this->securityFacade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->tokenAccessor = $this->createMock(TokenAccessorInterface::class);
 
         $this->manager = $this->getMockBuilder('Oro\Bundle\DashboardBundle\Model\Manager')
-            ->setMethods(['getDashboards', 'findAllowedDashboards'])
+            ->setMethods(['getDashboards', 'findAllowedDashboardsShortenedInfo'])
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->navigationListener = new NavigationListener($this->securityFacade, $this->manager);
+        $this->navigationListener = new NavigationListener(
+            $this->tokenAccessor,
+            $this->manager
+        );
     }
 
-    public function testOnNavigationConfigureCheckIfMenuAndUserExists()
+    public function testonnavigationconfigureWithoutUser()
     {
-        $event = $this->getMockBuilder('\Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent')
+        /** @var ConfigureMenuEvent|\PHPUnit\Framework\MockObject\MockObject $event */
+        $event = $this->getMockBuilder('Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->tokenAccessor->expects($this->atLeastOnce())->method('hasUser')->willReturn(false);
+        $this->manager->expects($this->never())->method('findAllowedDashboardsShortenedInfo');
+
+        $this->navigationListener->onNavigationConfigure($event);
+    }
+
+    public function testOnNavigationConfigureWithDisabledDisplaying()
+    {
+        /** @var ConfigureMenuEvent|\PHPUnit\Framework\MockObject\MockObject $event */
+        $event = $this->getMockBuilder('Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $menu = $this->getMock('Knp\Menu\ItemInterface');
+        $this->tokenAccessor->expects($this->once())->method('hasUser')->willReturn(true);
 
-        $event->expects($this->exactly(2))->method('getMenu')->will($this->returnValue($menu));
+        $menu = $this->createMock('Knp\Menu\ItemInterface');
+        $item = $this->createMock('Knp\Menu\ItemInterface');
+        $item->expects($this->once())->method('isDisplayed')->willReturn(false);
 
-        $this->manager->expects($this->never())->method('getDashboards');
+        $event->expects($this->once())->method('getMenu')->will($this->returnValue($menu));
 
-        $item = $this->getMock('Knp\Menu\ItemInterface');
+        $this->manager->expects($this->never())->method('findAllowedDashboardsShortenedInfo');
 
-        $menu->expects($this->at(0))->method('getChild')->will($this->returnValue(null));
-        $menu->expects($this->at(1))->method('getChild')->will($this->returnValue($item));
+        $menu->expects($this->once())->method('getChild')->with('dashboard_tab')->willReturn($item);
 
-        $this->navigationListener->onNavigationConfigure($event);
         $this->navigationListener->onNavigationConfigure($event);
     }
 
@@ -67,24 +78,10 @@ class NavigationListenerTest extends \PHPUnit_Framework_TestCase
         $expectedLabel = 'expected label';
         $secondExpectedLabel = 'test expected label';
 
-        $dashboardModel = $this->getMockBuilder('Oro\Bundle\DashboardBundle\Model\DashboardModel')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $dashboardModel->expects($this->once())->method('getId')->will($this->returnValue($id));
-        $dashboardModel->expects($this->once())->method('getLabel')->will($this->returnValue($expectedLabel));
-
-        $secondDashboardModel = $this->getMockBuilder('Oro\Bundle\DashboardBundle\Model\DashboardModel')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $secondDashboardModel->expects($this->once())
-            ->method('getId')
-            ->will($this->returnValue($secondId));
-        $secondDashboardModel->expects($this->once())
-            ->method('getLabel')
-            ->will($this->returnValue($secondExpectedLabel));
-
-
-        $dashboards = array($dashboardModel, $secondDashboardModel);
+        $dashboards = [
+            ['id' => $id, 'label' => $expectedLabel],
+            ['id' => $secondId, 'label' => $secondExpectedLabel],
+        ];
         $menuItemAlias = $id.'_dashboard_menu_item';
         $secondMenuItemAlias = $secondId.'_dashboard_menu_item';
 
@@ -111,32 +108,38 @@ class NavigationListenerTest extends \PHPUnit_Framework_TestCase
             )
         );
 
-        $menu = $this->getMock('Knp\Menu\ItemInterface');
-        $item = $this->getMock('Knp\Menu\ItemInterface');
-        $child = $this->getMock('Knp\Menu\ItemInterface');
+        $menu = $this->createMock('Knp\Menu\ItemInterface');
+        $item = $this->createMock('Knp\Menu\ItemInterface');
+        $child = $this->createMock('Knp\Menu\ItemInterface');
         $child->expects($this->atLeastOnce())->method('setAttribute')->with('data-menu')->will($this->returnSelf());
 
-        $divider = $this->getMock('Knp\Menu\ItemInterface');
+        $divider = $this->createMock('Knp\Menu\ItemInterface');
         $divider->expects($this->once())->method('setLabel')->with('')->will($this->returnSelf());
-        $divider->expects($this->once())->method('setAttribute')->with('class', 'divider menu-divider')
+        $divider->expects($this->once())->method('setAttribute')->with('class', 'menu-divider')
             ->will($this->returnSelf());
-        $divider->expects($this->once())->method('setExtra')->with('position', '2')->will($this->returnSelf());
+        $divider->expects($this->exactly(2))->method('setExtra')
+            ->will($this->returnValueMap([
+                ['position', 2, $divider],
+                ['divider', true, $divider]
+            ]));
 
-        $item->expects($this->at(0))
+        $item->expects($this->at(1))
             ->method('addChild')
             ->with($menuItemAlias, $this->equalTo($expectedOptions))
             ->will($this->returnValue($child));
-        $item->expects($this->at(1))
+        $item->expects($this->at(2))
             ->method('addChild')
             ->with($secondMenuItemAlias, $this->equalTo($secondExpectedOptions))
             ->will($this->returnValue($child));
-        $item->expects($this->at(2))->method('addChild')->will($this->returnValue($divider));
-
+        $item->expects($this->at(3))->method('addChild')->will($this->returnValue($divider));
 
         $menu->expects($this->once())->method('getChild')->will($this->returnValue($item));
+        $item->expects($this->once())->method('isDisplayed')->willReturn(true);
         $event->expects($this->once())->method('getMenu')->will($this->returnValue($menu));
-        $this->securityFacade->expects($this->once())->method('hasLoggedUser')->will($this->returnValue(true));
-        $this->manager->expects($this->once())->method('findAllowedDashboards')->will($this->returnValue($dashboards));
+        $this->tokenAccessor->expects($this->once())->method('hasUser')->will($this->returnValue(true));
+        $this->tokenAccessor->expects($this->once())->method('getOrganizationId')->willReturn(null);
+        $this->manager->expects($this->once())->method('findAllowedDashboardsShortenedInfo')
+            ->willReturn($dashboards);
 
         $this->navigationListener->onNavigationConfigure($event);
     }

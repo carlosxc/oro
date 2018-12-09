@@ -2,9 +2,11 @@ define(function(require) {
     'use strict';
 
     var ViewComponent;
+    var $ = require('jquery');
     var _ = require('underscore');
     var BaseComponent = require('oroui/js/app/components/base/component');
     var tools = require('oroui/js/tools');
+    var errorHandler = require('oroui/js/error');
 
     /**
      * Creates a view passed through 'view' option and binds it with _sourceElement
@@ -12,18 +14,36 @@ define(function(require) {
      */
     ViewComponent = BaseComponent.extend({
         /**
+         * @inheritDoc
+         */
+        constructor: function ViewComponent() {
+            ViewComponent.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
          * @constructor
          * @param {Object} options
          */
         initialize: function(options) {
-            var viewOptions = _.extend(
-                _.omit(options, ['_sourceElement', 'view']),
+            var subPromises = _.values(options._subPromises);
+            var viewOptions = _.defaults(
+                _.omit(options, '_sourceElement', '_subPromises', 'view'),
                 {el: options._sourceElement}
             );
-            this._deferredInit();
+            var initializeView = _.bind(this._initializeView, this, viewOptions);
+
             // mark element
             options._sourceElement.attr('data-bound-view', options.view);
-            tools.loadModules(options.view, _.partial(_.bind(this._initializeView, this), viewOptions));
+
+            this._deferredInit();
+            if (subPromises.length) {
+                // ensure that all nested components are already initialized
+                $.when.apply($, subPromises).then(function() {
+                    tools.loadModules(options.view, initializeView);
+                });
+            } else {
+                tools.loadModules(options.view, initializeView);
+            }
         },
 
         /**
@@ -33,6 +53,10 @@ define(function(require) {
          * @protected
          */
         _initializeView: function(options, View) {
+            if (this.disposed) {
+                this._resolveDeferredInit();
+                return;
+            }
             this.view = new View(options);
 
             // pass all component events to view
@@ -45,9 +69,11 @@ define(function(require) {
             if (this.view.deferredRender) {
                 this.view.deferredRender
                     .done(_.bind(this._resolveDeferredInit, this))
-                    .fail(function() {
-                        throw new Error('View rendering failed');
-                    });
+                    .fail(function(error) {
+                        errorHandler.showError(error || new Error('View rendering failed'));
+                        // the error is already handled, there's no need to propagate it upper
+                        this._rejectDeferredInit();
+                    }.bind(this));
             } else {
                 this._resolveDeferredInit();
             }

@@ -7,19 +7,34 @@ define(function(require) {
     var BaseCollectionView = require('oroui/js/app/views/base/collection-view');
     var PermissionReadOnlyView = require('orouser/js/datagrid/permission/permission-readonly-view');
     var ReadonlyFieldView = require('orouser/js/datagrid/action-permissions-readonly-field-view');
+    var PermissionModel = require('orouser/js/models/role/permission-model');
     var BaseView = require('oroui/js/app/views/base/view');
 
     ActionPermissionsReadonlyRowView = BaseView.extend({
         tagName: 'tr',
-        className: 'collapsed',
+
+        className: 'grid-row collapsed',
+
         autoRender: false,
+
         animationDuration: 0,
+
         template: require('tpl!orouser/templates/datagrid/action-permissions-row-view.html'),
+
         permissionItemView: PermissionReadOnlyView,
+
         fieldItemView: ReadonlyFieldView,
-        events: {
-            'click .collapse-action': 'onFieldsSectionToggle'
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActionPermissionsReadonlyRowView() {
+            ActionPermissionsReadonlyRowView.__super__.constructor.apply(this, arguments);
         },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             ActionPermissionsReadonlyRowView.__super__.initialize.call(this, options);
             var fields = this.model.get('fields');
@@ -28,6 +43,13 @@ define(function(require) {
             }
             if (!_.isArray(fields)) {
                 fields = _.values(fields);
+            }
+            if (fields.length) {
+                _.each(fields, function(field) {
+                    field.permissions = new BaseCollection(_.values(field.permissions), {
+                        model: PermissionModel
+                    });
+                });
             }
             this.model.set('fields', fields, {silent: true});
         },
@@ -52,12 +74,6 @@ define(function(require) {
                 }));
             }
             return this;
-        },
-
-        onFieldsSectionToggle: function(e) {
-            e.preventDefault();
-            this.$el.toggleClass('collapsed');
-            this.$('[data-name=fields-list]').slideToggle(!this.$el.hasClass('collapsed'));
         }
     });
 

@@ -2,19 +2,18 @@
 
 namespace Oro\Bundle\ActionBundle\Tests\Unit\Helper;
 
+use Oro\Bundle\ActionBundle\Helper\DefaultOperationRequestHelper;
+use Oro\Bundle\ActionBundle\Provider\RouteProviderInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-use Oro\Bundle\ActionBundle\Helper\ApplicationsHelper;
-use Oro\Bundle\ActionBundle\Helper\DefaultOperationRequestHelper;
-
-class DefaultOperationRequestHelperTest extends \PHPUnit_Framework_TestCase
+class DefaultOperationRequestHelperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|RequestStack */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|RequestStack */
     protected $requestStack;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ApplicationsHelper */
-    protected $applicationsHelper;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|RouteProviderInterface */
+    protected $routeProvider;
 
     /** @var DefaultOperationRequestHelper */
     protected $helper;
@@ -28,11 +27,11 @@ class DefaultOperationRequestHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->applicationsHelper = $this->getMockBuilder('Oro\Bundle\ActionBundle\Helper\ApplicationsHelper')
+        $this->routeProvider = $this->getMockBuilder(RouteProviderInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->helper = new DefaultOperationRequestHelper($this->requestStack, $this->applicationsHelper);
+        $this->helper = new DefaultOperationRequestHelper($this->requestStack, $this->routeProvider);
     }
 
     /**
@@ -48,7 +47,7 @@ class DefaultOperationRequestHelperTest extends \PHPUnit_Framework_TestCase
             ->method('getMasterRequest')
             ->willReturn($masterRequest);
 
-        $this->applicationsHelper->expects($executionRoute ? $this->once() : $this->never())
+        $this->routeProvider->expects($executionRoute ? $this->once() : $this->never())
             ->method('getExecutionRoute')
             ->willReturn($executionRoute);
 
@@ -107,6 +106,19 @@ class DefaultOperationRequestHelperTest extends \PHPUnit_Framework_TestCase
                 'executionRoute' => 'test_route',
                 'expected' => 'test_original_route',
             ],
+            'exists route name with datagrid widget route' => [
+                'masterRequest' => new Request(
+                    [
+                        '_route' => DefaultOperationRequestHelper::DATAGRID_WIDGET_ROUTE,
+                        'gridName' => 'test-grid',
+                        'test-grid' => [
+                            'originalRoute' => 'test_original_route',
+                        ],
+                    ]
+                ),
+                'executionRoute' => 'test_route',
+                'expected' => 'test_original_route',
+            ],
         ];
     }
 
@@ -123,7 +135,7 @@ class DefaultOperationRequestHelperTest extends \PHPUnit_Framework_TestCase
             ->method('getMasterRequest')
             ->willReturn($masterRequest);
 
-        $this->applicationsHelper->expects($executionRoute ? $this->once() : $this->never())
+        $this->routeProvider->expects($executionRoute ? $this->once() : $this->never())
             ->method('getExecutionRoute')
             ->willReturn($executionRoute);
 

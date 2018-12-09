@@ -2,23 +2,26 @@
 
 namespace Oro\Bundle\WorkflowBundle\Model;
 
-use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\Common\Collections\Collection;
+use Oro\Bundle\ActionBundle\Model\Attribute;
 use Oro\Bundle\ActionBundle\Model\AttributeManager as BaseAttributeManager;
-
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
-
 use Oro\Bundle\WorkflowBundle\Acl\AclManager;
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
+use Oro\Bundle\WorkflowBundle\Entity\Repository\WorkflowItemRepository;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowItem;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowTransitionRecord;
 use Oro\Bundle\WorkflowBundle\Exception\ForbiddenTransitionException;
-use Oro\Bundle\WorkflowBundle\Exception\UnknownStepException;
 use Oro\Bundle\WorkflowBundle\Exception\InvalidTransitionException;
+use Oro\Bundle\WorkflowBundle\Exception\UnknownStepException;
 use Oro\Bundle\WorkflowBundle\Exception\WorkflowException;
 use Oro\Bundle\WorkflowBundle\Restriction\RestrictionManager;
 
+/**
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
+ */
 class Workflow
 {
     /**
@@ -52,6 +55,11 @@ class Workflow
     protected $transitionManager;
 
     /**
+     * @var VariableManager
+     */
+    protected $variableManager;
+
+    /**
      * @var Collection
      */
     protected $errors;
@@ -67,12 +75,18 @@ class Workflow
     protected $restrictions;
 
     /**
+     * @var Collection
+     */
+    protected $variables;
+
+    /**
      * @param DoctrineHelper $doctrineHelper
      * @param AclManager $aclManager
      * @param RestrictionManager $restrictionManager
      * @param StepManager|null $stepManager
      * @param BaseAttributeManager|null $attributeManager
      * @param TransitionManager|null $transitionManager
+     * @param VariableManager|null $variableManager
      */
     public function __construct(
         DoctrineHelper $doctrineHelper,
@@ -80,7 +94,8 @@ class Workflow
         RestrictionManager $restrictionManager,
         StepManager $stepManager = null,
         BaseAttributeManager $attributeManager = null,
-        TransitionManager $transitionManager = null
+        TransitionManager $transitionManager = null,
+        VariableManager $variableManager = null
     ) {
         $this->doctrineHelper = $doctrineHelper;
         $this->aclManager = $aclManager;
@@ -88,6 +103,7 @@ class Workflow
         $this->stepManager = $stepManager ? $stepManager : new StepManager();
         $this->attributeManager = $attributeManager ? $attributeManager : new BaseAttributeManager();
         $this->transitionManager = $transitionManager ? $transitionManager : new TransitionManager();
+        $this->variableManager = $variableManager ? $variableManager : new VariableManager();
     }
 
     /**
@@ -143,22 +159,44 @@ class Workflow
     }
 
     /**
+     * @return VariableManager
+     */
+    public function getVariableManager()
+    {
+        return $this->variableManager;
+    }
+
+    /**
      * Start workflow.
      *
      * @param object $entity
      * @param array $data
-     * @param string $startTransitionName
+     * @param string|Transition $startTransition
      *
      * @return WorkflowItem
      */
-    public function start($entity, array $data = [], $startTransitionName = null)
+    public function start($entity, array $data = [], $startTransition = null)
     {
-        if (null === $startTransitionName) {
-            $startTransitionName = TransitionManager::DEFAULT_START_TRANSITION_NAME;
+        if (null === $startTransition) {
+            $startTransition = TransitionManager::DEFAULT_START_TRANSITION_NAME;
         }
 
         $workflowItem = $this->createWorkflowItem($entity, $data);
-        $this->transit($workflowItem, $startTransitionName);
+        $this->transit($workflowItem, $startTransition);
+
+        // transition started without related entity, workflow item must be created for specified entity
+        if (!$this->doctrineHelper->getSingleEntityIdentifier($entity)) {
+            $currentEntity = $workflowItem->getData()->get($this->getDefinition()->getEntityAttributeName());
+            $entityClass = $this->doctrineHelper->getEntityClass($currentEntity);
+            $entityId = $this->doctrineHelper->getSingleEntityIdentifier($currentEntity);
+
+            // find existing workflow item, if transition autostarted inside transit, data will be updated
+            if (null === ($currentItem = $this->findWorkflowItem($entityClass, $entityId))) {
+                $currentItem = $this->createWorkflowItem($currentEntity, $data);
+            }
+
+            return $currentItem->merge($workflowItem);
+        }
 
         return $workflowItem;
     }
@@ -269,6 +307,23 @@ class Workflow
     }
 
     /**
+     * @param string $entityClass
+     * @param int|string $entityId
+     * @return null|WorkflowItem
+     */
+    protected function findWorkflowItem($entityClass, $entityId)
+    {
+        if (null === $entityId) {
+            return null;
+        }
+
+        /** @var WorkflowItemRepository $repo */
+        $repo = $this->doctrineHelper->getEntityRepositoryForClass(WorkflowItem::class);
+
+        return $repo->findOneByEntityMetadata($entityClass, $entityId, $this->getName());
+    }
+
+    /**
      * Create workflow item.
      *
      * @param object $entity
@@ -280,16 +335,9 @@ class Workflow
     {
         $entityAttributeName = $this->attributeManager->getEntityAttribute()->getName();
 
-        $repo = $this->doctrineHelper->getEntityRepositoryForClass('Oro\Bundle\WorkflowBundle\Entity\WorkflowItem');
-
         $entityClass = $this->doctrineHelper->getEntityClass($entity);
         $entityId = $this->doctrineHelper->getSingleEntityIdentifier($entity);
-
-        $workflowItem = $repo->findOneBy([
-            'workflowName' => $this->getName(),
-            'entityId' => $entityId,
-            'entityClass' => $entityClass
-        ]);
+        $workflowItem = $this->findWorkflowItem($entityClass, $entityId);
 
         if (!$workflowItem) {
             $workflowItem = new WorkflowItem();
@@ -310,7 +358,23 @@ class Workflow
             ->add($data);
         $workflowItem->setDefinition($this->getDefinition());
 
+        // populate WorkflowData with variables
+        if ($variables = $this->getVariables()) {
+            foreach ($variables as $name => $variable) {
+                $workflowItem->getData()->set($name, $variable->getValue());
+            }
+        }
+
         return $workflowItem;
+    }
+
+    /**
+     * @param string $entityId
+     * @return null|WorkflowItem
+     */
+    public function getWorkflowItemByEntityId($entityId)
+    {
+        return $this->findWorkflowItem($this->getDefinition()->getRelatedEntity(), $entityId);
     }
 
     /**
@@ -491,5 +555,68 @@ class Workflow
         $this->restrictions = $restrictions;
 
         return $this;
+    }
+
+    /**
+     * @return array[]
+     */
+    public function getInitEntities()
+    {
+        return $this->getConfigurationOption(WorkflowConfiguration::NODE_INIT_ENTITIES, []);
+    }
+
+    /**
+     * @return array[]
+     */
+    public function getInitRoutes()
+    {
+        return $this->getConfigurationOption(WorkflowConfiguration::NODE_INIT_ROUTES, []);
+    }
+
+    /**
+     * @return array[]
+     */
+    public function getInitDatagrids()
+    {
+        return $this->getConfigurationOption(WorkflowConfiguration::NODE_INIT_DATAGRIDS, []);
+    }
+
+    /**
+     * Returns an array of variables. The class has an internal cache. Calling the method
+     * with $refresh parameter true will ignore cache, and assemble variables again
+     *
+     * @param bool $refresh
+     *
+     * @return Collection|Variable[]
+     */
+    public function getVariables($refresh = false)
+    {
+        if ($refresh || !$this->variables) {
+            $manager = $this->getVariableManager();
+            $definition = $this->getDefinition();
+
+            $assembler = $manager->getVariableAssembler();
+            if (null !== $assembler) {
+                $this->variables = $assembler->assemble(
+                    $this,
+                    $definition->getConfiguration()
+                );
+            }
+        }
+
+        return $this->variables;
+    }
+
+    /**
+     * @param string $nodeName
+     * @param mixed|null $default
+     *
+     * @return mixed
+     */
+    private function getConfigurationOption($nodeName, $default = null)
+    {
+        $configuration = $this->getDefinition()->getConfiguration();
+
+        return isset($configuration[$nodeName]) ? $configuration[$nodeName] : $default;
     }
 }

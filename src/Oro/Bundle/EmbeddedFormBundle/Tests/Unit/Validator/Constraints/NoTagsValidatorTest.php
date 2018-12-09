@@ -3,16 +3,17 @@
 namespace Oro\Bundle\EmbeddedFormBundle\Tests\Unit\Validator\Constraints;
 
 use Oro\Bundle\EmbeddedFormBundle\Validator\Constraints\NoTagsValidator;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
-class NoTagsValidatorTest extends \PHPUnit_Framework_TestCase
+class NoTagsValidatorTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $constraint;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $context;
 
@@ -23,8 +24,8 @@ class NoTagsValidatorTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->constraint = $this->getMock('Oro\\Bundle\\EmbeddedFormBundle\\Validator\\Constraints\\NoTags');
-        $this->context = $this->getMock('Symfony\\Component\\Validator\\ExecutionContextInterface');
+        $this->constraint = $this->createMock('Oro\\Bundle\\EmbeddedFormBundle\\Validator\\Constraints\\NoTags');
+        $this->context = $this->createMock(ExecutionContextInterface::class);
         $this->validator = new NoTagsValidator();
         $this->validator->initialize($this->context);
     }
@@ -95,10 +96,8 @@ class NoTagsValidatorTest extends \PHPUnit_Framework_TestCase
      */
     public function shouldFailWithInvalidValue($value, $exceptionMessage)
     {
-        $this->setExpectedException(
-            'Symfony\\Component\\Validator\\Exception\\UnexpectedTypeException',
-            $exceptionMessage
-        );
+        $this->expectException('Symfony\\Component\\Validator\\Exception\\UnexpectedTypeException');
+        $this->expectExceptionMessage($exceptionMessage);
         $this->validator->validate($value, $this->constraint);
     }
 

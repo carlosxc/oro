@@ -4,12 +4,12 @@ namespace Oro\Bundle\NavigationBundle\Tests\Unit\Provider;
 
 use Oro\Bundle\NavigationBundle\Provider\TitleTranslator;
 
-class TitleTranslatorTest extends \PHPUnit_Framework_TestCase
+class TitleTranslatorTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $userConfigManager;
 
     /** @var TitleTranslator */
@@ -17,7 +17,7 @@ class TitleTranslatorTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->translator        = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator        = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->userConfigManager = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
             ->disableOriginalConstructor()
             ->getMock();

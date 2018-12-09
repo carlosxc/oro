@@ -3,6 +3,7 @@ define(function(require) {
 
     var FieldsGroupsCollectionView;
     var BaseView = require('oroui/js/app/views/base/view');
+    var $ = require('jquery');
 
     FieldsGroupsCollectionView = BaseView.extend({
         PRIMARY_FILED_SELECTOR: '[name$="[primary]"]',
@@ -10,6 +11,13 @@ define(function(require) {
         events: {
             'click [name$="[primary]"]': 'onPrimaryClick',
             'change >*': 'onChangeInFiledGroup'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function FieldsGroupsCollectionView() {
+            FieldsGroupsCollectionView.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -21,8 +29,10 @@ define(function(require) {
         onPrimaryClick: function(e) {
             this.$(this.PRIMARY_FILED_SELECTOR).each(function() {
                 this.checked = false;
+                $(this).trigger('change');
             });
             e.target.checked = true;
+            $(e.target).trigger('change');
         },
 
         /**

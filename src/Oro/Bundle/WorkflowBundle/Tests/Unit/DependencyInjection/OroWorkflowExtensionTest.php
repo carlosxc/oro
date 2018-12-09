@@ -2,38 +2,33 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\DependencyInjection;
 
+use Oro\Bundle\WorkflowBundle\DependencyInjection\OroWorkflowExtension;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 
-use Oro\Bundle\WorkflowBundle\DependencyInjection\OroWorkflowExtension;
-
-class OroWorkflowExtensionTest extends \PHPUnit_Framework_TestCase
+class OroWorkflowExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var array
      */
-    protected $expectedDefinitions = array(
-        'oro_workflow.configuration_pass.replace_property_path',
-        'oro_workflow.action_factory',
+    protected $expectedDefinitions = [
         'oro_workflow.configuration.provider.workflow_config',
-    );
+    ];
 
     /**
      * @var array
      */
-    protected $expectedParameters = array(
-        'oro_workflow.configuration_pass.replace_property_path.class',
-        'oro_workflow.action_factory.class',
-        'oro_workflow.configuration.provider.workflow_config.class',
-    );
+    protected $expectedParameters = [
+        'oro_workflow.configuration.default_subdirectory',
+        'oro_workflow.configuration.default_filename'
+    ];
 
     public function testLoad()
     {
-        $actualDefinitions = array();
-        $actualParameters  = array();
+        $actualDefinitions = [];
+        $actualParameters  = [];
 
-        $container = $this->getMockBuilder('Symfony\Component\DependencyInjection\ContainerBuilder')
-            ->setMethods(array('setDefinition', 'setParameter'))
-            ->getMock();
+        $container = $this->createMock(ContainerBuilder::class);
         $container->expects($this->any())
             ->method('setDefinition')
             ->will(
@@ -54,7 +49,7 @@ class OroWorkflowExtensionTest extends \PHPUnit_Framework_TestCase
             );
 
         $extension = new OroWorkflowExtension();
-        $extension->load(array(), $container);
+        $extension->load([], $container);
 
         foreach ($this->expectedDefinitions as $serviceId) {
             $this->assertArrayHasKey($serviceId, $actualDefinitions);

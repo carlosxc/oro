@@ -2,14 +2,14 @@
 
 namespace Oro\Bundle\SecurityBundle\Acl\Voter;
 
+use Oro\Bundle\EntityBundle\Exception\NotManageableEntityException;
+use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\SecurityBundle\Acl\Extension\ObjectIdentityHelper;
+use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
+use Symfony\Component\Security\Acl\Util\ClassUtils;
 use Symfony\Component\Security\Acl\Voter\FieldVote;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
-use Symfony\Component\Security\Core\Util\ClassUtils;
-use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
-
-use Oro\Bundle\EntityBundle\Exception\NotManageableEntityException;
-use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
 
 abstract class AbstractEntityVoter implements VoterInterface
 {
@@ -45,17 +45,25 @@ abstract class AbstractEntityVoter implements VoterInterface
     }
 
     /**
-     * {@inheritDoc}
+     * Checks if the voter supports the given attribute.
+     *
+     * @param mixed $attribute An attribute (usually the attribute name string)
+     *
+     * @return bool true if this Voter supports the attribute, false otherwise
      */
-    public function supportsAttribute($attribute)
+    protected function supportsAttribute($attribute)
     {
         return in_array($attribute, $this->supportedAttributes);
     }
 
     /**
-     * {@inheritdoc}
+     * Checks if the voter supports the given class.
+     *
+     * @param string $class A class name
+     *
+     * @return bool true if this Voter can process the class
      */
-    public function supportsClass($class)
+    protected function supportsClass($class)
     {
         if (!$this->className) {
             throw new \InvalidArgumentException('className was not provided');
@@ -165,12 +173,7 @@ abstract class AbstractEntityVoter implements VoterInterface
     protected function getEntityClass($object)
     {
         if ($object instanceof ObjectIdentityInterface) {
-            $class = $object->getType();
-
-            $delim = strpos($class, '@');
-            if ($delim) {
-                $class = ltrim(substr($class, $delim + 1), ' ');
-            }
+            $class = ObjectIdentityHelper::removeGroupName($object->getType());
         } elseif ($object instanceof FieldVote) {
             return $this->getEntityClass($object->getDomainObject());
         } else {

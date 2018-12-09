@@ -2,16 +2,12 @@
 
 namespace Oro\Component\Testing\Unit;
 
+use Oro\Component\Testing\Unit\PropertyAccess\PropertyAccessTrait;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 trait EntityTrait
 {
-    /**
-     * @var PropertyAccessor
-     */
-    private $propertyAccessor;
+    use PropertyAccessTrait;
 
     /**
      * @param string $className
@@ -23,9 +19,18 @@ trait EntityTrait
     protected function getEntity($className, array $properties = [], array $constructorArgs = null)
     {
         $reflectionClass = new \ReflectionClass($className);
+        $reflectionMethod = null;
 
         if ($reflectionClass->hasMethod('__construct')) {
-            $entity = $reflectionClass->newInstance($constructorArgs);
+            $reflectionMethod = new \ReflectionMethod($className, '__construct');
+        }
+
+        if ($reflectionMethod && $reflectionMethod->isPublic()) {
+            if (empty($constructorArgs)) {
+                $entity = $reflectionClass->newInstance($constructorArgs);
+            } else {
+                $entity = $reflectionClass->newInstanceArgs($constructorArgs);
+            }
         } else {
             $entity = $reflectionClass->newInstanceWithoutConstructor();
         }
@@ -60,22 +65,10 @@ trait EntityTrait
     }
 
     /**
-     * @return PropertyAccessor
-     */
-    public function getPropertyAccessor()
-    {
-        if (!$this->propertyAccessor) {
-            $this->propertyAccessor = PropertyAccess::createPropertyAccessor();
-        }
-
-        return $this->propertyAccessor;
-    }
-
-    /**
      * @param array $data
      * @return array|object
      */
-    public function convertArrayToEntities(array $data)
+    protected function convertArrayToEntities(array $data)
     {
         foreach ($data as $key => $value) {
             if (is_array($value)) {

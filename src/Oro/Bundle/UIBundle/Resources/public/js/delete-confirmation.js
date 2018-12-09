@@ -3,49 +3,48 @@ define(function(require) {
 
     var _ = require('underscore');
     var __ = require('orotranslation/js/translator');
-    var Modal = require('oroui/js/modal');
+    var ModalView = require('oroui/js/modal');
+    var DeleteConfirmationView;
 
     /**
      * Delete confirmation dialog
      *
      * @export  oroui/js/delete-confirmation
-     * @class   oroui.DeleteConfirmation
-     * @extends oroui.Modal
+     * @class   oroui.DeleteConfirmationView
+     * @extends oroui.ModalView
      */
-    return Modal.extend({
-
-        /** @property {String} */
-        template: require('text!oroui/templates/delete-confirmation.html'),
-
+    DeleteConfirmationView = ModalView.extend({
         /** @property {String} */
         className: 'modal oro-modal-danger',
 
         /** @property {String} */
-        okButtonClass: 'btn-danger',
+        okText: __('Yes, Delete'),
 
-        /** @property {Boolean} */
-        allowOk: true,
+        /** @property {String} */
+        title: __('Delete Confirmation'),
+
+        /** @property {String} */
+        cancelText: __('Cancel'),
+
+        okButtonClass: 'btn btn-danger',
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function DeleteConfirmationView() {
+            DeleteConfirmationView.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * @param {Object} options
          */
         initialize: function(options) {
-            //Set custom template settings
-            var interpolate = {
-                interpolate: /\{\{(.+?)\}\}/g,
-                evaluate: /<%([\s\S]+?)%>/g
-            };
+            var fields = ['title', 'okText', 'okButtonClass', 'cancelText'];
 
-            options = _.extend({
-                title: __('Delete Confirmation'),
-                okText: __('Yes, Delete'),
-                cancelText: __('Cancel'),
-                template: _.template(this.template, interpolate),
-                allowOk: this.allowOk
-            }, options);
-
-            arguments[0] = options;
-            Modal.prototype.initialize.apply(this, arguments);
+            _.defaults(options, _.pick(DeleteConfirmationView.prototype, fields));
+            DeleteConfirmationView.__super__.initialize.call(this, options);
         }
     });
+
+    return DeleteConfirmationView;
 });

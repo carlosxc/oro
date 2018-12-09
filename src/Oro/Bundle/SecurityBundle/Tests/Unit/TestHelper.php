@@ -2,50 +2,51 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit;
 
-use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
-use Oro\Bundle\SecurityBundle\Acl\Domain\ObjectIdAccessor;
 use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
+use Oro\Bundle\SecurityBundle\Acl\Domain\ObjectIdAccessor;
 use Oro\Bundle\SecurityBundle\Acl\Extension\AccessLevelOwnershipDecisionMakerInterface;
 use Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionSelector;
-use Oro\Bundle\SecurityBundle\Acl\Extension\EntityAclExtension;
 use Oro\Bundle\SecurityBundle\Acl\Extension\ActionAclExtension;
+use Oro\Bundle\SecurityBundle\Acl\Extension\EntityAclExtension;
 use Oro\Bundle\SecurityBundle\Acl\Extension\FieldAclExtension;
 use Oro\Bundle\SecurityBundle\Acl\Group\AclGroupProviderInterface;
 use Oro\Bundle\SecurityBundle\Acl\Permission\PermissionManager;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
 use Oro\Bundle\SecurityBundle\Owner\EntityOwnerAccessor;
 use Oro\Bundle\SecurityBundle\Owner\EntityOwnershipDecisionMaker;
+use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface;
 use Oro\Bundle\SecurityBundle\Owner\OwnerTree;
-use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider;
 use Oro\Bundle\SecurityBundle\Tests\Unit\Stub\OwnershipMetadataProviderStub;
 
 class TestHelper
 {
-    public static function get(\PHPUnit_Framework_TestCase $testCase)
+    public static function get(\PHPUnit\Framework\TestCase $testCase)
     {
         return new TestHelper($testCase);
     }
 
     /**
-     * @var (\PHPUnit_Framework_TestCase
+     * @var (\PHPUnit\Framework\TestCase
      */
     private $testCase;
 
     /**
-     * @param \PHPUnit_Framework_TestCase $testCase
+     * @param \PHPUnit\Framework\TestCase $testCase
      */
-    public function __construct(\PHPUnit_Framework_TestCase $testCase)
+    public function __construct(\PHPUnit\Framework\TestCase $testCase)
     {
         $this->testCase = $testCase;
     }
 
     /**
-     * @param OwnershipMetadataProvider $metadataProvider
+     * @param OwnershipMetadataProviderInterface $metadataProvider
      * @param OwnerTree $ownerTree
      * @param AccessLevelOwnershipDecisionMakerInterface $decisionMaker
      * @return AclExtensionSelector
      */
     public function createAclExtensionSelector(
-        OwnershipMetadataProvider $metadataProvider = null,
+        OwnershipMetadataProviderInterface $metadataProvider = null,
         OwnerTree $ownerTree = null,
         AccessLevelOwnershipDecisionMakerInterface $decisionMaker = null
     ) {
@@ -73,19 +74,24 @@ class TestHelper
     }
 
     /**
-     * @param OwnershipMetadataProvider $metadataProvider
+     * @param OwnershipMetadataProviderInterface $metadataProvider
      * @param OwnerTree $ownerTree
      * @param ObjectIdAccessor $idAccessor
      * @param AccessLevelOwnershipDecisionMakerInterface $decisionMaker
+     * @param EntityOwnerAccessor $entityOwnerAccessor
      * @param PermissionManager $permissionManager
      * @param AclGroupProviderInterface $groupProvider
      * @return EntityAclExtension
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     * @SuppressWarnings(PHPMD.NPathComplexity)
      */
     public function createEntityAclExtension(
-        OwnershipMetadataProvider $metadataProvider = null,
+        OwnershipMetadataProviderInterface $metadataProvider = null,
         OwnerTree $ownerTree = null,
         ObjectIdAccessor $idAccessor = null,
         AccessLevelOwnershipDecisionMakerInterface $decisionMaker = null,
+        EntityOwnerAccessor $entityOwnerAccessor = null,
         PermissionManager $permissionManager = null,
         AclGroupProviderInterface $groupProvider = null
     ) {
@@ -97,6 +103,9 @@ class TestHelper
         }
         if ($metadataProvider === null) {
             $metadataProvider = new OwnershipMetadataProviderStub($this->testCase);
+        }
+        if ($entityOwnerAccessor === null) {
+            $entityOwnerAccessor = new EntityOwnerAccessor($metadataProvider);
         }
         if ($ownerTree === null) {
             $ownerTree = new OwnerTree();
@@ -113,7 +122,8 @@ class TestHelper
                 $treeProviderMock,
                 $idAccessor,
                 new EntityOwnerAccessor($metadataProvider),
-                $metadataProvider
+                $metadataProvider,
+                $this->testCase->getMockBuilder(TokenAccessorInterface::class)->getMock()
             );
         }
 
@@ -174,6 +184,7 @@ class TestHelper
             new EntityClassResolver($doctrine),
             $entityMetadataProvider,
             $metadataProvider,
+            $entityOwnerAccessor,
             $decisionMaker,
             $permissionManager ?: $this->getPermissionManagerMock($this->testCase),
             $groupProvider ?: $this->getGroupProviderMock($this->testCase),
@@ -182,19 +193,19 @@ class TestHelper
     }
 
     /**
-     * @param OwnershipMetadataProvider $metadataProvider
+     * @param OwnershipMetadataProviderInterface $metadataProvider
      * @param OwnerTree $ownerTree
      * @param ObjectIdAccessor $idAccessor
      * @param AccessLevelOwnershipDecisionMakerInterface $decisionMaker
-     * @param ConfigProvider $configProvider
+     * @param ConfigManager $configManager
      * @return FieldAclExtension
      */
     public function createFieldAclExtension(
-        OwnershipMetadataProvider $metadataProvider = null,
+        OwnershipMetadataProviderInterface $metadataProvider = null,
         OwnerTree $ownerTree = null,
         ObjectIdAccessor $idAccessor = null,
         AccessLevelOwnershipDecisionMakerInterface $decisionMaker = null,
-        ConfigProvider $configProvider = null
+        ConfigManager $configManager = null
     ) {
         if ($idAccessor === null) {
             $doctrineHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\DoctrineHelper')
@@ -225,7 +236,8 @@ class TestHelper
                 $treeProviderMock,
                 $idAccessor,
                 $entityOwnerAccessor,
-                $metadataProvider
+                $metadataProvider,
+                $this->testCase->getMockBuilder(TokenAccessorInterface::class)->getMock()
             );
         }
 
@@ -278,21 +290,20 @@ class TestHelper
                 ->getMock();
         return new FieldAclExtension(
             $idAccessor,
-            new EntityClassResolver($doctrine),
             $metadataProvider,
             $decisionMaker,
             $entityOwnerAccessor,
-            $configProvider,
+            $configManager,
             $entityMetadataProvider
         );
     }
 
     /**
-     * @param \PHPUnit_Framework_TestCase $testCase
+     * @param \PHPUnit\Framework\TestCase $testCase
      *
-     * @return PermissionManager|\PHPUnit_Framework_MockObject_MockObject
+     * @return PermissionManager|\PHPUnit\Framework\MockObject\MockObject
      */
-    protected function getPermissionManagerMock(\PHPUnit_Framework_TestCase $testCase)
+    protected function getPermissionManagerMock(\PHPUnit\Framework\TestCase $testCase)
     {
         $permissionManager = $testCase->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Permission\PermissionManager')
             ->disableOriginalConstructor()
@@ -312,13 +323,13 @@ class TestHelper
     }
 
     /**
-     * @param \PHPUnit_Framework_TestCase $testCase
+     * @param \PHPUnit\Framework\TestCase $testCase
      *
-     * @return AclGroupProviderInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return AclGroupProviderInterface|\PHPUnit\Framework\MockObject\MockObject
      */
-    protected function getGroupProviderMock(\PHPUnit_Framework_TestCase $testCase)
+    protected function getGroupProviderMock(\PHPUnit\Framework\TestCase $testCase)
     {
-        $mock = $testCase->getMock('Oro\Bundle\SecurityBundle\Acl\Group\AclGroupProviderInterface');
+        $mock = $testCase->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Group\AclGroupProviderInterface')->getMock();
         $mock->expects($testCase->any())
             ->method('getGroup')
             ->willReturn(AclGroupProviderInterface::DEFAULT_SECURITY_GROUP);

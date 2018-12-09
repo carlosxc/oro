@@ -3,19 +3,19 @@
 namespace Oro\Bundle\DataGridBundle\Extension\Board\Processor;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Parameter;
 use Doctrine\ORM\QueryBuilder;
-
-use Oro\Component\DoctrineUtils\ORM\QueryUtils;
-use Oro\Component\DoctrineUtils\ORM\SqlQueryBuilder;
-use Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface;
 use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Extension\Board\Configuration;
-use Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper;
 use Oro\Bundle\DataGridBundle\Tools\ChoiceFieldHelper;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
+use Oro\Component\DoctrineUtils\ORM\UnionQueryBuilder;
 
 class DefaultProcessor implements BoardProcessorInterface
 {
@@ -24,24 +24,24 @@ class DefaultProcessor implements BoardProcessorInterface
     /** @var EntityManager */
     protected $em;
 
-    /** @var GridConfigurationHelper */
-    protected $gridConfigurationHelper;
+    /** @var EntityClassResolver */
+    protected $entityClassResolver;
 
     /** @var ChoiceFieldHelper */
     protected $choiceHelper;
 
     /**
      * @param EntityManager $em
-     * @param GridConfigurationHelper $gridConfigurationHelper
+     * @param EntityClassResolver $entityClassResolver
      * @param ChoiceFieldHelper $choiceHelper
      */
     public function __construct(
         EntityManager $em,
-        GridConfigurationHelper $gridConfigurationHelper,
+        EntityClassResolver $entityClassResolver,
         ChoiceFieldHelper $choiceHelper
     ) {
         $this->em = $em;
-        $this->gridConfigurationHelper = $gridConfigurationHelper;
+        $this->entityClassResolver = $entityClassResolver;
         $this->choiceHelper = $choiceHelper;
     }
 
@@ -50,7 +50,7 @@ class DefaultProcessor implements BoardProcessorInterface
      */
     public function getBoardOptions($boardConfig, DatagridConfiguration $datagridConfig)
     {
-        $entityName = $this->gridConfigurationHelper->getEntity($datagridConfig);
+        $entityName = $datagridConfig->getOrmQuery()->getRootEntity($this->entityClassResolver, true);
         $property = $boardConfig[Configuration::GROUP_KEY][Configuration::GROUP_PROPERTY_KEY];
         $metadata = $this->em->getClassMetadata($entityName);
         $result = [];
@@ -94,37 +94,21 @@ class DefaultProcessor implements BoardProcessorInterface
              * all other where statements and offset/limit are removed for the main query.
              */
             $qb = $datasource->getQueryBuilder();
-            $rootAlias = $this->gridConfigurationHelper->getEntityRootAlias($datagridConfig);
-            $rootEntity = $this->gridConfigurationHelper->getEntity($datagridConfig);
+            $rootAlias = $datagridConfig->getOrmQuery()->getRootAlias();
+            $rootEntity = $datagridConfig->getOrmQuery()->getRootEntity($this->entityClassResolver, true);
             $metaData = $this->em->getClassMetadata($rootEntity);
             $idKeyField = $metaData->getSingleIdentifierFieldName();
             $idExpr = sprintf('%s.%s', $rootAlias, $idKeyField);
 
-            $options = $boardData['board_options'];
-            $subQueries = [];
-            $selectStmt = null;
-            foreach ($options as $optionIds) {
+            $unionQb = new UnionQueryBuilder($this->em, true, 'ids');
+            $unionQb->addSelect('id', 'id', Type::INTEGER);
+            foreach ($boardData['board_options'] as $optionIds) {
                 /** @var QueryBuilder $queryClone */
                 $qbClone = clone $qb;
                 $this->prepareWhereExpression($qbClone, $boardData['property'], $optionIds);
-                $subQuery = $qbClone->getQuery();
-                $subQueries[] = sprintf('(%s)', QueryUtils::getExecutableSql($subQuery));
-                if (empty($selectStmt)) {
-                    $mapping    = QueryUtils::parseQuery($subQuery)->getResultSetMapping();
-                    $selectStmt = sprintf(
-                        'ids.%s AS id',
-                        QueryUtils::getColumnNameByAlias($mapping, 'id')
-                    );
-                }
+                $unionQb->addSubQuery($qbClone->getQuery());
             }
-            $rsm = QueryUtils::createResultSetMapping($this->em->getConnection()->getDatabasePlatform());
-            $rsm
-                ->addScalarResult('id', 'id', 'integer');
-            $sqlQb = new SqlQueryBuilder($this->em, $rsm);
-            $sqlQb
-                ->select($selectStmt)
-                ->from('(' . implode(' UNION ALL ', $subQueries) . ')', 'ids');
-            $ids = $sqlQb->getQuery()->getArrayResult();
+            $ids = $unionQb->getQuery()->getArrayResult();
             $ids = array_column($ids, 'id');
 
             $qb->resetDQLPart('where');
@@ -164,7 +148,7 @@ class DefaultProcessor implements BoardProcessorInterface
      */
     protected function prepareWhereExpression($qb, $property, $optionIds)
     {
-        $propertyExpr = QueryUtils::getSelectExprByAlias($qb, $property);
+        $propertyExpr = QueryBuilderUtil::getSelectExprByAlias($qb, $property);
         $expressions = [];
         foreach ($optionIds as $optionId) {
             if ($optionId === null) {
@@ -197,7 +181,7 @@ class DefaultProcessor implements BoardProcessorInterface
     protected function prepareOptions($options, $default)
     {
         $result = [];
-        foreach ($options as $id => $label) {
+        foreach ($options as $label => $id) {
             $ids = [$id];
             if ($id === $default) {
                 $ids[] = null; //entities with empty values go to the default column
@@ -226,7 +210,7 @@ class DefaultProcessor implements BoardProcessorInterface
         if (isset($boardConfig[Configuration::DEFAULT_COLUMN_KEY])) {
             $default = $boardConfig[Configuration::DEFAULT_COLUMN_KEY];
         }
-        $ids = array_keys($options);
+        $ids = array_values($options);
         if (!in_array($default, $ids, true)) {
             $default = reset($ids);
         }

@@ -5,13 +5,13 @@ namespace Oro\Bundle\FilterBundle\Tests\Unit\Filter;
 use Oro\Bundle\FilterBundle\Filter\FilterUtility;
 use Oro\Bundle\FilterBundle\Filter\ManyToManyFilter;
 
-class ManyToManyFilterTest extends \PHPUnit_Framework_TestCase
+class ManyToManyFilterTest extends \PHPUnit\Framework\TestCase
 {
     protected $manyToManyfilter;
 
     public function setUp()
     {
-        $formFactory = $this->getMock('Symfony\Component\Form\FormFactoryInterface');
+        $formFactory = $this->createMock('Symfony\Component\Form\FormFactoryInterface');
         $filterUtility = $this->getMockBuilder('Oro\Bundle\FilterBundle\Filter\FilterUtility')
             ->disableOriginalConstructor()
             ->getMock();
@@ -24,7 +24,7 @@ class ManyToManyFilterTest extends \PHPUnit_Framework_TestCase
      */
     public function testApplyShouldThrowExceptionIfWrongDatasourceTypeIsGiven()
     {
-        $ds = $this->getMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface');
+        $ds = $this->createMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface');
         $this->manyToManyfilter->apply($ds, ['type' => FilterUtility::TYPE_EMPTY]);
     }
 
@@ -61,6 +61,9 @@ class ManyToManyFilterTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($em));
         $qb->expects($this->any())
             ->method('getDqlPart')
+            ->will($this->returnValue([]));
+        $qb->expects($this->any())
+            ->method('getRootAliases')
             ->will($this->returnValue([]));
 
         $expressionBuilder = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmExpressionBuilder')
@@ -121,6 +124,9 @@ class ManyToManyFilterTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($em));
         $qb->expects($this->any())
             ->method('getDqlPart')
+            ->will($this->returnValue([]));
+        $qb->expects($this->any())
+            ->method('getRootAliases')
             ->will($this->returnValue([]));
 
         $expressionBuilder = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmExpressionBuilder')

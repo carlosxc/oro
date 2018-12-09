@@ -8,7 +8,7 @@ use Oro\Bundle\MessageQueueBundle\Tests\Unit\DependencyInjection\Compiler\Mock\P
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 
-class BuildTopicMetaSubscribersPassTest extends \PHPUnit_Framework_TestCase
+class BuildTopicMetaSubscribersPassTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithoutAnyArguments()
     {
@@ -259,8 +259,8 @@ class BuildTopicMetaSubscribersPassTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionWhenTopicSubscriberConfigurationIsInvalid()
     {
-        $this->setExpectedException(\LogicException::class, 'Topic subscriber configuration is invalid. "[12345]"');
-
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Topic subscriber configuration is invalid. "[12345]"');
         $container = new ContainerBuilder();
 
         $processor = new Definition(InvalidTopicSubscriber::class);

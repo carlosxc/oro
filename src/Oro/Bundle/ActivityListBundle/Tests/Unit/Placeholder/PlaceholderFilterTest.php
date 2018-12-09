@@ -3,7 +3,6 @@
 namespace Oro\Bundle\ActivityListBundle\Tests\Unit\Placeholder;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
-
 use Oro\Bundle\ActivityBundle\EntityConfig\ActivityScope;
 use Oro\Bundle\ActivityListBundle\Placeholder\PlaceholderFilter;
 use Oro\Bundle\ActivityListBundle\Provider\ActivityListChainProvider;
@@ -12,27 +11,28 @@ use Oro\Bundle\ActivityListBundle\Tests\Unit\Placeholder\Fixture\TestNonManagedT
 use Oro\Bundle\ActivityListBundle\Tests\Unit\Placeholder\Fixture\TestTarget;
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\UIBundle\Event\BeforeGroupingChainWidgetEvent;
 
-class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
+class PlaceholderFilterTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ActivityListChainProvider */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ActivityListChainProvider */
     protected $activityListProvider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ManagerRegistry */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry */
     protected $doctrine;
 
     /** @var PlaceholderFilter */
     protected $filter;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ConfigManager */
     protected $configManager;
 
     /** @var array */
     protected $entities = [];
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|DoctrineHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|DoctrineHelper */
     protected $doctrineHelper;
 
     public function setUp()
@@ -73,7 +73,7 @@ class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
                 return !$entity instanceof TestNonManagedTarget;
             });
 
-        $this->configManager = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Config\ConfigManager')
+        $this->configManager = $this->getMockBuilder(ConfigManager::class)
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -374,6 +374,13 @@ class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
                 'groupType'             => ActivityScope::VIEW_PAGE,
                 'widgets'               => $widgets,
                 'entity'                => $entity,
+                'configProviderSetting' => '\Oro\Bundle\ActivityBundle\EntityConfig\ActivityScope::UPDATE_PAGE',
+                'expected'              => []
+            ],
+            'new entity with "update" activity' => [
+                'groupType'             => ActivityScope::UPDATE_PAGE,
+                'widgets'               => $widgets,
+                'entity'                => new TestTarget(null),
                 'configProviderSetting' => '\Oro\Bundle\ActivityBundle\EntityConfig\ActivityScope::UPDATE_PAGE',
                 'expected'              => []
             ],

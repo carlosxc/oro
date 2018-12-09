@@ -1,8 +1,25 @@
-OroEmbeddedFormBundle
-=====================
+# OroEmbeddedFormBundle
 
-The Bundle provides mechanism to create forms, embed them into third party sites, store and view data submitted via them.
-Basically an `EmbeddedForm` is a `FormType`. Also it contains custom css and a success message.
+OroEmbeddedFormBundle enables the application users to create integrated forms using UI, embed them into third-party sites with inline or iframe codes and collect the submitted information in the Oro application database.
+
+## Configuration
+
+This bundle has the following configuration options:
+
+```yaml
+oro_embedded_form:
+    # The name of the hidden field that should be used to pass the session id to third party site.
+    # This allows to use the embedded form even if a web browser blocks third-party cookies.
+    session_id_field_name: _embedded_form_sid
+    # The number of seconds the CSRF token should live for.
+    csrf_token_lifetime: 3600
+    # The service id that is used to cache CSRF tokens.
+    # If not specified the Oro\Bundle\SecurityBundle\Cache\WsseNoncePhpFileCache
+    # will be used that stores data in %kernel.cache_dir%/security/embedded_form
+    csrf_token_cache_service_id: ~
+```
+
+The custom CSRF token cache is used only if a web browser blocks third-party cookies. For other cases the default Symfony behaviour is used (CSRF tokens are stored in the PHP session).
 
 ## UI
 The menu item that leads to the list of embedded forms is under the `System` menu.
@@ -79,7 +96,7 @@ Let's consider an example when we need to move the email field before the first 
 ```yml
 layout:
     actions:
-        - @move:
+        - '@move':
             id:        embedded_form_email
             siblingId: embedded_form_firstName
             prepend:   true                     # place moved block before sibling
@@ -93,3 +110,6 @@ layout:
 We need to specify layout update conditions since all embedded forms are using the same route.
 The condition should check that your custom form type is equal to the form type stored in the layout context.
 This will make sure that your layout updates are loaded only for your embedded form type.
+
+Note that we are using separate block types `embed_form_start`, `embed_form_end`, `embed_form_fields` and `embed_form_field` to render the form. This allows us to easily add content inside the form.
+For all this block fields we need to specify `form_name` option to bind it to our form. Also we can use only one block type`embed_form` which will create three child blocks: `embed_form_start`, `embed_form_fields`, `embed_form_end`.

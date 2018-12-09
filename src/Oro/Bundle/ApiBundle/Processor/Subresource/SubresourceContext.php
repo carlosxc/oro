@@ -2,15 +2,26 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Subresource;
 
+use Oro\Bundle\ApiBundle\Config\ConfigExtraCollection;
 use Oro\Bundle\ApiBundle\Config\ConfigExtraInterface;
+use Oro\Bundle\ApiBundle\Config\CustomizeLoadedDataConfigExtra;
+use Oro\Bundle\ApiBundle\Config\DataTransformersConfigExtra;
 use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
 use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfigExtra;
 use Oro\Bundle\ApiBundle\Config\FilterFieldsConfigExtra;
 use Oro\Bundle\ApiBundle\Exception\RuntimeException;
+use Oro\Bundle\ApiBundle\Metadata\ActionMetadataExtra;
 use Oro\Bundle\ApiBundle\Metadata\EntityMetadata;
+use Oro\Bundle\ApiBundle\Metadata\HateoasMetadataExtra;
+use Oro\Bundle\ApiBundle\Metadata\MetadataExtraCollection;
 use Oro\Bundle\ApiBundle\Metadata\MetadataExtraInterface;
 use Oro\Bundle\ApiBundle\Processor\Context;
 
+/**
+ * The base execution context for processors for subresources and relationships related actions,
+ * such as "get_subresource", "update_subresource", "add_subresource", "delete_subresource",
+ * "get_relationship", "update_relationship", "add_relationship" and "delete_relationship".
+ */
 class SubresourceContext extends Context
 {
     /** FQCN of the parent entity */
@@ -28,17 +39,17 @@ class SubresourceContext extends Context
     /** the parent entity object */
     const PARENT_ENTITY = 'parentEntity';
 
-    /** a list of requests for configuration data of the parent entity */
-    const PARENT_CONFIG_EXTRAS = 'parentConfigExtras';
-
     /** a configuration of the parent entity */
     const PARENT_CONFIG = 'parentConfig';
 
-    /** a list of requests for additional metadata info of the parent entity */
-    const PARENT_METADATA_EXTRAS = 'parentMetadataExtras';
-
     /** metadata of the parent entity */
     const PARENT_METADATA = 'parentMetadata';
+
+    /** @var ConfigExtraCollection|null */
+    private $parentConfigExtras;
+
+    /** @var MetadataExtraCollection|null */
+    private $parentMetadataExtras;
 
     /**
      * {@inheritdoc}
@@ -166,11 +177,9 @@ class SubresourceContext extends Context
      */
     public function getParentConfigExtras()
     {
-        if (!$this->has(self::PARENT_CONFIG_EXTRAS)) {
-            $this->set(self::PARENT_CONFIG_EXTRAS, $this->createParentConfigExtras());
-        }
+        $this->ensureParentConfigExtrasInitialized();
 
-        return $this->get(self::PARENT_CONFIG_EXTRAS);
+        return $this->parentConfigExtras->getConfigExtras();
     }
 
     /**
@@ -182,19 +191,66 @@ class SubresourceContext extends Context
      */
     public function setParentConfigExtras(array $extras)
     {
-        foreach ($extras as $configExtra) {
-            if (!$configExtra instanceof ConfigExtraInterface) {
-                throw new \InvalidArgumentException(
-                    'Expected an array of "Oro\Bundle\ApiBundle\Config\ConfigExtraInterface".'
-                );
-            }
-        }
-
         if (empty($extras)) {
-            $this->remove(self::PARENT_CONFIG_EXTRAS);
+            $this->parentConfigExtras = null;
         } else {
-            $this->set(self::PARENT_CONFIG_EXTRAS, $extras);
+            if (null === $this->parentConfigExtras) {
+                $this->parentConfigExtras = new ConfigExtraCollection();
+            }
+            $this->parentConfigExtras->setConfigExtras($extras);
         }
+    }
+
+    /**
+     * Checks whether some configuration data of the parent entity is requested.
+     *
+     * @param string $extraName
+     *
+     * @return bool
+     */
+    public function hasParentConfigExtra($extraName)
+    {
+        $this->ensureParentConfigExtrasInitialized();
+
+        return $this->parentConfigExtras->hasConfigExtra($extraName);
+    }
+
+    /**
+     * Gets a request for configuration data of the parent entity by its name.
+     *
+     * @param string $extraName
+     *
+     * @return ConfigExtraInterface|null
+     */
+    public function getParentConfigExtra($extraName)
+    {
+        $this->ensureParentConfigExtrasInitialized();
+
+        return $this->parentConfigExtras->getConfigExtra($extraName);
+    }
+
+    /**
+     * Adds a request for some configuration data of the parent entity.
+     *
+     * @param ConfigExtraInterface $extra
+     *
+     * @throws \InvalidArgumentException if a config extra with the same name already exists
+     */
+    public function addParentConfigExtra(ConfigExtraInterface $extra)
+    {
+        $this->ensureParentConfigExtrasInitialized();
+        $this->parentConfigExtras->addConfigExtra($extra);
+    }
+
+    /**
+     * Removes a request for some configuration data of the parent entity.
+     *
+     * @param string $extraName
+     */
+    public function removeParentConfigExtra($extraName)
+    {
+        $this->ensureParentConfigExtrasInitialized();
+        $this->parentConfigExtras->removeConfigExtra($extraName);
     }
 
     /**
@@ -243,9 +299,27 @@ class SubresourceContext extends Context
     protected function createParentConfigExtras()
     {
         return [
-            new EntityDefinitionConfigExtra(),
+            new EntityDefinitionConfigExtra(
+                $this->getAction(),
+                $this->isCollection(),
+                $this->getParentClassName(),
+                $this->getAssociationName()
+            ),
+            new CustomizeLoadedDataConfigExtra(),
+            new DataTransformersConfigExtra(),
             new FilterFieldsConfigExtra([$this->getParentClassName() => [$this->getAssociationName()]])
         ];
+    }
+
+    /**
+     * Makes sure that a list of requests for configuration data of the parent entity is initialized.
+     */
+    private function ensureParentConfigExtrasInitialized()
+    {
+        if (null === $this->parentConfigExtras) {
+            $this->parentConfigExtras = new ConfigExtraCollection();
+            $this->parentConfigExtras->setConfigExtras($this->createParentConfigExtras());
+        }
     }
 
     /**
@@ -263,12 +337,7 @@ class SubresourceContext extends Context
         }
 
         try {
-            $config = $this->configProvider->getConfig(
-                $parentEntityClass,
-                $this->getVersion(),
-                $this->getRequestType(),
-                $this->getParentConfigExtras()
-            );
+            $config = $this->loadEntityConfig($parentEntityClass, $this->getParentConfigExtras());
             $this->set(self::PARENT_CONFIG, $config->getDefinition());
         } catch (\Exception $e) {
             $this->set(self::PARENT_CONFIG, null);
@@ -284,11 +353,9 @@ class SubresourceContext extends Context
      */
     public function getParentMetadataExtras()
     {
-        if (!$this->has(self::PARENT_METADATA_EXTRAS)) {
-            $this->set(self::PARENT_METADATA_EXTRAS, $this->createParentMetadataExtras());
-        }
+        $this->ensureParentMetadataExtrasInitialized();
 
-        return $this->get(self::PARENT_METADATA_EXTRAS);
+        return $this->parentMetadataExtras->getMetadataExtras();
     }
 
     /**
@@ -300,18 +367,13 @@ class SubresourceContext extends Context
      */
     public function setParentMetadataExtras(array $extras)
     {
-        foreach ($extras as $metadataExtra) {
-            if (!$metadataExtra instanceof MetadataExtraInterface) {
-                throw new \InvalidArgumentException(
-                    'Expected an array of "Oro\Bundle\ApiBundle\Metadata\MetadataExtraInterface".'
-                );
-            }
-        }
-
         if (empty($extras)) {
-            $this->remove(self::PARENT_METADATA_EXTRAS);
+            $this->parentMetadataExtras = null;
         } else {
-            $this->set(self::PARENT_METADATA_EXTRAS, $extras);
+            if (null === $this->parentMetadataExtras) {
+                $this->parentMetadataExtras = new MetadataExtraCollection();
+            }
+            $this->parentMetadataExtras->setMetadataExtras($extras);
         }
     }
 
@@ -344,7 +406,7 @@ class SubresourceContext extends Context
      *
      * @param EntityMetadata|null $metadata
      */
-    public function setParentMetadata(EntityMetadata $metadata = null)
+    public function setParentMetadata(?EntityMetadata $metadata)
     {
         if ($metadata) {
             $this->set(self::PARENT_METADATA, $metadata);
@@ -360,7 +422,24 @@ class SubresourceContext extends Context
      */
     protected function createParentMetadataExtras()
     {
-        return [];
+        $extras = [];
+        $action = $this->getAction();
+        if ($action) {
+            $extras[] = new ActionMetadataExtra($action);
+        }
+
+        return $extras;
+    }
+
+    /**
+     * Makes sure that a list of requests for additional metadata info of the parent entity is initialized.
+     */
+    private function ensureParentMetadataExtrasInitialized()
+    {
+        if (null === $this->parentMetadataExtras) {
+            $this->parentMetadataExtras = new MetadataExtraCollection();
+            $this->parentMetadataExtras->setMetadataExtras($this->createParentMetadataExtras());
+        }
     }
 
     /**
@@ -376,12 +455,16 @@ class SubresourceContext extends Context
         }
 
         try {
+            $extras = $this->getParentMetadataExtras();
+            if ($this->isHateoasEnabled()) {
+                $extras[] = new HateoasMetadataExtra($this->getFilterValues());
+            }
             $metadata = $this->metadataProvider->getMetadata(
                 $parentEntityClass,
                 $this->getVersion(),
                 $this->getRequestType(),
                 $this->getParentConfig(),
-                $this->getParentMetadataExtras()
+                $extras
             );
             $this->set(self::PARENT_METADATA, $metadata);
         } catch (\Exception $e) {

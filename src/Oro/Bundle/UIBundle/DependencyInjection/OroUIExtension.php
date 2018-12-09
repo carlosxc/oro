@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\UIBundle\DependencyInjection;
 
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
-
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 
 /**
  * This is the class that loads and manages your bundle configuration
@@ -17,6 +16,11 @@ use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
  */
 class OroUIExtension extends Extension
 {
+    const ALIAS = 'oro_ui';
+    const PLACEHOLDERS_CONFIG_ROOT_NODE = 'placeholders';
+    const PLACEHOLDERS_NODE = 'placeholders';
+    const PLACEHOLDERS_ITEMS_NODE = 'items';
+
     /**
      * {@inheritDoc}
      */
@@ -32,22 +36,34 @@ class OroUIExtension extends Extension
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yml');
-        $loader->load('twig.yml');
         $loader->load('content_providers.yml');
         $loader->load('layouts.yml');
         $loader->load('block_types.yml');
+        $loader->load('form_types.yml');
+        $loader->load('commands.yml');
 
         $container->setParameter(
             'oro_ui.placeholders',
             [
                 'placeholders' => $config['placeholders'],
-                'items'        => $config['placeholder_items']
+                'items' => $config['placeholder_items']
             ]
         );
 
         $container->prependExtensionConfig($this->getAlias(), array_intersect_key($config, array_flip(['settings'])));
 
-        $this->addClassesToCompile(['Oro\Bundle\UIBundle\EventListener\ContentProviderListener']);
+        $this->addClassesToCompile([
+            'Oro\Bundle\UIBundle\EventListener\ContentProviderListener',
+            'Oro\Bundle\UIBundle\Twig\Environment'
+        ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getAlias()
+    {
+        return static::ALIAS;
     }
 
     /**
@@ -59,25 +75,34 @@ class OroUIExtension extends Extension
     protected function loadPlaceholdersConfigs(ContainerBuilder $container)
     {
         $placeholders = [];
-        $items        = [];
+        $items = [];
 
         $configLoader = new CumulativeConfigLoader(
             'oro_placeholders',
-            new YamlCumulativeFileLoader('Resources/config/placeholders.yml')
+            new YamlCumulativeFileLoader('Resources/config/oro/placeholders.yml')
         );
-        $resources    = $configLoader->load($container);
+        $resources = $configLoader->load($container);
+
         foreach ($resources as $resource) {
-            if (isset($resource->data['placeholders'])) {
-                $this->ensurePlaceholdersCompleted($resource->data['placeholders']);
-                $placeholders = array_replace_recursive($placeholders, $resource->data['placeholders']);
+            if (!isset($resource->data[self::PLACEHOLDERS_CONFIG_ROOT_NODE])
+                || !is_array($resource->data[self::PLACEHOLDERS_CONFIG_ROOT_NODE])
+            ) {
+                continue;
             }
-            if (isset($resource->data['items'])) {
-                $items = array_replace_recursive($items, $resource->data['items']);
+
+            $config = &$resource->data[self::PLACEHOLDERS_CONFIG_ROOT_NODE];
+
+            if (isset($config[self::PLACEHOLDERS_NODE])) {
+                $this->ensurePlaceholdersCompleted($config[self::PLACEHOLDERS_NODE]);
+                $placeholders = array_replace_recursive($placeholders, $config[self::PLACEHOLDERS_NODE]);
+            }
+            if (isset($config[self::PLACEHOLDERS_ITEMS_NODE])) {
+                $items = array_replace_recursive($items, $config[self::PLACEHOLDERS_ITEMS_NODE]);
             }
         }
 
         return [
-            'placeholders'      => $placeholders,
+            'placeholders' => $placeholders,
             'placeholder_items' => $items
         ];
     }

@@ -11,7 +11,7 @@ use Oro\Component\MessageQueue\Transport\Null\NullQueue;
 use Oro\Component\MessageQueue\Transport\SessionInterface;
 use Oro\Component\Testing\ClassExtensionTrait;
 
-class RouteRecipientListProcessorTest extends \PHPUnit_Framework_TestCase
+class RouteRecipientListProcessorTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
 
@@ -67,26 +67,26 @@ class RouteRecipientListProcessorTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProducerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProducerInterface
      */
     protected function createProducerMock()
     {
-        return $this->getMock(MessageProducerInterface::class);
+        return $this->createMock(MessageProducerInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|SessionInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|SessionInterface
      */
     protected function createSessionMock()
     {
-        return $this->getMock(SessionInterface::class);
+        return $this->createMock(SessionInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|RecipientListRouterInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|RecipientListRouterInterface
      */
     protected function createRecipientListRouterMock()
     {
-        return $this->getMock(RecipientListRouterInterface::class);
+        return $this->createMock(RecipientListRouterInterface::class);
     }
 }

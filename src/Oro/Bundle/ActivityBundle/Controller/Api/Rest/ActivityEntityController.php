@@ -2,20 +2,20 @@
 
 namespace Oro\Bundle\ActivityBundle\Controller\Api\Rest;
 
-use FOS\RestBundle\Controller\Annotations\NamePrefix;
-use FOS\RestBundle\Controller\Annotations\RouteResource;
-use FOS\RestBundle\Controller\Annotations\QueryParam;
-use FOS\RestBundle\Controller\Annotations\Get;
 use FOS\RestBundle\Controller\Annotations\Delete;
+use FOS\RestBundle\Controller\Annotations\Get;
+use FOS\RestBundle\Controller\Annotations\NamePrefix;
 use FOS\RestBundle\Controller\Annotations\Post;
-
+use FOS\RestBundle\Controller\Annotations\QueryParam;
+use FOS\RestBundle\Controller\Annotations\RouteResource;
+use FOS\RestBundle\Util\Codes;
 use Nelmio\ApiDocBundle\Annotation\ApiDoc;
-
-use Symfony\Component\HttpFoundation\Response;
-
 use Oro\Bundle\ActivityBundle\Entity\Manager\ActivityEntityApiEntityManager;
+use Oro\Bundle\ActivityBundle\Exception\InvalidArgumentException;
 use Oro\Bundle\SoapBundle\Controller\Api\Rest\RestController;
 use Oro\Bundle\SoapBundle\Model\RelationIdentifier;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @RouteResource("activity_relation")
@@ -26,6 +26,7 @@ class ActivityEntityController extends RestController
     /**
      * Get entities associated with the specified activity.
      *
+     * @param Request $request
      * @param string $activity The type of the activity entity.
      * @param int    $id       The id of the activity entity.
      *
@@ -51,13 +52,13 @@ class ActivityEntityController extends RestController
      *
      * @return Response
      */
-    public function cgetAction($activity, $id)
+    public function cgetAction(Request $request, $activity, $id)
     {
         $manager = $this->getManager();
         $manager->setClass($manager->resolveEntityClass($activity, true));
 
-        $page  = (int)$this->getRequest()->get('page', 1);
-        $limit = (int)$this->getRequest()->get('limit', self::ITEMS_PER_PAGE);
+        $page  = (int)$request->get('page', 1);
+        $limit = (int)$request->get('limit', self::ITEMS_PER_PAGE);
 
         $criteria = $this->buildFilterCriteria(['id' => ['=', $id]]);
 
@@ -117,7 +118,36 @@ class ActivityEntityController extends RestController
             $entityId
         );
 
-        return $this->handleDeleteRequest($id);
+        try {
+            return $this->handleDeleteRequest($id);
+        } catch (InvalidArgumentException $exception) {
+            return $this->handleDeleteError($exception->getMessage(), Codes::HTTP_BAD_REQUEST, $id);
+        } catch (\Exception $e) {
+            return $this->handleDeleteError($e->getMessage(), Codes::HTTP_INTERNAL_SERVER_ERROR, $id);
+        }
+    }
+
+    /**
+     * @param string             $message
+     * @param int                $code
+     * @param RelationIdentifier $id
+     *
+     * @return Response
+     */
+    protected function handleDeleteError($message, $code, RelationIdentifier $id)
+    {
+        $view = $this->view(['message' => $message], $code);
+        return $this->buildResponse(
+            $view,
+            self::ACTION_DELETE,
+            [
+                'ownerEntityClass'  => $id->getOwnerEntityClass(),
+                'ownerEntityId'     => $id->getOwnerEntityId(),
+                'targetEntityClass' => $id->getTargetEntityClass(),
+                'targetEntityId'    => $id->getTargetEntityId(),
+                'success'           => false
+            ]
+        );
     }
 
     /**
@@ -143,6 +173,6 @@ class ActivityEntityController extends RestController
      */
     protected function getDeleteHandler()
     {
-        return $this->get('oro_activity.handler.delete.activity_entity');
+        return $this->get('oro_activity.handler.delete.activity_entity_proxy');
     }
 }

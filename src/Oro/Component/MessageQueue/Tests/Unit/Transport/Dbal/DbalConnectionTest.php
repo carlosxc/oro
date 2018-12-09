@@ -7,7 +7,7 @@ use Oro\Component\MessageQueue\Transport\Dbal\DbalConnection;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalSession;
 use Oro\Component\Testing\ClassExtensionTrait;
 
-class DbalConnectionTest extends \PHPUnit_Framework_TestCase
+class DbalConnectionTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
 
@@ -55,10 +55,10 @@ class DbalConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Connection
+     * @return \PHPUnit\Framework\MockObject\MockObject|Connection
      */
     private function createDBALConnectionMock()
     {
-        return $this->getMock(Connection::class, [], [], '', false);
+        return $this->createMock(Connection::class);
     }
 }

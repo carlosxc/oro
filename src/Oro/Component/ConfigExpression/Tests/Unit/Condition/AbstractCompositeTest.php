@@ -4,7 +4,7 @@ namespace Oro\Component\ConfigExpression\Tests\Unit\Condition;
 
 use Oro\Component\ConfigExpression\Condition;
 
-class AbstractCompositeTest extends \PHPUnit_Framework_TestCase
+class AbstractCompositeTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Condition\AbstractComposite */
     protected $condition;
@@ -18,7 +18,7 @@ class AbstractCompositeTest extends \PHPUnit_Framework_TestCase
 
     public function testInitializeSuccess()
     {
-        $operands = [$this->getMock('Oro\Component\ConfigExpression\ExpressionInterface')];
+        $operands = [$this->createMock('Oro\Component\ConfigExpression\ExpressionInterface')];
 
         $this->assertSame($this->condition, $this->condition->initialize($operands));
         $this->assertAttributeEquals($operands, 'operands', $this->condition);

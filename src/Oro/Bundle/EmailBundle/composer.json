@@ -5,10 +5,9 @@
     "keywords": ["BAP"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "doctrine/orm": ">=2.3,<2.4-dev",
-        "a2lix/translation-form-bundle" : "1.x-dev",
         "oro/attachment-bundle": "dev-master",
         "oro/user-bundle": "dev-master",
         "oro/requirejs-bundle": "dev-master",
@@ -18,7 +17,6 @@
         "psr-0": { "Oro\\Bundle\\EmailBundle": "" }
     },
     "target-dir": "Oro/Bundle/EmailBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

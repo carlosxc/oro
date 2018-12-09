@@ -61,17 +61,29 @@ define(function(require) {
             'click li': 'onItemClick'
         },
 
+        listen: {
+            'sync collection': 'onCollectionSync',
+            'syncStateChange collection': 'onCollectionSyncStateChange'
+        },
+
         template: _.template([
-            '<div class="dropdown-menu-collection__fallback" data-name="fallback"><%= fallbackText %></div>',
-            '<div class="dropdown-menu-collection__loading" data-name="loading"><%= loadingText %></div>',
-            '<ul class="dropdown-menu-collection__list" data-name="list"></ul>'
+            '<div class="dropdown-item" data-name="fallback"><%= fallbackText %></div>',
+            '<div class="dropdown-item" data-name="loading"><%= loadingText %></div>',
+            '<ul class="list-unstyled" data-name="list" role="menu"></ul>'
         ].join('')),
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function DropdownMenuCollectionView(options) {
+            DropdownMenuCollectionView.__super__.constructor.call(this, options);
+        },
 
         initialize: function(options) {
             _.extend(this, _.pick(options, ['loadingText', 'fallbackText', 'keysMap']));
             if (options.keysMap) {
                 var keysMap = options.keysMap;
-                var ItemView = this.itemView = this.itemView.extend({
+                var ItemView = this.itemView = this.itemView.extend({// eslint-disable-line oro/named-constructor
                     getTemplateData: function() {
                         var data = ItemView.__super__.getTemplateData.call(this);
                         data.id = keysMap.id && data[keysMap.id];
@@ -89,9 +101,9 @@ define(function(require) {
             return data;
         },
 
-        itemView: BaseView.extend({
+        itemView: BaseView.extend({// eslint-disable-line oro/named-constructor
             tagName: 'li',
-            template: _.template('<a href="#" data-value="<%= id %>"><%= text %></a>')
+            template: _.template('<a href="#" class="dropdown-item" data-value="<%= id %>"><%= text %></a>')
         }),
 
         onItemClick: function(e) {
@@ -103,6 +115,16 @@ define(function(require) {
             if (subview) {
                 this.trigger('selected', subview.model.toJSON());
             }
+        },
+
+        onCollectionSync: function() {
+            this.$el.trigger('content:changed');
+        },
+
+        onCollectionSyncStateChange: function() {
+            _.defer(_.bind(function() {
+                this.$el.trigger('content:changed');
+            }, this));
         }
     });
 

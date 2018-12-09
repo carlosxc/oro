@@ -3,7 +3,9 @@
 namespace Oro\Bundle\ApiBundle\Form\DataMapper;
 
 use Doctrine\Common\Collections\Collection;
-
+use Oro\Bundle\ApiBundle\Form\ReflectionUtil;
+use Oro\Bundle\ApiBundle\Metadata\AssociationMetadata;
+use Oro\Bundle\ApiBundle\Util\EntityMapper;
 use Symfony\Component\Form\DataMapperInterface;
 use Symfony\Component\Form\Exception\UnexpectedTypeException;
 use Symfony\Component\Form\FormConfigInterface;
@@ -11,19 +13,25 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyAccess\PropertyPathInterface;
 
-use Oro\Bundle\ApiBundle\Form\ReflectionUtil;
-
+/**
+ * A base class for data mappers that are used in "add_relationship" and "delete_relationship" Data API actions.
+ */
 abstract class AbstractRelationshipMapper implements DataMapperInterface
 {
     /** @var PropertyAccessorInterface */
     protected $propertyAccessor;
 
+    /** @var EntityMapper|null */
+    protected $entityMapper;
+
     /**
      * @param PropertyAccessorInterface $propertyAccessor
+     * @param EntityMapper              $entityMapper
      */
-    public function __construct(PropertyAccessorInterface $propertyAccessor)
+    public function __construct(PropertyAccessorInterface $propertyAccessor, EntityMapper $entityMapper = null)
     {
         $this->propertyAccessor = $propertyAccessor;
+        $this->entityMapper = $entityMapper;
     }
 
     /**
@@ -91,12 +99,42 @@ abstract class AbstractRelationshipMapper implements DataMapperInterface
         PropertyPathInterface $propertyPath
     ) {
         $dataValue = $this->propertyAccessor->getValue($data, $propertyPath);
-        if ($dataValue instanceof Collection && 1 === $propertyPath->getLength()) {
+        if ($this->useAdderAndRemover($dataValue, $formField, $propertyPath)) {
             // a collection valued property
             $this->mapDataToCollectionFormField($data, $formField, $propertyPath);
         } else {
             $formField->setData($dataValue);
         }
+    }
+
+    /**
+     * Checks whether adder and remover should be used instead of setter.
+     *
+     * @param                       $dataValue
+     * @param FormInterface         $formField
+     * @param PropertyPathInterface $propertyPath
+     *
+     * @return bool
+     */
+    protected function useAdderAndRemover($dataValue, FormInterface $formField, PropertyPathInterface $propertyPath)
+    {
+        if (1 !== $propertyPath->getLength()) {
+            return false;
+        }
+
+        if ($dataValue instanceof Collection) {
+            return true;
+        }
+
+        // Force using of adder and remover for to-many associations.
+        // It's especially important for extended associations because in this case a getter returns
+        // an array rather than Collection.
+        $metadata = $formField->getConfig()->getOption('metadata');
+        if ($metadata instanceof AssociationMetadata && $metadata->isCollection()) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -122,7 +160,7 @@ abstract class AbstractRelationshipMapper implements DataMapperInterface
             return;
         }
 
-        if ($dataValue instanceof Collection && 1 === $propertyPath->getLength()) {
+        if ($this->useAdderAndRemover($dataValue, $formField, $propertyPath)) {
             // a collection valued property
             $this->mapCollectionFormFieldToData($data, $formField, $propertyPath);
         } elseif (!$formFieldConfig->getByReference() || $formData !== $dataValue) {
@@ -169,5 +207,19 @@ abstract class AbstractRelationshipMapper implements DataMapperInterface
     protected function findAdderAndRemover($object, $property)
     {
         return ReflectionUtil::findAdderAndRemover($object, $property);
+    }
+
+    /**
+     * @param mixed $object
+     *
+     * @return mixed
+     */
+    protected function resolveEntity($object)
+    {
+        if (null === $this->entityMapper || !is_object($object)) {
+            return $object;
+        }
+
+        return $this->entityMapper->getEntity($object);
     }
 }

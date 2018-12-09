@@ -3,10 +3,8 @@
 namespace Oro\Bundle\EntityBundle\Provider;
 
 use Doctrine\Common\Inflector\Inflector;
-
-use Symfony\Component\Translation\TranslatorInterface;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
+use Symfony\Component\Translation\TranslatorInterface;
 
 abstract class AbstractEntityClassNameProvider
 {
@@ -78,7 +76,9 @@ abstract class AbstractEntityClassNameProvider
      */
     protected function getLabelName($entityClass, $isPlural = false)
     {
-        if (!$this->configManager->hasConfig($entityClass)) {
+        if (!$this->configManager->hasConfig($entityClass)
+            || $this->configManager->isHiddenModel($entityClass)
+        ) {
             return null;
         }
 
@@ -94,7 +94,9 @@ abstract class AbstractEntityClassNameProvider
      */
     protected function getFieldLabelName($entityClass, $fieldName)
     {
-        if (!$this->configManager->hasConfig($entityClass, $fieldName)) {
+        if (!$this->configManager->hasConfig($entityClass, $fieldName)
+            || $this->configManager->isHiddenModel($entityClass, $fieldName)
+        ) {
             return null;
         }
 

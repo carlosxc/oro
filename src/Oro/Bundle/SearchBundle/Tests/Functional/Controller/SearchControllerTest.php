@@ -2,23 +2,29 @@
 
 namespace Oro\Bundle\SearchBundle\Tests\Functional\Controller;
 
-use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Oro\Bundle\SearchBundle\Tests\Functional\Controller\DataFixtures\LoadSearchItemData;
+use Oro\Bundle\TestFrameworkBundle\Entity\Item;
+use Oro\Component\Testing\Assert\ArrayContainsConstraint;
 
 /**
- * @dbIsolation
- * @dbReindex
+ * @group search
+ * @dbIsolationPerTest
  */
-class SearchControllerTest extends WebTestCase
+class SearchControllerTest extends SearchBundleWebTestCase
 {
-    /**
-     * @var bool
-     */
-    protected static $hasLoaded = false;
-
     protected function setUp()
     {
+        parent::setUp();
+
         $this->initClient([], $this->generateBasicAuthHeader());
-        $this->loadFixtures(['Oro\Bundle\SearchBundle\Tests\Functional\Controller\DataFixtures\LoadSearchItemData']);
+
+        $alias = $this->getSearchObjectMapper()->getEntityAlias(Item::class);
+        $this->getSearchIndexer()->resetIndex(Item::class);
+        $this->ensureItemsLoaded($alias, 0);
+
+        $this->loadFixtures([LoadSearchItemData::class]);
+        $this->getSearchIndexer()->reindex(Item::class);
+        $this->ensureItemsLoaded($alias, LoadSearchItemData::COUNT);
     }
 
     /**
@@ -29,6 +35,7 @@ class SearchControllerTest extends WebTestCase
      */
     public function testSearchSuggestion(array $request, array $response)
     {
+        $this->addOroDefaultPrefixToUrlInParameterArray($response['rest']['data'], 'record_url');
         if (array_key_exists('supported_engines', $request)) {
             $engine = $this->getContainer()->getParameter('oro_search.engine');
             if (!in_array($engine, $request['supported_engines'])) {
@@ -45,14 +52,13 @@ class SearchControllerTest extends WebTestCase
             $request
         );
 
-        $result = $this->client->getResponse();
+        $actualResponse = $this->client->getResponse();
 
-        $this->assertResponseStatusCodeEquals($result, 200);
-        $content = $result->getContent();
+        $this->assertResponseStatusCodeEquals($actualResponse, 200);
 
-        foreach ($response['rest']['data'] as $item) {
-            $this->assertContains($item['record_url'], $content);
-        }
+        $actualContent = self::jsonToArray($actualResponse->getContent());
+
+        self::assertThat($actualContent['data'], new ArrayContainsConstraint($response['rest']['data'], false));
     }
 
     /**

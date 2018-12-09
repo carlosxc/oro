@@ -3,11 +3,12 @@ namespace Oro\Component\MessageQueue\Tests\Unit\Transport\Dbal;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalConnection;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalLazyConnection;
 use Oro\Component\Testing\ClassExtensionTrait;
 
-class DbalLazyConnectionTest extends \PHPUnit_Framework_TestCase
+class DbalLazyConnectionTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
 
@@ -139,15 +140,15 @@ class DbalLazyConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|ManagerRegistry
+     * @return \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry
      */
     private function createManagerRegistryMock()
     {
-        return $this->getMock(ManagerRegistry::class);
+        return $this->createMock(ManagerRegistry::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|ManagerRegistry
+     * @return \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry
      */
     private function createManagerRegistryStub($connection = null)
     {
@@ -162,10 +163,19 @@ class DbalLazyConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Connection
+     * @return \PHPUnit\Framework\MockObject\MockObject|Connection
      */
     private function createDBALConnectionMock()
     {
-        return $this->getMock(Connection::class, [], [], '', false);
+        $schemaManager = $this->createMock(AbstractSchemaManager::class);
+
+        $dbalConnection = $this->createMock(Connection::class);
+        $dbalConnection
+            ->expects($this->any())
+            ->method('getSchemaManager')
+            ->will($this->returnValue($schemaManager))
+        ;
+
+        return $dbalConnection;
     }
 }

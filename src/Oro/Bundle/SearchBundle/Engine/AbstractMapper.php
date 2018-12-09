@@ -2,12 +2,18 @@
 
 namespace Oro\Bundle\SearchBundle\Engine;
 
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-
 use Oro\Bundle\SearchBundle\Provider\SearchMappingProvider;
+use Oro\Bundle\SearchBundle\Query\Mode;
 use Oro\Bundle\SearchBundle\Query\Query;
+use Oro\Bundle\UIBundle\Tools\HtmlTagHelper;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
+/**
+ * Mapping index data from entities' data - common code.
+ *
+ * @package Oro\Bundle\SearchBundle\Engine
+ */
 abstract class AbstractMapper
 {
     /**
@@ -27,11 +33,37 @@ abstract class AbstractMapper
     protected $mappingProvider;
 
     /**
+     * @var PropertyAccessorInterface
+     */
+    protected $propertyAccessor;
+
+    /**
+     * @var HtmlTagHelper
+     */
+    protected $htmlTagHelper;
+
+    /**
      * @param SearchMappingProvider $mappingProvider
      */
     public function setMappingProvider(SearchMappingProvider $mappingProvider)
     {
         $this->mappingProvider = $mappingProvider;
+    }
+
+    /**
+     * @param PropertyAccessorInterface $propertyAccessor
+     */
+    public function setPropertyAccessor(PropertyAccessorInterface $propertyAccessor)
+    {
+        $this->propertyAccessor = $propertyAccessor;
+    }
+
+    /**
+     * @param HtmlTagHelper $htmlTagHelper
+     */
+    public function setHtmlTagHelper(HtmlTagHelper $htmlTagHelper)
+    {
+        $this->htmlTagHelper = $htmlTagHelper;
     }
 
     /**
@@ -44,10 +76,15 @@ abstract class AbstractMapper
      */
     public function getFieldValue($objectOrArray, $fieldName)
     {
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
+        if (is_object($objectOrArray)) {
+            $getter = sprintf('get%s', $fieldName);
+            if (method_exists($objectOrArray, $getter)) {
+                return $objectOrArray->$getter();
+            }
+        }
 
         try {
-            return $propertyAccessor->getValue($objectOrArray, $fieldName);
+            return $this->propertyAccessor->getValue($objectOrArray, $fieldName);
         } catch (\Exception $e) {
             return null;
         }
@@ -72,7 +109,7 @@ abstract class AbstractMapper
      *
      * @param string $entity
      *
-     * @return bool|array
+     * @return array
      */
     public function getEntityConfig($entity)
     {
@@ -89,52 +126,13 @@ abstract class AbstractMapper
     public function getEntityModeConfig($entity)
     {
         $config = $this->getEntityConfig($entity);
-        $value  = false;
+        $value  = Mode::NORMAL;
 
-        if (false !== $config) {
+        if ($config) {
             $value = $config['mode'];
         }
 
         return $value;
-    }
-
-    /**
-     * Set related fields values
-     *
-     * @param string $alias
-     * @param array  $objectData
-     * @param array  $relationFields
-     * @param object $relationObject
-     * @param string $parentName
-     * @param bool   $isArray
-     *
-     * @deprecated since 1.8
-     *
-     * @return array
-     */
-    protected function setRelatedFields(
-        $alias,
-        $objectData,
-        $relationFields,
-        $relationObject,
-        $parentName,
-        $isArray = false
-    ) {
-        foreach ($relationFields as $relationObjectField) {
-            $value = $this->getFieldValue($relationObject, $relationObjectField['name']);
-            if ($value) {
-                $relationObjectField['name'] = $parentName;
-                $objectData = $this->setDataValue(
-                    $alias,
-                    $objectData,
-                    $relationObjectField,
-                    $value,
-                    $isArray
-                );
-            }
-        }
-
-        return $objectData;
     }
 
     /**
@@ -163,7 +161,6 @@ abstract class AbstractMapper
                     } else {
                         $objectData[$fieldConfig['target_type']][$targetField] = $value;
                     }
-
                 }
             } else {
                 foreach ($targetFields as $targetField) {
@@ -179,17 +176,9 @@ abstract class AbstractMapper
                     $textAllDataField = $objectData[$fieldConfig['target_type']][Indexer::TEXT_ALL_DATA_FIELD];
                 }
 
-                $clearedValue = Query::clearString($value);
-                $textAllDataField .= sprintf(' %s %s ', $value, $clearedValue);
-
-                $objectData[$fieldConfig['target_type']][Indexer::TEXT_ALL_DATA_FIELD] = implode(
-                    Query::DELIMITER,
-                    array_unique(
-                        explode(
-                            Query::DELIMITER,
-                            $textAllDataField
-                        )
-                    )
+                $objectData[$fieldConfig['target_type']][Indexer::TEXT_ALL_DATA_FIELD] = $this->buildAllDataField(
+                    $textAllDataField,
+                    $value
                 );
 
                 $objectData[$fieldConfig['target_type']] = array_map('trim', $objectData[$fieldConfig['target_type']]);
@@ -197,5 +186,36 @@ abstract class AbstractMapper
         }
 
         return $objectData;
+    }
+
+    /**
+     * @param string $fieldName
+     * @param mixed $value
+     * @return string
+     */
+    abstract protected function clearTextValue($fieldName, $value);
+
+    /**
+     * @param string $original
+     * @param string $addition
+     * @return string
+     */
+    public function buildAllDataField($original, $addition)
+    {
+        $addition = $this->clearTextValue(Indexer::TEXT_ALL_DATA_FIELD, $addition);
+        $clearedAddition = Query::clearString($addition);
+
+        $original .= sprintf(' %s %s ', $addition, $clearedAddition);
+        $original = implode(
+            Query::DELIMITER,
+            array_unique(
+                explode(
+                    Query::DELIMITER,
+                    $original
+                )
+            )
+        );
+
+        return $original;
     }
 }

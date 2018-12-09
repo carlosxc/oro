@@ -4,15 +4,15 @@ namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Reader;
 
 use Oro\Bundle\ImportExportBundle\Reader\TemplateFixtureReader;
 
-class TemplateFixtureReaderTest extends \PHPUnit_Framework_TestCase
+class TemplateFixtureReaderTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $templateManager;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $contextRegistry;
 
@@ -41,7 +41,7 @@ class TemplateFixtureReaderTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeFromContextExceptionNoOption()
     {
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
         $context->expects($this->once())
             ->method('hasOption')
             ->with('entityName')
@@ -60,7 +60,7 @@ class TemplateFixtureReaderTest extends \PHPUnit_Framework_TestCase
 
     public function testInitializeFromContext()
     {
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
         $context->expects($this->once())
             ->method('hasOption')
             ->with('entityName')
@@ -79,7 +79,7 @@ class TemplateFixtureReaderTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($context));
 
         $iterator = new \ArrayIterator(array('test'));
-        $fixture = $this->getMock('Oro\Bundle\ImportExportBundle\TemplateFixture\TemplateFixtureInterface');
+        $fixture = $this->createMock('Oro\Bundle\ImportExportBundle\TemplateFixture\TemplateFixtureInterface');
         $fixture->expects($this->once())
             ->method('getData')
             ->will($this->returnValue($iterator));

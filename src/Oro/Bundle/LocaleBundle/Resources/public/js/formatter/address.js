@@ -1,5 +1,5 @@
 define(['jquery', '../locale-settings', './name'
-    ], function($, localeSettings, nameFormatter) {
+], function($, localeSettings, nameFormatter) {
     'use strict';
 
     /**
@@ -37,7 +37,7 @@ define(['jquery', '../locale-settings', './name'
                 if ('name' === lowerCaseKey) {
                     value = nameFormatter.format(address, localeSettings.getCountryLocale(country));
                 } else if ('street' === lowerCaseKey) {
-                    value = address.street + ' ' + (address.street2 || '');
+                    value = (address.street || '') + ' ' + (address.street2 || '');
                 } else if ('street1' === lowerCaseKey) {
                     value = address.street;
                 } else {

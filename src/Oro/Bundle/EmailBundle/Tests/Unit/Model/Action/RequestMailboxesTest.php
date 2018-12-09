@@ -3,16 +3,14 @@
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Model\Action;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
-
 use Oro\Bundle\EmailBundle\Entity\Email;
 use Oro\Bundle\EmailBundle\Entity\Mailbox;
 use Oro\Bundle\EmailBundle\Entity\Repository\MailboxRepository;
 use Oro\Bundle\EmailBundle\Mailbox\MailboxProcessStorage;
 use Oro\Bundle\EmailBundle\Model\Action\RequestMailboxes;
+use Oro\Component\ConfigExpression\ContextAccessor;
 
-use Oro\Component\Action\Model\ContextAccessor;
-
-class RequestMailboxesTest extends \PHPUnit_Framework_TestCase
+class RequestMailboxesTest extends \PHPUnit\Framework\TestCase
 {
     /** @var RequestMailboxes */
     protected $action;
@@ -31,13 +29,13 @@ class RequestMailboxesTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->contextAccessor = $this->getMock('Oro\Component\Action\Model\ContextAccessor');
+        $this->contextAccessor = $this->createMock('Oro\Component\ConfigExpression\ContextAccessor');
 
         $this->mailboxProcessStorage = $this->getMockBuilder('Oro\Bundle\EmailBundle\Mailbox\MailboxProcessStorage')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $demoProcess = $this->getMock('Oro\Bundle\EmailBundle\Mailbox\MailboxProcessProviderInterface');
+        $demoProcess = $this->createMock('Oro\Bundle\EmailBundle\Mailbox\MailboxProcessProviderInterface');
         $demoProcess->expects($this->any())
             ->method('getSettingsEntityFQCN')
             ->will($this->returnValue('DemoProcessSettings'));
@@ -62,7 +60,7 @@ class RequestMailboxesTest extends \PHPUnit_Framework_TestCase
 
         $this->action = new RequestMailboxes($this->contextAccessor, $this->registry, $this->mailboxProcessStorage);
 
-        $this->action->setDispatcher($this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
+        $this->action->setDispatcher($this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
     }
 
 

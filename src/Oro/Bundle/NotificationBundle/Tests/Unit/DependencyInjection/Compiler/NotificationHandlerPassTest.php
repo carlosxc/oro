@@ -2,71 +2,67 @@
 
 namespace Oro\Bundle\NotificationBundle\Tests\Unit\DependencyInjection\Compiler;
 
-use Symfony\Component\DependencyInjection\Reference;
-
 use Oro\Bundle\NotificationBundle\DependencyInjection\Compiler\NotificationHandlerPass;
+use Oro\Bundle\NotificationBundle\Provider\NotificationManager;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 
-class NotificationHandlerPassTest extends \PHPUnit_Framework_TestCase
+class NotificationHandlerPassTest extends \PHPUnit\Framework\TestCase
 {
-    const TEST_SERVICE_ID = 'test.id';
-
-    /**
-     * @var NotificationHandlerPass
-     */
+    /** @var NotificationHandlerPass */
     private $compiler;
+
+    /** @var ContainerBuilder */
+    private $container;
+
+    /** @var Definition */
+    private $manager;
+
+    /** @var Definition */
+    private $locator;
 
     protected function setUp()
     {
+        $this->container = new ContainerBuilder();
         $this->compiler = new NotificationHandlerPass();
+
+        $this->manager = $this->container->setDefinition(
+            'oro_notification.manager',
+            new Definition(NotificationManager::class, [[]])
+        );
+        $this->locator = $this->container->setDefinition(
+            'oro_notification.handler_locator',
+            new Definition(ServiceLocator::class, [[]])
+        );
     }
 
-    protected function tearDown()
+    public function testProcessWhenNoHandlers()
     {
-        unset($this->compiler);
+        $this->compiler->process($this->container);
+
+        self::assertEquals([], $this->manager->getArgument(0));
+        self::assertEquals([], $this->locator->getArgument(0));
     }
 
-    public function testCompile()
+    public function testProcess()
     {
-        $container  = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
-        $definition = $this->getMock('Symfony\Component\DependencyInjection\Definition');
+        $handler1 = $this->container->setDefinition('handler1', new Definition());
+        $handler1->addTag('notification.handler');
+        $handler2 = $this->container->setDefinition('handler2', new Definition());
+        $handler2->addTag('notification.handler', ['priority' => -10]);
+        $handler2->addTag('notification.handler', ['priority' => 10]);
 
-        $container->expects($this->once())
-            ->method('hasDefinition')
-            ->with('oro_notification.manager')
-            ->will($this->returnValue(true));
+        $this->compiler->process($this->container);
 
-        $container->expects($this->once())
-            ->method('getDefinition')
-            ->with('oro_notification.manager')
-            ->will($this->returnValue($definition));
-
-        $container->expects($this->once())
-            ->method('findTaggedServiceIds')
-            ->with('notification.handler')
-            ->will($this->returnValue(array(self::TEST_SERVICE_ID => null)));
-
-        $definition->expects($this->once())
-            ->method('addMethodCall')
-            ->with(
-                'addHandler',
-                array(new Reference(self::TEST_SERVICE_ID))
-            );
-
-        $this->compiler->process($container);
-    }
-
-    public function testCompileManagerNotDefined()
-    {
-        $container  = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
-
-        $container->expects($this->once())
-            ->method('hasDefinition')
-            ->with('oro_notification.manager')
-            ->will($this->returnValue(false));
-
-        $container->expects($this->never())
-            ->method('getDefinition');
-
-        $this->compiler->process($container);
+        self::assertEquals(['handler2', 'handler1', 'handler2'], $this->manager->getArgument(0));
+        self::assertEquals(
+            [
+                'handler1' => new Reference('handler1'),
+                'handler2' => new Reference('handler2')
+            ],
+            $this->locator->getArgument(0)
+        );
     }
 }

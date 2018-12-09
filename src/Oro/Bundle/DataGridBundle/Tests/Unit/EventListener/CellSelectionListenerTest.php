@@ -5,20 +5,20 @@ namespace Oro\Bundle\DataGridBundle\Tests\Unit\EventListener;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\EventListener\CellSelectionListener;
 
-class SelectCellListenerTest extends \PHPUnit_Framework_TestCase
+class CellSelectionListenerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \Oro\Bundle\DataGridBundle\Event\BuildAfter|\PHPUnit_Framework_MockObject_MockObject
+     * @var \Oro\Bundle\DataGridBundle\Event\BuildAfter|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $event;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $datagrid;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $datasource;
 
@@ -32,7 +32,7 @@ class SelectCellListenerTest extends \PHPUnit_Framework_TestCase
         $this->event = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Event\BuildAfter')
             ->disableOriginalConstructor()
             ->getMock();
-        $this->datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $this->datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $this->datasource = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource')
             ->disableOriginalConstructor()
             ->getMock();
@@ -170,7 +170,7 @@ class SelectCellListenerTest extends \PHPUnit_Framework_TestCase
             ->method('getDatagrid')
             ->will($this->returnValue($this->datagrid));
 
-        $datasource = $this->getMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
+        $datasource = $this->createMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
 
         $this->datagrid->expects($this->once())
             ->method('getDatasource')

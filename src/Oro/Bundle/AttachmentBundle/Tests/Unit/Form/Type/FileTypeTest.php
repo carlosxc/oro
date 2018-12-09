@@ -4,8 +4,9 @@ namespace Oro\Bundle\AttachmentBundle\Tests\Unit\Form\Type;
 
 use Oro\Bundle\AttachmentBundle\Form\Type\FileType;
 use Oro\Bundle\AttachmentBundle\Tests\Unit\Fixtures\TestSubscriber;
+use Symfony\Component\Form\Extension\Core\Type\FileType as SymfonyFileType;
 
-class FileTypeTest extends \PHPUnit_Framework_TestCase
+class FileTypeTest extends \PHPUnit\Framework\TestCase
 {
     /** @var FileType */
     protected $type;
@@ -24,32 +25,51 @@ class FileTypeTest extends \PHPUnit_Framework_TestCase
     {
         $event = new TestSubscriber();
         $this->type->setEventSubscriber($event);
-        $builder = $this->getMock('Symfony\Component\Form\Test\FormBuilderInterface');
+        $builder = $this->createMock('Symfony\Component\Form\Test\FormBuilderInterface');
         $builder->expects($this->once())
             ->method('addEventSubscriber')
             ->with($event);
 
         $builder->expects($this->once())
             ->method('add')
-            ->with('file', 'file');
+            ->with('file', SymfonyFileType::class);
 
-        $options = ['checkEmptyFile' => true];
+        $options = [
+            'checkEmptyFile' => true,
+            'addEventSubscriber' => true
+        ];
         $this->type->buildForm($builder, $options);
     }
 
-    public function testSetDefaultOptions()
+    public function testBuildFormWithoutEventSubscriber()
     {
-        $resolver = $this->getMock('Symfony\Component\OptionsResolver\OptionsResolverInterface');
+        $builder = $this->createMock('Symfony\Component\Form\Test\FormBuilderInterface');
+
+        $builder->expects($this->once())
+            ->method('add')
+            ->with('file', SymfonyFileType::class);
+
+        $options = [
+            'checkEmptyFile' => true,
+            'addEventSubscriber' => false
+        ];
+        $this->type->buildForm($builder, $options);
+    }
+
+    public function testConfigureOptions()
+    {
+        $resolver = $this->createMock('Symfony\Component\OptionsResolver\OptionsResolver');
         $resolver->expects($this->once())
             ->method('setDefaults')
             ->with(
                 [
                     'data_class' => 'Oro\Bundle\AttachmentBundle\Entity\File',
                     'checkEmptyFile' => false,
-                    'allowDelete' => true
+                    'allowDelete' => true,
+                    'addEventSubscriber' => true
                 ]
             );
 
-        $this->type->setDefaultOptions($resolver);
+        $this->type->configureOptions($resolver);
     }
 }

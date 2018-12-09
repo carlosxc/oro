@@ -2,21 +2,21 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Provider\Rest\Transport;
 
-class AbstractRestTransportTest extends \PHPUnit_Framework_TestCase
+class AbstractRestTransportTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $clientFactory;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $transport;
 
     protected function setUp()
     {
-        $this->clientFactory = $this->getMock(
+        $this->clientFactory = $this->createMock(
             'Oro\\Bundle\\IntegrationBundle\\Provider\\Rest\\Client\\RestClientFactoryInterface'
         );
 
@@ -31,7 +31,7 @@ class AbstractRestTransportTest extends \PHPUnit_Framework_TestCase
         $expectedBaseUrl = 'https://example.com/api/v2';
         $expectedClientOptions = ['auth' => ['username', 'password']];
 
-        $expectedClient = $this->getMock(
+        $expectedClient = $this->createMock(
             'Oro\\Bundle\\IntegrationBundle\\Provider\\Rest\\Client\\RestClientInterface'
         );
 
@@ -39,7 +39,7 @@ class AbstractRestTransportTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $settings = $this->getMock('Symfony\\Component\\HttpFoundation\\ParameterBag');
+        $settings = $this->createMock('Symfony\\Component\\HttpFoundation\\ParameterBag');
 
         $entity->expects($this->atLeastOnce())
             ->method('getSettingsBag')

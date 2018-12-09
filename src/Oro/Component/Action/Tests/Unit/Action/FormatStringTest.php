@@ -3,15 +3,13 @@
 namespace Oro\Component\Action\Tests\Unit\Action;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Oro\Component\Action\Action\FormatString;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Component\Action\Action\FormatString;
-use Oro\Component\Action\Model\ContextAccessor;
-use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
-
-class FormatStringTest extends \PHPUnit_Framework_TestCase
+class FormatStringTest extends \PHPUnit\Framework\TestCase
 {
     const ATTRIBUTE_PATH = 'attribute';
     const ARGUMENTS_PATH = 'arguments';
@@ -112,7 +110,8 @@ class FormatStringTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeException(array $options, $exceptionName, $exceptionMessage)
     {
-        $this->setExpectedException($exceptionName, $exceptionMessage);
+        $this->expectException($exceptionName);
+        $this->expectExceptionMessage($exceptionMessage);
         $this->action->initialize($options);
     }
 

@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/oroattachment/css/scss/main.scss'

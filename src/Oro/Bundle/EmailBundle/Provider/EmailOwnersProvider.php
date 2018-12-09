@@ -4,10 +4,9 @@ namespace Oro\Bundle\EmailBundle\Provider;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
 use Doctrine\Common\Util\ClassUtils;
-
 use Oro\Bundle\ActivityListBundle\Provider\ActivityListChainProvider;
-use Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderStorage;
 use Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface;
+use Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderStorage;
 use Oro\Component\PhpUtils\ArrayUtil;
 
 class EmailOwnersProvider
@@ -102,13 +101,28 @@ class EmailOwnersProvider
     }
 
     /**
-     * @param object $entity
+     * @return string[]
+     */
+    public function getSupportedEmailOwnerClassNames()
+    {
+        $providers = $this->emailOwnerStorage->getProviders();
+
+        $classes = [];
+        foreach ($providers as $provider) {
+            $classes[] = $provider->getEmailOwnerClass();
+        }
+
+        return $classes;
+    }
+
+    /**
+     * @param object|string $entityOrClass
      *
      * @return string|null
      */
-    protected function getOwnerColumnName($entity)
+    public function getOwnerColumnName($entityOrClass)
     {
-        if ($provider = $this->findEmailOwnerProvider($entity)) {
+        if ($provider = $this->findEmailOwnerProvider($entityOrClass)) {
             return $this->emailOwnerStorage->getEmailOwnerFieldName($provider);
         }
 
@@ -116,18 +130,18 @@ class EmailOwnersProvider
     }
 
     /**
-     * @param object $entity
+     * @param object|string $entityOrClass
      *
      * @return EmailOwnerProviderInterface|null
      */
-    protected function findEmailOwnerProvider($entity)
+    protected function findEmailOwnerProvider($entityOrClass)
     {
-        $entityClass = ClassUtils::getClass($entity);
+        $entityClass = is_object($entityOrClass) ? ClassUtils::getClass($entityOrClass) : $entityOrClass;
 
         return ArrayUtil::find(
-            function (EmailOwnerProviderInterface $provider) use ($entity, $entityClass) {
+            function (EmailOwnerProviderInterface $provider) use ($entityOrClass, $entityClass) {
                 return $provider->getEmailOwnerClass() === $entityClass
-                    && $this->activityListChainProvider->isSupportedTargetEntity($entity);
+                    && $this->activityListChainProvider->isSupportedTargetEntity($entityOrClass);
             },
             $this->emailOwnerStorage->getProviders()
         );

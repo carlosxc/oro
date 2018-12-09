@@ -3,42 +3,41 @@
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Provider;
 
 use Doctrine\ORM\EntityManager;
-
 use Oro\Bundle\AttachmentBundle\Provider\AttachmentProvider;
 use Oro\Bundle\EmailBundle\Entity\Provider\EmailThreadProvider;
 use Oro\Bundle\EmailBundle\Provider\EmailAttachmentProvider;
 use Oro\Bundle\EmailBundle\Tools\EmailAttachmentTransformer;
 
-class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
+class EmailAttachmentProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var EmailThreadProvider|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailThreadProvider|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailThreadProvider;
 
     /**
-     * @var EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $em;
 
     /**
-     * @var AttachmentProvider|\PHPUnit_Framework_MockObject_MockObject
+     * @var AttachmentProvider|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $attachmentProvider;
 
     /**
-     * @var EmailAttachmentTransformer|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailAttachmentTransformer|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailAttachmentTransformer;
 
     /**
-     * @var EmailAttachmentProvider|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailAttachmentProvider|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailAttachmentProvider;
 
     protected function setUp()
     {
-        $this->emailThreadProvider = $this->getMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailThreadProvider');
+        $this->emailThreadProvider = $this->createMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailThreadProvider');
 
         $this->em = $this->getMockBuilder('Doctrine\ORM\EntityManager')
             ->disableOriginalConstructor()
@@ -69,7 +68,7 @@ class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
      */
     public function testGetThreadAttachments($threadEmails, $transformationCalls)
     {
-        $emailEntity = $this->getMock('Oro\Bundle\EmailBundle\Entity\Email');
+        $emailEntity = $this->createMock('Oro\Bundle\EmailBundle\Entity\Email');
 
         $this->emailThreadProvider->expects($this->once())
             ->method('getThreadEmails')
@@ -93,7 +92,7 @@ class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
         $transformationCalls = 0;
         $threadEmailCount = 3;
         for ($i = 0; $i < $threadEmailCount; $i++) {
-            $emailBody = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailBody');
+            $emailBody = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailBody');
             $emailBody->expects($this->once())
                 ->method('getHasAttachments')
                 ->willReturn(true);
@@ -105,7 +104,7 @@ class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
                 ->method('getAttachments')
                 ->willReturn($attachments);
 
-            $threadEmail = $this->getMock('Oro\Bundle\EmailBundle\Entity\Email');
+            $threadEmail = $this->createMock('Oro\Bundle\EmailBundle\Entity\Email');
             $threadEmail->expects($this->exactly($threadEmailCount))
                 ->method('getEmailBody')
                 ->willReturn($emailBody);
@@ -123,12 +122,12 @@ class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testGetScopeEntityAttachments()
     {
-        $entity = $this->getMock('\stdClass');
+        $entity = $this->createMock('\stdClass');
 
         $oroAttachments = [];
         $size = 3;
         for ($i = 0; $i < $size; $i++) {
-            $oroAttachments[] = $this->getMock('Oro\Bundle\AttachmentBundle\Entity\Attachment');
+            $oroAttachments[] = $this->createMock('Oro\Bundle\AttachmentBundle\Entity\Attachment');
         }
 
         $this->attachmentProvider->expects($this->once())
@@ -153,7 +152,7 @@ class EmailAttachmentProviderTest extends \PHPUnit_Framework_TestCase
     {
         $attachments = [];
         for ($i = 0; $i < $count; $i++) {
-            $attachments[] = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailAttachment');
+            $attachments[] = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailAttachment');
         }
 
         return $attachments;

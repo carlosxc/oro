@@ -2,13 +2,13 @@
 
 namespace Oro\Component\Layout\Tests\Unit\Loader\Generator\Extension;
 
-use Oro\Component\Layout\Loader\Generator\GeneratorData;
-use Oro\Component\Layout\Loader\Visitor\VisitorCollection;
-use Oro\Component\Layout\Loader\Generator\Extension\ImportsLayoutUpdateExtension;
 use Oro\Component\Layout\Loader\Generator\Extension\ImportLayoutUpdateVisitor;
 use Oro\Component\Layout\Loader\Generator\Extension\ImportsAwareLayoutUpdateVisitor;
+use Oro\Component\Layout\Loader\Generator\Extension\ImportsLayoutUpdateExtension;
+use Oro\Component\Layout\Loader\Generator\GeneratorData;
+use Oro\Component\Layout\Loader\Visitor\VisitorCollection;
 
-class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
+class ImportsLayoutUpdateExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ImportsLayoutUpdateExtension */
     protected $extension;
@@ -46,7 +46,7 @@ class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
                 'namespace' => 'import_namespace_2',
             ]
         ];
-        $collection = $this->getMock(VisitorCollection::class);
+        $collection = $this->createMock(VisitorCollection::class);
         $collection->expects($this->once())
             ->method('append')
             ->with(new ImportsAwareLayoutUpdateVisitor($imports));
@@ -61,7 +61,7 @@ class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
      */
     public function testPrepareWithoutNodeImports(array $source)
     {
-        $collection = $this->getMock(VisitorCollection::class);
+        $collection = $this->createMock(VisitorCollection::class);
         $collection->expects($this->never())
             ->method('append');
         $this->extension->prepare(new GeneratorData($source), $collection);
@@ -92,7 +92,7 @@ class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
             'default/imports/import_name/filename.yml'
         );
 
-        $collection = $this->getMock(VisitorCollection::class);
+        $collection = $this->createMock(VisitorCollection::class);
         $collection->expects($this->once())
             ->method('append')
             ->with(new ImportLayoutUpdateVisitor());
@@ -108,7 +108,7 @@ class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
             'default/not_imported/import_name/filename.yml'
         );
 
-        $collection = $this->getMock(VisitorCollection::class);
+        $collection = $this->createMock(VisitorCollection::class);
         $collection->expects($this->never())
             ->method('append')
             ->with(new ImportLayoutUpdateVisitor());
@@ -140,7 +140,7 @@ class ImportsLayoutUpdateExtensionTest extends \PHPUnit_Framework_TestCase
                 'namespace' => 'import_namespace',
             ]
         ];
-        $collection = $this->getMock(VisitorCollection::class);
+        $collection = $this->createMock(VisitorCollection::class);
         $collection->expects($this->at(0))
             ->method('append')
             ->with(new ImportsAwareLayoutUpdateVisitor($imports));

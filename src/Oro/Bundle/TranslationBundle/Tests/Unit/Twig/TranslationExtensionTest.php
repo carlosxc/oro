@@ -2,35 +2,38 @@
 
 namespace Oro\Bundle\TranslationBundle\Tests\Unit\Twig;
 
+use Oro\Bundle\TranslationBundle\Helper\TranslationsDatagridRouteHelper;
 use Oro\Bundle\TranslationBundle\Twig\TranslationExtension;
+use Oro\Component\Testing\Unit\TwigExtensionTestCaseTrait;
 
-class TranslationExtensionTest extends \PHPUnit_Framework_TestCase
+class TranslationExtensionTest extends \PHPUnit\Framework\TestCase
 {
+    use TwigExtensionTestCaseTrait;
+
+    /** @var TranslationsDatagridRouteHelper|\PHPUnit\Framework\MockObject\MockObject */
+    protected $translationRouteHelper;
+
+    /** @var TranslationExtension */
+    protected $extension;
+
     /**
-     * @param bool $debugTranslator
-     * @return TranslationExtension
+     * {@inheritdoc}
      */
-    protected function createExtension($debugTranslator = false)
+    protected function setUp()
     {
-        return new TranslationExtension($debugTranslator);
+        $this->translationRouteHelper = $this->getMockBuilder(TranslationsDatagridRouteHelper::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $container = self::getContainerBuilder()
+            ->add('oro_translation.helper.translation_route', $this->translationRouteHelper)
+            ->getContainer($this);
+
+        $this->extension = new TranslationExtension($container, true);
     }
 
     public function testGetName()
     {
-        $extension = $this->createExtension();
-        $this->assertEquals(TranslationExtension::NAME, $extension->getName());
-    }
-
-    public function testFunctions()
-    {
-        $extension = $this->createExtension(true);
-        $functions = $extension->getFunctions();
-        $this->assertCount(1, $functions);
-
-        /** @var \Twig_SimpleFunction $debugTranslator */
-        $debugTranslator = current($functions);
-        $this->assertInstanceOf('\Twig_SimpleFunction', $debugTranslator);
-        $this->assertEquals('oro_translation_debug_translator', $debugTranslator->getName());
-        $this->assertTrue(call_user_func($debugTranslator->getCallable()));
+        $this->assertEquals(TranslationExtension::NAME, $this->extension->getName());
     }
 }

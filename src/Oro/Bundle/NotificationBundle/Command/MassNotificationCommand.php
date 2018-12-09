@@ -2,14 +2,17 @@
 
 namespace  Oro\Bundle\NotificationBundle\Command;
 
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
+use Oro\Bundle\EmailBundle\Model\From;
+use Oro\Bundle\NotificationBundle\Exception\NotificationSendException;
+use Oro\Bundle\NotificationBundle\Model\MassNotificationSender;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Class MassNotificationCommand
- * Console command implementation
+ * Sends maintenance mass notification to a configured group of email or to enabled users if no emails were configured.
  *
  * @package Oro\Bundle\NotificationBundle\Command
  */
@@ -84,10 +87,36 @@ class MassNotificationCommand extends ContainerAwareCommand
             $message = file_get_contents($filePath);
         }
 
-        $sender = $this->getContainer()->get('oro_notification.mass_notification_sender');
+        $massNotificationSender = $this->getMassNotificationSender();
 
-        $count = $sender->send($message, $subject, $senderEmail, $senderName);
+        $sender = $senderEmail
+            ? From::emailAddress($senderEmail, $senderName)
+            : null;
+
+        try {
+            $count = $massNotificationSender->send($message, $subject, $sender);
+        } catch (NotificationSendException $exception) {
+            $this->getLogger()->error('An error occurred while sending mass notification', ['exception' => $exception]);
+            $output->writeln('An error occurred while sending mass notification');
+            return;
+        }
 
         $output->writeln(sprintf('%s notifications have been added to the queue', $count));
+    }
+
+    /**
+     * @return MassNotificationSender
+     */
+    private function getMassNotificationSender()
+    {
+        return $this->getContainer()->get('oro_notification.mass_notification_sender');
+    }
+
+    /**
+     * @return LoggerInterface
+     */
+    private function getLogger(): LoggerInterface
+    {
+        return $this->getContainer()->get('logger');
     }
 }

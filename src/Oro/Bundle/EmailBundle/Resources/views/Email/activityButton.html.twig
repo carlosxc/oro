@@ -1,6 +1,12 @@
 {% extends "OroEmailBundle:Email:activityLink.html.twig" %}
 
+
 {% block action_controll %}
-    {{ UI.clientButton(options) }}
+    {% set options = options|merge({
+        'aCss': 'no-hash'
+    }) %}
+    {% if feature_enabled('email') %}
+        {{ UI.clientButton(options) }}
+    {% endif %}
 {% endblock %}
 

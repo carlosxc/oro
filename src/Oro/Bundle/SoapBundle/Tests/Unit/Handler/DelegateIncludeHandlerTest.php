@@ -2,12 +2,11 @@
 
 namespace Oro\Bundle\SoapBundle\Tests\Unit\Handler;
 
-use Symfony\Component\DependencyInjection\Container;
-
 use Oro\Bundle\SoapBundle\Handler\DelegateIncludeHandler;
 use Oro\Bundle\SoapBundle\Handler\IncludeHandlerInterface;
+use Symfony\Component\DependencyInjection\Container;
 
-class DelegateIncludeHandlerTest extends \PHPUnit_Framework_TestCase
+class DelegateIncludeHandlerTest extends \PHPUnit\Framework\TestCase
 {
     use ContextAwareTest;
 
@@ -56,7 +55,7 @@ class DelegateIncludeHandlerTest extends \PHPUnit_Framework_TestCase
         $context->getRequest()->headers->set(IncludeHandlerInterface::HEADER_INCLUDE, $includeName);
 
         $serviceId = 'acme.demo.last-modified.handler';
-        $handler   = $this->getMock('Oro\Bundle\SoapBundle\Handler\IncludeHandlerInterface');
+        $handler   = $this->createMock('Oro\Bundle\SoapBundle\Handler\IncludeHandlerInterface');
         $this->container->set($serviceId, $handler);
         $this->handler->registerHandler($includeName, $serviceId);
 
@@ -80,7 +79,7 @@ class DelegateIncludeHandlerTest extends \PHPUnit_Framework_TestCase
         $context->getRequest()->headers->set(IncludeHandlerInterface::HEADER_INCLUDE, $includeName);
 
         $serviceId = 'acme.demo.last-modified.handler';
-        $handler   = $this->getMock('Oro\Bundle\SoapBundle\Handler\IncludeHandlerInterface');
+        $handler   = $this->createMock('Oro\Bundle\SoapBundle\Handler\IncludeHandlerInterface');
         $this->container->set($serviceId, $handler);
         $this->handler->registerHandler($includeName, $serviceId);
 

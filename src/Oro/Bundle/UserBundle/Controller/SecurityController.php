@@ -2,11 +2,10 @@
 
 namespace Oro\Bundle\UserBundle\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Symfony\Component\HttpFoundation\Response;
-
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\HttpFoundation\Response;
 
 class SecurityController extends Controller
 {
@@ -16,6 +15,9 @@ class SecurityController extends Controller
      */
     public function loginAction()
     {
+        if ($this->getUser()) {
+            return $this->redirect($this->generateUrl('oro_default'));
+        }
         $request = $this->get('request_stack')->getCurrentRequest();
         // 302 redirect does not processed by Backbone.sync handler, but 401 error does.
         if ($request->isXmlHttpRequest()) {
@@ -31,7 +33,7 @@ class SecurityController extends Controller
             // last authentication error (if any)
             'error'         => $helper->getLastAuthenticationError(),
             // CSRF token for the login form
-            'csrf_token'    => $csrfTokenManager->getToken('authenticate')->getValue()
+            'csrf_token'    => $csrfTokenManager->getToken('authenticate')->getValue(),
         ];
     }
 

@@ -1,21 +1,36 @@
-define([
-        'underscore',
-        'backbone',
-        'jquery.select2',
-        'jquery.validate'
-], function(_, Backbone) {
+define(function(require) {
     'use strict';
 
-    var $ = Backbone.$;
+    var AddressRegionView;
+    var _ = require('underscore');
+    var $ = require('jquery');
+    var RegionCollection = require('oroaddress/js/region/collection');
+    var Backbone = require('backbone');
+    var module = require('module');
+    var config = _.defaults(module.config(), {
+        switchState: false
+    });
+    require('jquery.select2');
+    require('jquery.validate');
+    require('oroui/js/input-widget-manager');
 
     /**
      * @export  oro/region/view
      * @class   oro.region.View
      * @extends Backbone.View
      */
-    return Backbone.View.extend({
+    AddressRegionView = Backbone.View.extend({
         events: {
-            'change': 'selectionChanged'
+            change: 'selectionChanged'
+        },
+
+        switchState: config.switchState,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function AddressRegionView() {
+            AddressRegionView.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -25,11 +40,12 @@ define([
          */
         initialize: function(options) {
             this.target = $(options.target);
-            this.targetLabel = $('label[for="' + this.target.attr('id') + '"]');
-            this.$simpleEl = $(options.simpleEl);
+            this.$simpleEl = this.switchState !== 'disable' ? $(options.simpleEl) : null;
 
-            this.target.closest('.controls').append(this.$simpleEl);
-            this.$simpleEl.attr('type', 'text');
+            if (this.$simpleEl) {
+                this.target.after(this.$simpleEl);
+                this.$simpleEl.attr('type', 'text');
+            }
 
             this.showSelect = options.showSelect;
             this.regionRequired = options.regionRequired;
@@ -40,6 +56,12 @@ define([
             this.target.on('input-widget:init', _.bind(function() {
                 this.displaySelect2(this.showSelect);
             }, this));
+
+            if (options.collectionRoute && !this.collection) {
+                this.collection = new RegionCollection([], {
+                    route: options.collectionRoute
+                });
+            }
 
             this.listenTo(this.collection, 'reset', this.render);
         },
@@ -52,13 +74,13 @@ define([
         displaySelect2: function(display) {
             if (display) {
                 if (this.regionRequired) {
-                    this.addRequiredFlag(this.$simpleEl);
+                    this.addRequiredFlag();
                 }
-                this.target.inputWidget('show');
+                this.switchInputWidget(display);
             } else {
-                this.target.inputWidget('hide');
+                this.switchInputWidget(display);
                 if (this.regionRequired) {
-                    this.removeRequiredFlag(this.$simpleEl);
+                    this.removeRequiredFlag();
                 }
                 if (this.target.closest('form').data('validator')) {
                     this.target.validate().hideElementErrors(this.target);
@@ -66,8 +88,8 @@ define([
             }
         },
 
-        addRequiredFlag: function(el) {
-            var label = this.getInputLabel(el);
+        addRequiredFlag: function() {
+            var label = this.getInputLabel(this.target);
             if (!label.hasClass('required')) {
                 label
                     .addClass('required')
@@ -75,8 +97,8 @@ define([
             }
         },
 
-        removeRequiredFlag: function(el) {
-            var label = this.getInputLabel(el);
+        removeRequiredFlag: function() {
+            var label = this.getInputLabel(this.target);
             if (label.hasClass('required')) {
                 label
                     .removeClass('required')
@@ -85,7 +107,15 @@ define([
         },
 
         getInputLabel: function(el) {
-            return el.parent().parent().find('label');
+            var label;
+            var input = _.result(el.data('select2'), 'focusser') || el;
+            var id = input.attr('id');
+
+            if (id) {
+                label = $('label[for="' + id + '"]');
+            }
+
+            return label && label.length ? label : el.parent().parent().find('label');
         },
 
         /**
@@ -117,22 +147,36 @@ define([
             if (this.collection.models.length > 0) {
                 this.target.show();
                 this.displaySelect2(true);
-                this.target.inputWidget('show');
-
                 this.target.find('option[value!=""]').remove();
                 this.target.append(this.template({regions: this.collection.models}));
                 this.target.val(this.target.data('selected-data') || '').trigger('change');
 
-                this.$simpleEl.hide();
-                this.$simpleEl.val('');
+                if (this.$simpleEl) {
+                    this.$simpleEl.hide().val('');
+                }
             } else {
                 this.target.hide();
-                this.target.val('');
+                this.target.inputWidget('val', '');
                 this.displaySelect2(false);
-                this.target.inputWidget('hide');
-                this.$simpleEl.show();
+
+                if (this.$simpleEl) {
+                    this.$simpleEl.show();
+                }
             }
             this.$el.trigger('value:changed');
+        },
+
+        switchInputWidget: function(display) {
+            switch (this.switchState) {
+                case 'disable':
+                    this.target.inputWidget('disable', !display);
+                    break;
+                default: {
+                    this.target.inputWidget(display ? 'show' : 'hide');
+                }
+            }
         }
     });
+
+    return AddressRegionView;
 });

@@ -1,4 +1,4 @@
-oro_api:
+api:
     entity_aliases:
         Test\Entity4:
             alias: entity4
@@ -45,6 +45,8 @@ oro_api:
             fields:
                 field1: ~
         Test\Entity6: ~
+        Test\Entity7:
+            documentation_resource: entity7_bar.md
         Test\Entity10: ~
         Test\Entity12:
             exclude: true

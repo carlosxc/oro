@@ -2,21 +2,25 @@
 
 namespace Oro\Bundle\ApiBundle\Provider;
 
-use Oro\Component\ChainProcessor\ActionProcessorInterface;
 use Oro\Bundle\ApiBundle\Processor\CollectSubresources\CollectSubresourcesContext;
 use Oro\Bundle\ApiBundle\Request\ApiResourceSubresources;
+use Oro\Bundle\ApiBundle\Request\ApiSubresource;
 use Oro\Bundle\ApiBundle\Request\RequestType;
+use Oro\Component\ChainProcessor\ActionProcessorInterface;
 
+/**
+ * Provides a list of all Data API sub-resources available for a specific entity.
+ */
 class SubresourcesProvider
 {
     /** @var ActionProcessorInterface */
-    protected $processor;
+    private $processor;
 
     /** @var ResourcesProvider */
-    protected $resourcesProvider;
+    private $resourcesProvider;
 
     /** @var ResourcesCache */
-    protected $resourcesCache;
+    private $resourcesCache;
 
     /**
      * @param ActionProcessorInterface $processor
@@ -42,8 +46,11 @@ class SubresourcesProvider
      *
      * @return ApiResourceSubresources|null
      */
-    public function getSubresources($entityClass, $version, RequestType $requestType)
-    {
+    public function getSubresources(
+        string $entityClass,
+        string $version,
+        RequestType $requestType
+    ): ?ApiResourceSubresources {
         $entitySubresources = $this->resourcesCache->getSubresources($entityClass, $version, $requestType);
         if (null !== $entitySubresources) {
             return $entitySubresources;
@@ -54,14 +61,37 @@ class SubresourcesProvider
         $context->setVersion($version);
         $context->getRequestType()->set($requestType);
         $context->setResources($this->resourcesProvider->getResources($version, $requestType));
+        $context->setAccessibleResources($this->resourcesProvider->getAccessibleResources($version, $requestType));
 
         $this->processor->process($context);
 
         $subresources = $context->getResult()->toArray();
         $this->resourcesCache->saveSubresources($version, $requestType, array_values($subresources));
 
-        return isset($subresources[$entityClass])
-            ? $subresources[$entityClass]
-            : null;
+        return $subresources[$entityClass] ?? null;
+    }
+
+    /**
+     * Gets a sub-resource for the given association available through a given Data API version.
+     *
+     * @param string      $entityClass     The FQCN of an entity
+     * @param string      $associationName The name of an association
+     * @param string      $version         The Data API version
+     * @param RequestType $requestType     The request type, for example "rest", "soap", etc.
+     *
+     * @return ApiResourceSubresources|null
+     */
+    public function getSubresource(
+        string $entityClass,
+        string $associationName,
+        string $version,
+        RequestType $requestType
+    ): ?ApiSubresource {
+        $subresources = $this->getSubresources($entityClass, $version, $requestType);
+        if (null === $subresources) {
+            return null;
+        }
+
+        return $subresources->getSubresource($associationName);
     }
 }

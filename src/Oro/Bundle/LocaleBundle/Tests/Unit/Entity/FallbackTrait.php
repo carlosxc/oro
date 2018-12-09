@@ -3,11 +3,9 @@
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
 use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\Entity\LocalizedFallbackValue;
 use Oro\Bundle\LocaleBundle\Model\FallbackType;
-
 use Oro\Component\Testing\Unit\EntityTrait;
 
 trait FallbackTrait
@@ -59,7 +57,7 @@ trait FallbackTrait
 
         // test logic exception
         $badValues = new ArrayCollection([$value1, $value1]);
-        $this->setExpectedException('LogicException');
+        $this->expectException('LogicException');
         $object->$method($badValues, $localization1);
     }
 }

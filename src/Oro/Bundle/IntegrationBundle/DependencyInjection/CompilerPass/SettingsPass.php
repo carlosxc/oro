@@ -2,18 +2,18 @@
 
 namespace Oro\Bundle\IntegrationBundle\DependencyInjection\CompilerPass;
 
+use Oro\Bundle\IntegrationBundle\DependencyInjection\IntegrationConfiguration;
 use Oro\Component\Config\Loader\CumulativeConfigLoader;
 use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
-
-use Oro\Bundle\IntegrationBundle\DependencyInjection\IntegrationConfiguration;
-
 use Symfony\Component\Config\Definition\Processor;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 class SettingsPass implements CompilerPassInterface
 {
     const SETTINGS_PROVIDER_ID = 'oro_integration.provider.settings_provider';
+
+    const INTEGRATIONS_FILE_ROOT_NODE = 'integrations';
 
     /**
      * {@inheritDoc}
@@ -25,11 +25,11 @@ class SettingsPass implements CompilerPassInterface
         $configs      = [];
         $configLoader = new CumulativeConfigLoader(
             'oro_integration_settings',
-            new YamlCumulativeFileLoader('Resources/config/integration_settings.yml')
+            new YamlCumulativeFileLoader('Resources/config/oro/integrations.yml')
         );
         $resources    = $configLoader->load($container);
         foreach ($resources as $resource) {
-            $configs[] = $resource->data[IntegrationConfiguration::ROOT_NODE_NAME];
+            $configs[] = $resource->data[self::INTEGRATIONS_FILE_ROOT_NODE];
         }
 
         $processor = new Processor();

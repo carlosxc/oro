@@ -11,7 +11,7 @@ use Oro\Component\MessageQueue\Transport\Exception\InvalidDestinationException;
 use Oro\Component\MessageQueue\Transport\Exception\InvalidMessageException;
 use Oro\Component\MessageQueue\Transport\Null\NullQueue;
 
-class DbalMessageProducerTest extends \PHPUnit_Framework_TestCase
+class DbalMessageProducerTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -20,10 +20,8 @@ class DbalMessageProducerTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowIfBodyOfInvalidType()
     {
-        $this->setExpectedException(
-            InvalidMessageException::class,
-            'The message body must be a scalar or null. Got: stdClass'
-        );
+        $this->expectException(InvalidMessageException::class);
+        $this->expectExceptionMessage('The message body must be a scalar or null. Got: stdClass');
 
         $producer = new DbalMessageProducer($this->createConnectionMock());
 
@@ -35,8 +33,8 @@ class DbalMessageProducerTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowIfDestinationOfInvalidType()
     {
-        $this->setExpectedException(
-            InvalidDestinationException::class,
+        $this->expectException(InvalidDestinationException::class);
+        $this->expectExceptionMessage(
             'The destination must be an instance of '.
             'Oro\Component\MessageQueue\Transport\Dbal\DbalDestination but it is '.
             'Oro\Component\MessageQueue\Transport\Null\NullQueue.'
@@ -66,11 +64,8 @@ class DbalMessageProducerTest extends \PHPUnit_Framework_TestCase
         $destination = new DbalDestination('queue-name');
         $message = new DbalMessage();
 
-        $this->setExpectedException(
-            Exception::class,
-            'The transport fails to send the message due to some internal error.'
-        );
-
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('The transport fails to send the message due to some internal error.');
         $producer = new DbalMessageProducer($connection);
         $producer->send($destination, $message);
     }
@@ -116,18 +111,18 @@ class DbalMessageProducerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DbalConnection
+     * @return \PHPUnit\Framework\MockObject\MockObject|DbalConnection
      */
     private function createConnectionMock()
     {
-        return $this->getMock(DbalConnection::class, [], [], '', false);
+        return $this->createMock(DbalConnection::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Connection
+     * @return \PHPUnit\Framework\MockObject\MockObject|Connection
      */
     private function createDBALConnectionMock()
     {
-        return $this->getMock(Connection::class, [], [], '', false);
+        return $this->createMock(Connection::class);
     }
 }

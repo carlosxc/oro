@@ -2,14 +2,12 @@
 
 namespace Oro\Bundle\EntityBundle\Tests\Unit\DataCollector;
 
+use Doctrine\DBAL\Logging\DebugStack;
+use Oro\Bundle\EntityBundle\DataCollector\DuplicateQueriesDataCollector;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-use Doctrine\DBAL\Logging\DebugStack;
-
-use Oro\Bundle\EntityBundle\DataCollector\DuplicateQueriesDataCollector;
-
-class DuplicateQueriesDataCollectorTest extends \PHPUnit_Framework_TestCase
+class DuplicateQueriesDataCollectorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var DuplicateQueriesDataCollector
@@ -41,9 +39,9 @@ class DuplicateQueriesDataCollectorTest extends \PHPUnit_Framework_TestCase
             $this->collector->addLogger($loggerName, $logger);
         }
         /** @var Request $request */
-        $request = $this->getMock(Request::class);
+        $request = $this->createMock(Request::class);
         /** @var Response $response */
-        $response = $this->getMock(Response::class);
+        $response = $this->createMock(Response::class);
         $this->collector->collect($request, $response);
         $this->assertEquals($expectedCount, $this->collector->getQueriesCount());
         $this->assertEquals($expectedIdentical, $this->collector->getIdenticalQueries());

@@ -3,12 +3,13 @@
 namespace Oro\Bundle\ApiBundle\Tests\Unit\Processor\Subresource\Shared;
 
 use Oro\Bundle\ApiBundle\Processor\Subresource\Shared\ValidateIsCollection;
+use Oro\Bundle\ApiBundle\Request\ApiActions;
 use Oro\Bundle\ApiBundle\Tests\Unit\Processor\Subresource\GetSubresourceProcessorTestCase;
 
 class ValidateIsCollectionTest extends GetSubresourceProcessorTestCase
 {
     /** @var ValidateIsCollection */
-    protected $processor;
+    private $processor;
 
     protected function setUp()
     {
@@ -24,11 +25,13 @@ class ValidateIsCollectionTest extends GetSubresourceProcessorTestCase
     }
 
     /**
-     * @expectedException \Symfony\Component\HttpKernel\Exception\BadRequestHttpException
-     * @expectedExceptionMessage This action supports only a collection valued relationship.
+     * @expectedException \Oro\Bundle\ApiBundle\Exception\ActionNotAllowedException
      */
     public function testProcessWhenIsCollectionFlagIsFalse()
     {
+        $this->context->setAction(ApiActions::ADD_RELATIONSHIP);
+        $this->context->setParentClassName('Test\Class');
+        $this->context->setAssociationName('test');
         $this->processor->process($this->context);
     }
 }

@@ -6,7 +6,7 @@ use Oro\Component\MessageQueue\Job\DependentJobService;
 use Oro\Component\MessageQueue\Job\Job;
 use Oro\Component\MessageQueue\Job\JobStorage;
 
-class DependentJobServiceTest extends \PHPUnit_Framework_TestCase
+class DependentJobServiceTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -23,8 +23,8 @@ class DependentJobServiceTest extends \PHPUnit_Framework_TestCase
 
         $service = new DependentJobService($this->createJobStorageMock());
 
-        $this->setExpectedException(\LogicException::class, 'Only root jobs allowed but got child. jobId: "12345"');
-
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Only root jobs allowed but got child. jobId: "12345"');
         $service->saveDependentJob($context);
     }
 
@@ -66,10 +66,10 @@ class DependentJobServiceTest extends \PHPUnit_Framework_TestCase
 
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|JobStorage
+     * @return \PHPUnit\Framework\MockObject\MockObject|JobStorage
      */
     private function createJobStorageMock()
     {
-        return $this->getMock(JobStorage::class, [], [], '', false);
+        return $this->createMock(JobStorage::class);
     }
 }

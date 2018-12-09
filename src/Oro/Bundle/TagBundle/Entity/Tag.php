@@ -2,15 +2,14 @@
 
 namespace Oro\Bundle\TagBundle\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\PersistentCollection;
-use Doctrine\Common\Collections\ArrayCollection;
-
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\TagBundle\Model\ExtendTag;
 use Oro\Bundle\UserBundle\Entity\User;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 
 /**
  * Tag
@@ -26,7 +25,7 @@ use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
  * @Config(
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-tag"
+ *              "icon"="fa-tag"
  *          },
  *          "ownership"={
  *              "owner_type"="USER",
@@ -112,9 +111,15 @@ class Tag extends ExtendTag
     protected $updated;
 
     /**
-     * @ORM\OneToMany(targetEntity="Tagging", mappedBy="tag", fetch="LAZY")
+     * @ORM\OneToMany(targetEntity="Tagging", mappedBy="tag", fetch="EXTRA_LAZY")
      */
     protected $tagging;
+
+    /**
+     * @ORM\ManyToOne(targetEntity="Taxonomy", inversedBy="tags", fetch="LAZY")
+     * @ORM\JoinColumn(name="taxonomy_id", referencedColumnName="id", onDelete="SET NULL")
+     */
+    protected $taxonomy;
 
     /**
      * @var User
@@ -313,5 +318,34 @@ class Tag extends ExtendTag
     public function getOrganization()
     {
         return $this->organization;
+    }
+
+
+    /**
+     * @return Taxonomy
+     */
+    public function getTaxonomy()
+    {
+        return $this->taxonomy;
+    }
+
+    /**
+     * @param Taxonomy $taxonomy
+     */
+    public function setTaxonomy($taxonomy)
+    {
+        $this->taxonomy = $taxonomy;
+    }
+
+    /**
+     * @return string
+     */
+    public function getBackgroundColor()
+    {
+        if ($this->getTaxonomy() === null) {
+            return null;
+        }
+
+        return $this->getTaxonomy()->getBackgroundColor();
     }
 }

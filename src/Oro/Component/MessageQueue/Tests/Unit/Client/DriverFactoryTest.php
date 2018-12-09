@@ -12,7 +12,7 @@ use Oro\Component\MessageQueue\Transport\Dbal\DbalSession;
 use Oro\Component\MessageQueue\Transport\Null\NullConnection;
 use Oro\Component\MessageQueue\Transport\Null\NullSession;
 
-class DriverFactoryTest extends \PHPUnit_Framework_TestCase
+class DriverFactoryTest extends \PHPUnit\Framework\TestCase
 {
     public function testShouldCreateNullSessionInstance()
     {
@@ -31,7 +31,7 @@ class DriverFactoryTest extends \PHPUnit_Framework_TestCase
     {
         $config = new Config('', '', '', '');
 
-        $doctrineConnection = $this->getMock(Connection::class, [], [], '', false);
+        $doctrineConnection = $this->createMock(Connection::class);
         $connection = new DbalConnection($doctrineConnection, 'aTableName');
 
         $factory = new DriverFactory([DbalConnection::class => DbalDriver::class]);
@@ -46,23 +46,24 @@ class DriverFactoryTest extends \PHPUnit_Framework_TestCase
     {
         $factory = new DriverFactory([]);
 
-        $this->setExpectedException(\LogicException::class, 'Unexpected connection instance: "Mock_Connection');
-        $factory->create($this->getMock(ConnectionInterface::class), new Config('', '', '', ''));
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Unexpected connection instance: "Mock_Connection');
+        $factory->create($this->createMock(ConnectionInterface::class), new Config('', '', '', ''));
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|NullSession
+     * @return \PHPUnit\Framework\MockObject\MockObject|NullSession
      */
     protected function createNullSessionMock()
     {
-        return $this->getMock(NullSession::class, [], [], '', false);
+        return $this->createMock(NullSession::class, [], [], '', false);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|NullConnection
+     * @return \PHPUnit\Framework\MockObject\MockObject|NullConnection
      */
     protected function createNullConnectionMock()
     {
-        return $this->getMock(NullConnection::class, [], [], '', false);
+        return $this->createMock(NullConnection::class);
     }
 }

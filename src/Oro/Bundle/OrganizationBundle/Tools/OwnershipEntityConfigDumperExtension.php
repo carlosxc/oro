@@ -2,6 +2,7 @@
 
 namespace Oro\Bundle\OrganizationBundle\Tools;
 
+use Oro\Bundle\EntityBundle\EntityConfig\DatagridScope;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
@@ -10,7 +11,7 @@ use Oro\Bundle\EntityExtendBundle\Tools\ExtendConfigDumper;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 use Oro\Bundle\EntityExtendBundle\Tools\RelationBuilder;
 use Oro\Bundle\OrganizationBundle\Form\Type\OwnershipType;
-use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider;
+use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface;
 
 class OwnershipEntityConfigDumperExtension extends AbstractEntityConfigDumperExtension
 {
@@ -20,21 +21,21 @@ class OwnershipEntityConfigDumperExtension extends AbstractEntityConfigDumperExt
     /** @var RelationBuilder */
     protected $relationBuilder;
 
-    /** @var OwnershipMetadataProvider */
+    /** @var OwnershipMetadataProviderInterface */
     protected $ownershipMetadataProvider;
 
     /**
-     * @param ConfigManager             $configManager
-     * @param RelationBuilder           $relationBuilder
-     * @param OwnershipMetadataProvider $ownershipMetadataProvider
+     * @param ConfigManager                      $configManager
+     * @param RelationBuilder                    $relationBuilder
+     * @param OwnershipMetadataProviderInterface $ownershipMetadataProvider
      */
     public function __construct(
         ConfigManager $configManager,
         RelationBuilder $relationBuilder,
-        OwnershipMetadataProvider $ownershipMetadataProvider
+        OwnershipMetadataProviderInterface $ownershipMetadataProvider
     ) {
-        $this->configManager             = $configManager;
-        $this->relationBuilder           = $relationBuilder;
+        $this->configManager = $configManager;
+        $this->relationBuilder = $relationBuilder;
         $this->ownershipMetadataProvider = $ownershipMetadataProvider;
     }
 
@@ -126,7 +127,10 @@ class OwnershipEntityConfigDumperExtension extends AbstractEntityConfigDumperExt
                     ],
                     'dataaudit' => [
                         'auditable' => true
-                    ]
+                    ],
+                    'datagrid' => [
+                        'is_visible' => DatagridScope::IS_VISIBLE_FALSE,
+                    ],
                 ]
             );
         }

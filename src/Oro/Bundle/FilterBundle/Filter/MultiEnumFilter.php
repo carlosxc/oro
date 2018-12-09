@@ -2,15 +2,16 @@
 
 namespace Oro\Bundle\FilterBundle\Filter;
 
-use Symfony\Component\Form\FormFactoryInterface;
-
-use Oro\Bundle\FilterBundle\Form\Type\Filter\EnumFilterType;
 use Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface;
 use Oro\Bundle\FilterBundle\Datasource\ManyRelationBuilder;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\DictionaryFilterType;
+use Oro\Bundle\FilterBundle\Form\Type\Filter\EnumFilterType;
+use Symfony\Component\Form\FormFactoryInterface;
 
 class MultiEnumFilter extends BaseMultiChoiceFilter
 {
+    const FILTER_TYPE_NAME = 'multi_enum';
+
     /** @var ManyRelationBuilder */
     protected $manyRelationBuilder;
 
@@ -87,6 +88,6 @@ class MultiEnumFilter extends BaseMultiChoiceFilter
      */
     protected function getFormType()
     {
-        return EnumFilterType::NAME;
+        return EnumFilterType::class;
     }
 }

@@ -2,11 +2,8 @@
 
 namespace Oro\Bundle\AddressBundle\Entity;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\Mapping as ORM;
-
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\FormBundle\Entity\EmptyItem;
 use Oro\Bundle\FormBundle\Entity\PrimaryItem;
@@ -22,7 +19,6 @@ abstract class AbstractEmail implements PrimaryItem, EmptyItem
      * @ORM\Column(name="id", type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
-     * @Soap\ComplexType("int", nillable=true)
      */
     protected $id;
 
@@ -30,7 +26,6 @@ abstract class AbstractEmail implements PrimaryItem, EmptyItem
      * @var string
      *
      * @ORM\Column(name="email", type="string", length=255, nullable=false)
-     * @Soap\ComplexType("string", nillable=true)
      * @ConfigField(
      *      defaultValues={
      *          "importexport"={
@@ -48,7 +43,6 @@ abstract class AbstractEmail implements PrimaryItem, EmptyItem
      * @var boolean
      *
      * @ORM\Column(name="is_primary", type="boolean", nullable=true)
-     * @Soap\ComplexType("boolean", nillable=true)
      */
     protected $primary;
 

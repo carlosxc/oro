@@ -1,17 +1,17 @@
 <?php
 namespace Oro\Bundle\OrganizationBundle\Migrations\Data\ORM;
 
-use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\AbstractFixture;
 use Doctrine\Common\DataFixtures\OrderedFixtureInterface;
-
-use Oro\Bundle\OrganizationBundle\Entity\Organization;
+use Doctrine\Common\Persistence\ObjectManager;
 use Oro\Bundle\OrganizationBundle\Entity\BusinessUnit;
+use Oro\Bundle\OrganizationBundle\Entity\Organization;
 
 class LoadOrganizationAndBusinessUnitData extends AbstractFixture implements OrderedFixtureInterface
 {
     const MAIN_ORGANIZATION  = 'default';
     const MAIN_BUSINESS_UNIT = 'Main';
+    const REFERENCE_DEFAULT_ORGANIZATION = 'default_organization';
 
     /**
      * {@inheritdoc}
@@ -35,7 +35,7 @@ class LoadOrganizationAndBusinessUnitData extends AbstractFixture implements Ord
         $defaultOrganization
             ->setName(self::MAIN_ORGANIZATION)
             ->setEnabled(true);
-        $this->addReference('default_organization', $defaultOrganization);
+        $this->addReference(self::REFERENCE_DEFAULT_ORGANIZATION, $defaultOrganization);
         $manager->persist($defaultOrganization);
 
         // load default business unit

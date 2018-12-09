@@ -2,116 +2,214 @@
 
 namespace Oro\Bundle\DataGridBundle\Tests\Behat\Element;
 
-use Behat\Mink\Element\NodeElement;
-use Behat\Mink\Exception\ElementNotFoundException;
-use Oro\Bundle\TestFrameworkBundle\Behat\Element\Element;
+use Oro\Bundle\TestFrameworkBundle\Behat\Element\Table;
+use Oro\Bundle\TestFrameworkBundle\Behat\Element\TableHeader;
 use WebDriver\Exception\ElementNotVisible;
 
-class Grid extends Element
+/**
+ * @method GridRow getRowByNumber($rowNumber) @see Table::getRowByNumber($rowNumber)
+ */
+class Grid extends Table implements GridInterface
 {
+    const TABLE_HEADER_ELEMENT = 'GridHeader';
+    const TABLE_ROW_ELEMENT = 'GridRow';
+    const GRID_TABLE_ELEMENT = 'GridTable';
+    const ERROR_NO_ROW = "Can't get %s row, because there are only %s rows in grid";
+    const ERROR_NO_ROW_CONTENT = 'Grid has no record with "%s" content';
+
     /**
-     * @param string $title
-     * @throws \Exception
+     * {@inheritdoc}
+     */
+    public function getRows()
+    {
+        /** @var Table $table */
+        $table = $this->getElement($this->getMappedChildElementName(static::GRID_TABLE_ELEMENT));
+        $elementName = $this->getMappedChildElementName(static::TABLE_ROW_ELEMENT);
+
+        return $table->getRowElements($elementName);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getRowByContent($content)
+    {
+        /** @var Table $table */
+        $table = $this->getElement($this->getMappedChildElementName(self::GRID_TABLE_ELEMENT));
+
+        return $table->getRowByContentElement($content, $this->getMappedChildElementName(static::TABLE_ROW_ELEMENT));
+    }
+
+    /**
+     * @return TableHeader
+     */
+    public function getHeader()
+    {
+        /** @var Table $table */
+        $table = $this->getElement($this->getMappedChildElementName(static::GRID_TABLE_ELEMENT));
+
+        return $table->getHeaderElement(static::TABLE_HEADER_ELEMENT);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getMappedChildElementName($name)
+    {
+        if (!isset($this->options['mapping'][$name])) {
+            return $name;
+        }
+
+        return $this->options['mapping'][$name];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getMassActionLink($title)
+    {
+        return $this->elementFactory->createElement($this->getMappedChildElementName('GridMassActionMenu'))
+            ->findLink($title);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function hasMassActionLink($title): bool
+    {
+        $massActionsButton = $this->elementFactory->createElement(
+            $this->getMappedChildElementName('MassActionButton'),
+            $this
+        );
+
+        if (!$massActionsButton) {
+            return false;
+        }
+
+        return $this->getMassActionLink($title) !== null;
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function clickMassActionLink($title)
     {
         $massActionsButton = $this->getMassActionButton();
         $massActionsButton->press();
+
         $massActionLink = $this->getMassActionLink($title);
+        self::assertNotNull($massActionLink, 'Mass action link not found on the page');
+        self::assertTrue($massActionLink->isVisible(), 'Mass action link is not visible');
+
         $massActionLink->click();
     }
 
     /**
-     * Get column value by column header and row number
-     *
-     * @param string $header Header of grid column
-     * @param int $rowNumber Number of grid record starting from 1
-     * @return string
+     * {@inheritdoc}
      */
-    public function getRowValue($header, $rowNumber)
+    public function clickSelectAllMassActionLink($title)
     {
-        $columns = $this->getRowByNumber($rowNumber)->findAll('css', 'td');
-        /** @var GridHeader $gridHeader */
-        $gridHeader = $this->getElement('GridHeader');
-        $columnNumber = $gridHeader->getColumnNumber($header);
+        $massActionsButton = $this->getMassActionButton();
+        $massActionsButton->press();
 
-        return $this->normalizeValueByGuessingType($columns[$columnNumber]->getText());
+        $massActionLink = $this->getMassActionLink($title);
+        self::assertNotNull($massActionLink, 'Mass action link not found on the page');
+        self::assertTrue($massActionLink->isVisible(), 'Mass action link is not visible');
+
+        $massActionLink->click();
+    }
+
+    public function clickViewList()
+    {
+        $list = $this->getViewList();
+
+        self::assertTrue($list->isValid(), 'Grid view list not found on the page');
+        $list->press();
     }
 
     /**
-     * Get Element tr by row number
-     *
-     * @param int $rowNumber Number of grid record starting from 1
-     * @return NodeElement tr element of grid
+     * {@inheritdoc}
      */
-    public function getRowByNumber($rowNumber)
-    {
-        $rowIndex = $rowNumber - 1;
-        $rows = $this->getRows();
-
-        self::assertArrayHasKey(
-            $rowIndex,
-            $rows,
-            sprintf('Can\'t get %s row, because there are only %s rows in grid', $rowNumber, count($rows))
-        );
-
-        return $rows[$rowIndex];
-    }
-
-    /**
-     * Get Element tr by row content
-     *
-     * @param string $content Any content that can identify row
-     * @return Element tr element of grid
-     */
-    public function getRowByContent($content)
-    {
-        $gridRow = $this->findElementContains('GridRow', $content);
-        self::assertNotNull($gridRow, sprintf('Grid has no record with "%s" content', $content));
-
-        return $gridRow;
-    }
-
-    /**
-     * @param int $number
-     */
-    public function checkFirstRecords($number)
+    public function checkFirstRecords($number, $cellNumber = 0)
     {
         $rows = $this->getRows();
 
-        self::assertGreaterThan(
+        self::assertGreaterThanOrEqual(
             $number,
             count($rows),
             sprintf('Can\'t check %s records, because grid has only %s records', $number, count($rows))
         );
 
         for ($i = 0; $i < $number; $i++) {
-            /** @var NodeElement $row */
-            $row = $rows[$i];
-            $this->checkRowCheckbox($row);
+            $rows[$i]->checkMassActionCheckbox($cellNumber);
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function uncheckFirstRecords($number, $cellNumber = 0)
+    {
+        $rows = $this->getRows();
+
+        self::assertGreaterThanOrEqual(
+            $number,
+            count($rows),
+            sprintf('Can\'t uncheck %s records, because grid has only %s records', $number, count($rows))
+        );
+
+        for ($i = 0; $i < $number; $i++) {
+            $rows[$i]->uncheckMassActionCheckbox($cellNumber);
         }
     }
 
     /**
      * @param string $content
+     * @return bool
      */
-    public function checkRecord($content)
+    public function isRecordUnchecked($content)
     {
-        $row = $this->getRowByContent($content);
-        $this->checkRowCheckbox($row);
+        return !$this->getRowByContent($content)->isMassActionChecked();
     }
 
     /**
-     * @return NodeElement
-     * @throws \Exception
+     * {@inheritdoc}
+     */
+    public function checkRecord($content)
+    {
+        $this->getRowByContent($content)->checkMassActionCheckbox();
+    }
+
+    /**
+     * @param $content
+     */
+    public function canCheckRecord($content)
+    {
+        $this->getRowByContent($content)->hasMassActionCheckbox();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function uncheckRecord($content)
+    {
+        $this->getRowByContent($content)->uncheckMassActionCheckbox();
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function getMassActionButton()
     {
-        $massActionsButton = $this->findButton('Mass Actions');
+        $massActionsButton = $this->elementFactory->createElement(
+            $this->getMappedChildElementName('MassActionButton'),
+            $this
+        );
+
         if (!$massActionsButton || !$massActionsButton->isVisible()) {
             throw ElementNotVisible::factory(
                 ElementNotVisible::ELEMENT_NOT_VISIBLE,
-                'Mass Action dropdown is not prsent or not visible on page'
+                'Mass Action dropdown is not present or not visible on page'
             );
         }
 
@@ -119,27 +217,18 @@ class Grid extends Element
     }
 
     /**
-     * @param string $title
-     * @return NodeElement|null
-     */
-    public function getMassActionLink($title)
-    {
-        return $this->elementFactory->createElement('GridFloatingMenu')->findLink($title);
-    }
-
-    /**
-     * @param string $title
-     * @throws \Exception
+     * {@inheritdoc}
      */
     public function massCheck($title)
     {
-        $this->elementFactory->createElement('MassActionHeadCheckbox')->click();
-        $this->elementFactory->createElement('GridFloatingMenu')->clickLink($title);
+        $massActionHeadCheckboxElementName = $this->getMappedChildElementName('MassActionHeadCheckbox');
+
+        $this->elementFactory->createElement($massActionHeadCheckboxElementName, $this)->click();
+        $this->elementFactory->createElement('GridMassCheckMenu')->clickLink($title);
     }
 
     /**
-     * @param int $number
-     * @throws ElementNotFoundException
+     * {@inheritdoc}
      */
     public function selectPageSize($number)
     {
@@ -148,83 +237,22 @@ class Grid extends Element
         $pageSizeElement->clickLink($number);
     }
 
-    public function assertNoRecords()
-    {
-        \PHPUnit_Framework_Assert::assertCount(0, $this->getRows());
-    }
-
     /**
-     * @param string $content
-     * @param string $action
+     * {@inheritdoc}
      */
     public function clickActionLink($content, $action)
     {
+        /** @var GridRow $row */
         $row = $this->getRowByContent($content);
-        $link = $this->getActionLink($action, $row);
+        $link = $row->getActionLink($action);
         $link->click();
     }
 
     /**
-     * @param $action
-     * @param NodeElement $row
-     * @return NodeElement
-     * @throws ElementNotFoundException
+     * {@inheritdoc}
      */
-    public function getActionLink($action, NodeElement $row)
+    public function getViewList()
     {
-        if ($showMoreLink = $row->find('named', ['link', '...'])) {
-            $showMoreLink->mouseOver();
-            $link = $this->elementFactory
-                ->createElement('GridFloatingMenu')
-                ->find('named', ['link', ucfirst($action)]);
-        } else {
-            $link = $row->find('named', ['link', $action]);
-        }
-
-        if (!$link) {
-            throw new ElementNotFoundException($this->getDriver(), 'link', 'id|title|alt|text', $action);
-        }
-
-        return $link;
-    }
-
-    /**
-     * @return NodeElement[]
-     */
-    public function getRows()
-    {
-        return $this->findAll('css', 'tbody tr');
-    }
-
-    /**
-     * Try to guess type of value and return that data in that type
-     * @param string $value
-     * @return \DateTime|int|string
-     */
-    protected function normalizeValueByGuessingType($value)
-    {
-        $value = trim($value);
-
-        if (preg_match('/^[0-9]+$/', $value)) {
-            return (int) $value;
-        } elseif (preg_match('/^\p{Sc}(?P<amount>[0-9]+)$/', $value, $matches)) {
-            return (int) $matches['amount'];
-        } elseif ($date = date_create($value)) {
-            return $date;
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param NodeElement $row
-     */
-    protected function checkRowCheckbox(NodeElement $row)
-    {
-        $rowCheckbox = $row->find('css', '[type="checkbox"]');
-
-        self::assertNotNull($rowCheckbox, sprintf('No mass action checkbox found for "%s"', $row->getText()));
-
-        $rowCheckbox->click();
+        return $this->getElement($this->getMappedChildElementName('GridViewList'));
     }
 }

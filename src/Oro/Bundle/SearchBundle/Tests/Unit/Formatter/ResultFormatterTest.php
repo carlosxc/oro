@@ -2,21 +2,20 @@
 
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Formatter;
 
-use Doctrine\ORM\Mapping\ClassMetadataFactory;
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Query\Expr\Func;
 use Doctrine\ORM\EntityRepository;
-
-use Oro\Bundle\SearchBundle\Tests\Unit\Formatter\Stub\Category;
-use Oro\Bundle\SearchBundle\Tests\Unit\Formatter\Stub\Product;
-use Oro\Bundle\SearchBundle\Query\Result\Item;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use Doctrine\ORM\Query\Expr\Func;
 use Oro\Bundle\SearchBundle\Engine\Indexer;
 use Oro\Bundle\SearchBundle\Formatter\ResultFormatter;
+use Oro\Bundle\SearchBundle\Query\Result\Item;
+use Oro\Bundle\SearchBundle\Tests\Unit\Formatter\Stub\Category;
+use Oro\Bundle\SearchBundle\Tests\Unit\Formatter\Stub\Product;
 
-class ResultFormatterTest extends \PHPUnit_Framework_TestCase
+class ResultFormatterTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $entityManager;
 
@@ -69,7 +68,7 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
         // create product stubs
         $productEntities = array();
         for ($i = 1; $i <= 5; $i++) {
-            $indexerItem = new Item($this->entityManager, Product::getEntityName(), $i);
+            $indexerItem = new Item(Product::getEntityName(), $i);
             $entity = new Product($i);
             $productEntities[$i] = $entity;
 
@@ -91,7 +90,7 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
         // create category stubs
         $categoryEntities = array();
         for ($i = 1; $i <= 3; $i++) {
-            $indexerItem = new Item($this->entityManager, Category::getEntityName(), $i);
+            $indexerItem = new Item(Category::getEntityName(), $i);
             $entity = new Category($i);
             $categoryEntities[$i] = $entity;
 
@@ -148,11 +147,11 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
             ->method('getResult')
             ->will($this->returnValue($entities));
 
-        $queryBuilder = $this->getMock(
-            'Doctrine\ORM\QueryBuilder',
-            array('where', 'getQuery'),
-            array($this->entityManager)
-        );
+        $queryBuilder = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
+            ->setMethods(array('where', 'getQuery'))
+            ->setConstructorArgs(array($this->entityManager))
+            ->getMock();
+
         $queryBuilder->expects($this->once())
             ->method('where')
             ->with(new Func('e.id IN', $entityIds));
@@ -160,7 +159,7 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
             ->method('getQuery')
             ->will($this->returnValue($query));
 
-        $repository = $this->getMock(
+        $repository = $this->createMock(
             'Doctrine\ORM\EntityRepository',
             array('createQueryBuilder'),
             array($this->entityManager, $this->stubMetadata->getMetadataFor($entityName))
@@ -262,7 +261,7 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
         $expectedResult = $this->prepareStubEntities();
 
         /** @var $indexer Indexer */
-        $indexer = $this->getMock('Oro\Bundle\SearchBundle\Engine\Indexer', array(), array(), '', false);
+        $indexer = $this->createMock('Oro\Bundle\SearchBundle\Engine\Indexer');
         $indexerRows = $this->getIndexerRows();
 
         $resultFormatter = new ResultFormatter($this->entityManager, $indexer);
@@ -277,7 +276,7 @@ class ResultFormatterTest extends \PHPUnit_Framework_TestCase
         $this->prepareStubEntities();
 
         /** @var $indexer Indexer */
-        $indexer = $this->getMock('Oro\Bundle\SearchBundle\Engine\Indexer', array(), array(), '', false);
+        $indexer = $this->createMock('Oro\Bundle\SearchBundle\Engine\Indexer');
         $indexerRows = $this->getIndexerRows();
 
         $resultFormatter = new ResultFormatter($this->entityManager, $indexer);

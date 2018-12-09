@@ -7,18 +7,19 @@ use Oro\Component\Layout\Tests\Unit\BaseBlockTypeTestCase;
 
 class BaseTypeTest extends BaseBlockTypeTestCase
 {
-    public function testSetDefaultOptionsWithEmptyOptions()
+    public function testConfigureOptionsWithEmptyOptions()
     {
         $this->assertEquals(
-            [],
+            ['visible' => true],
             $this->resolveOptions(BaseType::NAME, [])
         );
     }
 
-    public function testSetDefaultOptionsWithValidOptions()
+    public function testConfigureOptionsWithValidOptions()
     {
         $this->assertEquals(
             [
+                'visible'            => true,
                 'vars'               => ['test_var' => 'test_var_val'],
                 'attr'               => ['test_attr' => 'test_attr_val'],
                 'label'              => 'Test Label',
@@ -58,7 +59,8 @@ class BaseTypeTest extends BaseBlockTypeTestCase
                         '_test_block_1'
                     ],
                     'cache_key'            => '_test:block--1_block',
-                    'translation_domain'   => 'messages'
+                    'translation_domain'   => 'messages',
+                    'visible'              => true,
                 ]
             ],
             $view,

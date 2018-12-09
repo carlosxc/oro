@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\UIBundle\Tests\Unit\Provider;
 
+use Oro\Bundle\UIBundle\Provider\UserAgentProvider;
 use Symfony\Component\HttpFoundation\HeaderBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-use Oro\Bundle\UIBundle\Provider\UserAgentProvider;
-
-class UserAgentProviderTest extends \PHPUnit_Framework_TestCase
+class UserAgentProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var UserAgentProvider
@@ -16,7 +15,7 @@ class UserAgentProviderTest extends \PHPUnit_Framework_TestCase
     protected $userAgentProvider;
 
     /**
-     * @var RequestStack|\PHPUnit_Framework_MockObject_MockObject
+     * @var RequestStack|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $requestStack;
 
@@ -25,7 +24,7 @@ class UserAgentProviderTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $this->requestStack = $this->getMock('Symfony\Component\HttpFoundation\RequestStack');
+        $this->requestStack = $this->createMock('Symfony\Component\HttpFoundation\RequestStack');
 
         $this->userAgentProvider = new UserAgentProvider($this->requestStack);
     }
@@ -39,10 +38,10 @@ class UserAgentProviderTest extends \PHPUnit_Framework_TestCase
     {
         $request = null;
         if ($isRequest) {
-            /** @var HeaderBag|\PHPUnit_Framework_MockObject_MockObject $request */
-            $headers = $this->getMock('\Symfony\Component\HttpFoundation\HeaderBag');
-            /** @var Request|\PHPUnit_Framework_MockObject_MockObject $request */
-            $request = $this->getMock('Symfony\Component\HttpFoundation\Request');
+            /** @var HeaderBag|\PHPUnit\Framework\MockObject\MockObject $request */
+            $headers = $this->createMock('\Symfony\Component\HttpFoundation\HeaderBag');
+            /** @var Request|\PHPUnit\Framework\MockObject\MockObject $request */
+            $request = $this->createMock('Symfony\Component\HttpFoundation\Request');
             $request->headers = $headers;
             $headers->expects($this->once())
                 ->method('get')

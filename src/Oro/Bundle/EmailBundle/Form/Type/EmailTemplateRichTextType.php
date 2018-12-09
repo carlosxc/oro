@@ -2,42 +2,22 @@
 
 namespace Oro\Bundle\EmailBundle\Form\Type;
 
+use Oro\Bundle\EmailBundle\Form\DataTransformer\EmailTemplateTransformer;
+use Oro\Bundle\FormBundle\Form\Type\OroRichTextType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
-
-use Oro\Bundle\FormBundle\Form\DataTransformer\SanitizeHTMLTransformer;
-
-use Oro\Bundle\EmailBundle\Form\DataTransformer\EmailTemplateTransformer;
 
 class EmailTemplateRichTextType extends AbstractType
 {
     const NAME = 'oro_email_template_rich_text';
-
-    /** @var string */
-    protected $cacheDir;
-
-    /**
-     * @param string $cacheDir
-     */
-    public function __construct($cacheDir)
-    {
-        $this->cacheDir = $cacheDir;
-    }
 
     /**
      * {@inheritdoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $builder->resetModelTransformers();
-
-        $allowableTags = null;
-        if (!empty($options['wysiwyg_options']['valid_elements'])) {
-            $allowableTags = $options['wysiwyg_options']['valid_elements'];
-        }
-
-        $transformer = new SanitizeHTMLTransformer($allowableTags, $this->cacheDir);
-        $builder->addModelTransformer(new EmailTemplateTransformer($transformer));
+        // append template transformer to run after parent type transformers
+        $builder->addModelTransformer(new EmailTemplateTransformer(), true);
     }
 
     /**
@@ -61,6 +41,6 @@ class EmailTemplateRichTextType extends AbstractType
      */
     public function getParent()
     {
-        return 'oro_rich_text';
+        return OroRichTextType::class;
     }
 }

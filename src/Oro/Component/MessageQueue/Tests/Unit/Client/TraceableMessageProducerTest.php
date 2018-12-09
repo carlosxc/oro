@@ -5,7 +5,7 @@ use Oro\Component\MessageQueue\Client\MessageProducerInterface;
 use Oro\Component\MessageQueue\Client\TraceableMessageProducer;
 use Oro\Component\Testing\ClassExtensionTrait;
 
-class TraceableMessageProducerTest extends \PHPUnit_Framework_TestCase
+class TraceableMessageProducerTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
 
@@ -73,8 +73,7 @@ class TraceableMessageProducerTest extends \PHPUnit_Framework_TestCase
 
         $messageProducer = new TraceableMessageProducer($internalMessageProducer);
 
-        $this->setExpectedException(\Exception::class);
-
+        $this->expectException(\Exception::class);
         try {
             $messageProducer->send('aFooTopic', 'aFooBody');
         } finally {
@@ -97,10 +96,10 @@ class TraceableMessageProducerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProducerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProducerInterface
      */
     protected function createMessageProducer()
     {
-        return $this->getMock(MessageProducerInterface::class);
+        return $this->createMock(MessageProducerInterface::class);
     }
 }

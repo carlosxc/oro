@@ -2,64 +2,80 @@
 
 namespace Oro\Bundle\ActionBundle\Tests\Unit\Twig;
 
-use Oro\Bundle\ActionBundle\Helper\ApplicationsHelper;
+use Oro\Bundle\ActionBundle\Button\ButtonSearchContext;
 use Oro\Bundle\ActionBundle\Helper\ContextHelper;
 use Oro\Bundle\ActionBundle\Helper\OptionsHelper;
-use Oro\Bundle\ActionBundle\Model\OperationManager;
+use Oro\Bundle\ActionBundle\Provider\ButtonProvider;
+use Oro\Bundle\ActionBundle\Provider\ButtonSearchContextProvider;
+use Oro\Bundle\ActionBundle\Provider\RouteProviderInterface;
 use Oro\Bundle\ActionBundle\Twig\OperationExtension;
+use Oro\Component\Testing\Unit\TwigExtensionTestCaseTrait;
 
-class OperationExtensionTest extends \PHPUnit_Framework_TestCase
+class OperationExtensionTest extends \PHPUnit\Framework\TestCase
 {
+    use TwigExtensionTestCaseTrait;
+
     const ROUTE = 'test_route';
     const REQUEST_URI = '/test/request/uri';
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|OperationManager */
-    protected $operationManager;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ApplicationsHelper */
-    protected $appsHelper;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|RouteProviderInterface */
+    protected $routeProvider;
 
     /** @var OperationExtension */
     protected $extension;
 
-    /** @var ContextHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ContextHelper */
     protected $contextHelper;
 
-    /** @var OptionsHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|OptionsHelper */
     protected $optionsHelper;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ButtonProvider */
+    protected $buttonProvider;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ButtonSearchContextProvider */
+    protected $buttonSearchContextProvider;
 
     /**
      * {@inheritdoc}
      */
     protected function setUp()
     {
-        $this->operationManager = $this->getMockBuilder('Oro\Bundle\ActionBundle\Model\OperationManager')
+        $this->routeProvider = $this->createMock(RouteProviderInterface::class);
+        $this->contextHelper = $this->getMockBuilder(ContextHelper::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->optionsHelper = $this->getMockBuilder(OptionsHelper::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->buttonProvider = $this->getMockBuilder(ButtonProvider::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->buttonSearchContextProvider = $this->getMockBuilder(ButtonSearchContextProvider::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->appsHelper = $this->getMockBuilder('Oro\Bundle\ActionBundle\Helper\ApplicationsHelper')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $container = self::getContainerBuilder()
+            ->add('oro_action.provider.route', $this->routeProvider)
+            ->add('oro_action.helper.context', $this->contextHelper)
+            ->add('oro_action.helper.options', $this->optionsHelper)
+            ->add('oro_action.provider.button', $this->buttonProvider)
+            ->add('oro_action.provider.button_search_context', $this->buttonSearchContextProvider)
+            ->getContainer($this);
 
-        $this->contextHelper = $this->getMockBuilder('Oro\Bundle\ActionBundle\Helper\ContextHelper')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->optionsHelper = $this->getMockBuilder('Oro\Bundle\ActionBundle\Helper\OptionsHelper')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->extension = new OperationExtension(
-            $this->operationManager,
-            $this->appsHelper,
-            $this->contextHelper,
-            $this->optionsHelper
-        );
+        $this->extension = new OperationExtension($container);
     }
 
     protected function tearDown()
     {
-        unset($this->extension, $this->actionManager, $this->appsHelper, $this->contextHelper, $this->optionsHelper);
+        unset(
+            $this->extension,
+            $this->routeProvider,
+            $this->contextHelper,
+            $this->optionsHelper,
+            $this->buttonProvider,
+            $this->buttonSearchContextProvider
+        );
     }
 
     public function testGetName()
@@ -67,44 +83,38 @@ class OperationExtensionTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(OperationExtension::NAME, $this->extension->getName());
     }
 
-    public function testGetFunctions()
+    /**
+     * @dataProvider hasButtonsDataProvider
+     *
+     * @param bool $value
+     */
+    public function testHasButtons($value)
     {
-        $functions = $this->extension->getFunctions();
-        $this->assertCount(4, $functions);
+        $this->contextHelper->expects($this->once())
+            ->method('getContext')
+            ->willReturn([]);
 
-        $expectedFunctions = [
-            'oro_action_widget_parameters' => [
-                true,
-                'Oro\Bundle\ActionBundle\Helper\ContextHelper',
-                'getActionParameters',
-            ],
-            'oro_action_widget_route' => [
-                false,
-                'Oro\Bundle\ActionBundle\Helper\ApplicationsHelper',
-                'getWidgetRoute',
-            ],
-            'has_operations' => [
-                false,
-                'Oro\Bundle\ActionBundle\Model\OperationManager',
-                'hasOperations',
-            ],
-            'oro_action_frontend_options' => [
-                false,
-                'Oro\Bundle\ActionBundle\Helper\OptionsHelper',
-                'getFrontendOptions',
-            ],
+        $this->buttonSearchContextProvider
+            ->expects($this->once())
+            ->method('getButtonSearchContext')
+            ->willReturn(new ButtonSearchContext());
+
+        $this->buttonProvider->expects($this->once())->method('hasButtons')->willReturn($value);
+
+        $this->assertEquals(
+            $value,
+            self::callTwigFunction($this->extension, 'oro_action_has_buttons', [[]])
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public function hasButtonsDataProvider()
+    {
+        return [
+            'has_buttons' => [true],
+            'has_no_buttons' => [false],
         ];
-
-        /** @var \Twig_SimpleFunction $function */
-        foreach ($functions as $function) {
-            $this->assertInstanceOf('\Twig_SimpleFunction', $function);
-            $this->assertArrayHasKey($function->getName(), $expectedFunctions);
-            $expectedFunction = $expectedFunctions[$function->getName()];
-            $this->assertEquals($expectedFunction[0], $function->needsContext());
-
-            $callable = $function->getCallable();
-            $this->assertInstanceOf($expectedFunction[1], $callable[0]);
-            $this->assertEquals($expectedFunction[2], $callable[1]);
-        }
     }
 }

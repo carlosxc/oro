@@ -17,7 +17,7 @@ class RestrictionSegmentProxyTest extends SegmentDefinitionTestCase
     public function testProxy($definition, $expectedDefinition, $expectedException = null)
     {
         if ($expectedException) {
-            $this->setExpectedException($expectedException);
+            $this->expectException($expectedException);
         }
 
         $segment            = $this->getSegment(false, $definition);
@@ -73,6 +73,12 @@ class RestrictionSegmentProxyTest extends SegmentDefinitionTestCase
                 ],
                 [
                     'columns' => [
+                        [
+                            'name'    => 'userName',
+                            'label'   => 'User name',
+                            'func'    => null,
+                            'sorting' => null
+                        ],
                         [
                             'name'     => self::TEST_IDENTIFIER_NAME,
                             'distinct' => true

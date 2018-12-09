@@ -4,12 +4,12 @@ namespace Oro\Bundle\AttachmentBundle\Tests\Unit\Placeholder;
 
 use Oro\Bundle\AttachmentBundle\Placeholder\PlaceholderFilter;
 
-class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
+class PlaceholderFilterTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $attachmentAssociationHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $doctrineHelper;
 
     /** @var PlaceholderFilter */
@@ -52,7 +52,7 @@ class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
         $this->attachmentAssociationHelper
             ->expects(is_object($entity) && !$isNewRecord ? $this->once() : $this->never())
             ->method('isAttachmentAssociationEnabled')
-            ->with(get_class($entity))
+            ->with(is_object($entity) ? get_class($entity) : null)
             ->willReturn($attachmentAssociationHelperReturn);
 
         $this->doctrineHelper->expects(is_object($entity) && $isManaged ? $this->once() : $this->never())
@@ -81,28 +81,28 @@ class PlaceholderFilterTest extends \PHPUnit_Framework_TestCase
                 'expected'               => false
             ],
             'existing entity with association' => [
-                'entity'                 => $this->getMock('\stdClass'),
+                'entity'                 => $this->createMock('\stdClass'),
                 'attachmentConfigReturn' => true,
                 'isNewRecord'            => false,
                 'isManaged'              => true,
                 'expected'               => true
             ],
             'existing entity without association' => [
-                'entity'                 => $this->getMock('\stdClass'),
+                'entity'                 => $this->createMock('\stdClass'),
                 'attachmentConfigReturn' => false,
                 'isNewRecord'            => false,
                 'isManaged'              => true,
                 'expected'               => false
             ],
             'new entity without association' => [
-                'entity'                 => $this->getMock('\stdClass'),
+                'entity'                 => $this->createMock('\stdClass'),
                 'attachmentConfigReturn' => false,
                 'isNewRecord'            => true,
                 'isManaged'              => true,
                 'expected'               => false
             ],
             'not managed entity' => [
-                'entity'                 => $this->getMock('\stdClass'),
+                'entity'                 => $this->createMock('\stdClass'),
                 'attachmentConfigReturn' => false,
                 'isNewRecord'            => true,
                 'isManaged'              => false,

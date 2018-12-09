@@ -2,16 +2,16 @@
 
 namespace Oro\Bundle\DataGridBundle\Datagrid;
 
-use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class RequestParameterBagFactory
 {
     const DEFAULT_ROOT_PARAM = 'grid';
 
     /**
-     * @var Request
+     * @var RequestStack
      */
-    protected $request;
+    protected $requestStack;
 
     /**
      * @var string
@@ -20,10 +20,34 @@ class RequestParameterBagFactory
 
     /**
      * @param string $parametersClass
+     * @param RequestStack $requestStack
      */
-    public function __construct($parametersClass)
+    public function __construct(string $parametersClass, RequestStack $requestStack)
     {
         $this->parametersClass = $parametersClass;
+        $this->requestStack = $requestStack;
+    }
+
+    /**
+     * @param string $gridParameterName
+     *
+     * @return array
+     */
+    public function fetchParameters($gridParameterName = self::DEFAULT_ROOT_PARAM)
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        $parameters = $request ? $request->get($gridParameterName, []) : [];
+
+        if (!is_array($parameters)) {
+            $parameters = [];
+        }
+
+        $minifiedParameters = $this->getMinifiedParameters($gridParameterName);
+        if ($minifiedParameters) {
+            $parameters[ParameterBag::MINIFIED_PARAMETERS] = $minifiedParameters;
+        }
+
+        return $parameters;
     }
 
     /**
@@ -32,28 +56,9 @@ class RequestParameterBagFactory
      */
     public function createParameters($gridParameterName = self::DEFAULT_ROOT_PARAM)
     {
-        $parameters = $this->request->get($gridParameterName, []);
-
-        if (!is_array($parameters)) {
-            $parameters = array();
-        }
-
-        $minifiedParameters = $this->getMinifiedParameters($gridParameterName);
-        if ($minifiedParameters) {
-            $parameters[ParameterBag::MINIFIED_PARAMETERS] = $minifiedParameters;
-        }
+        $parameters = $this->fetchParameters($gridParameterName);
 
         return new $this->parametersClass($parameters);
-    }
-
-    /**
-     * @param Request $request
-     */
-    public function setRequest(Request $request = null)
-    {
-        if ($request instanceof Request) {
-            $this->request = $request;
-        }
     }
 
     /**
@@ -62,7 +67,8 @@ class RequestParameterBagFactory
      */
     protected function getMinifiedParameters($gridParameterName)
     {
-        $gridData = $this->request->get(self::DEFAULT_ROOT_PARAM, array());
+        $request = $this->requestStack->getCurrentRequest();
+        $gridData = $request ? $request->get(self::DEFAULT_ROOT_PARAM, []) : [];
         if (empty($gridData[$gridParameterName])) {
             return null;
         }

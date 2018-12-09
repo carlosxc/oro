@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Unit\Layout\Extension;
 
+use Oro\Bundle\LayoutBundle\Layout\Extension\ApplicationContextConfigurator;
 use Oro\Component\Layout\LayoutContext;
 
-use Oro\Bundle\LayoutBundle\Layout\Extension\ApplicationContextConfigurator;
-
-class ApplicationContextConfiguratorTest extends \PHPUnit_Framework_TestCase
+class ApplicationContextConfiguratorTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $kernel;
 
     /** @var ApplicationContextConfigurator */
@@ -16,7 +15,7 @@ class ApplicationContextConfiguratorTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->kernel = $this->getMock('Symfony\Component\HttpKernel\KernelInterface');
+        $this->kernel = $this->createMock('Symfony\Component\HttpKernel\KernelInterface');
         $this->contextConfigurator = new ApplicationContextConfigurator($this->kernel);
     }
 

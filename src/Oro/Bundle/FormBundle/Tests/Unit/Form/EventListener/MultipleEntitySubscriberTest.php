@@ -2,25 +2,25 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\EventListener;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\PersistentCollection;
-use Doctrine\Common\Collections\Collection;
-use Doctrine\Common\Collections\ArrayCollection;
-
-use Symfony\Component\Form\FormEvent;
-
 use Oro\Bundle\FormBundle\Form\EventListener\MultipleEntitySubscriber;
 use Oro\Bundle\FormBundle\Tests\Unit\Form\EventListener\Stub\ChildEntity;
 use Oro\Bundle\FormBundle\Tests\Unit\Form\EventListener\Stub\ParentEntity;
+use Oro\Component\TestUtils\ORM\Mocks\UnitOfWork;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 
-class MultipleEntitySubscriberTest extends \PHPUnit_Framework_TestCase
+class MultipleEntitySubscriberTest extends \PHPUnit\Framework\TestCase
 {
     public function testSubscribedEvents()
     {
         $this->assertEquals(
             [
-                'form.post_set_data' => 'postSet',
-                'form.post_bind'     => 'postSubmit'
+                FormEvents::POST_SET_DATA => 'postSet',
+                FormEvents::POST_SUBMIT => 'postSubmit'
             ],
             MultipleEntitySubscriber::getSubscribedEvents()
         );
@@ -40,12 +40,12 @@ class MultipleEntitySubscriberTest extends \PHPUnit_Framework_TestCase
             ->getMock();
         $subscriber = new MultipleEntitySubscriber($doctrineHelper);
 
-        $form  = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $form  = $this->createMock('Symfony\Component\Form\Test\FormInterface');
         $event = new FormEvent($form, null);
 
-        $formAdded = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $formAdded = $this->createMock('Symfony\Component\Form\Test\FormInterface');
         $formAdded->expects($this->once())->method('setData')->with($expectedAddedData);
-        $formRemoved = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $formRemoved = $this->createMock('Symfony\Component\Form\Test\FormInterface');
         $formRemoved->expects($this->once())->method('setData')->with($expectedRemovedData);
 
         $map = [['added', $formAdded], ['removed', $formRemoved]];
@@ -60,8 +60,12 @@ class MultipleEntitySubscriberTest extends \PHPUnit_Framework_TestCase
      */
     public function postSetDataProvider()
     {
+        $uow = new UnitOfWork();
         $em   = $this->getMockBuilder('Doctrine\ORM\EntityManager')->disableOriginalConstructor()->getMock();
-        $meta = $this->getMock('Doctrine\Common\Persistence\Mapping\ClassMetadata');
+        $em->expects($this->any())
+            ->method('getUnitOfWork')
+            ->willReturn($uow);
+        $meta = $this->createMock('Doctrine\Common\Persistence\Mapping\ClassMetadata');
 
         $existing = (object)['$existing' => true];
         $removed  = (object)['$removed' => true];
@@ -250,7 +254,7 @@ class MultipleEntitySubscriberTest extends \PHPUnit_Framework_TestCase
      * @param object[]   $added
      * @param object[]   $removed
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject|\Symfony\Component\Form\Test\FormInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|\Symfony\Component\Form\Test\FormInterface
      */
     protected function getPostSubmitForm(
         $parent,
@@ -258,19 +262,19 @@ class MultipleEntitySubscriberTest extends \PHPUnit_Framework_TestCase
         array $added,
         array $removed
     ) {
-        $form = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
-        $parentForm = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $form = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
+        $parentForm = $this->createMock('Symfony\Component\Form\Test\FormInterface');
 
         $form->expects($this->once())
             ->method('getConfig')
             ->willReturn($formConfig);
 
-        $formAdded = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $formAdded = $this->createMock('Symfony\Component\Form\Test\FormInterface');
         $formAdded->expects($this->once())
             ->method('getData')
             ->willReturn($added);
-        $formRemoved = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $formRemoved = $this->createMock('Symfony\Component\Form\Test\FormInterface');
         $formRemoved->expects($this->once())
             ->method('getData')
             ->willReturn($removed);

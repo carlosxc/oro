@@ -18,9 +18,6 @@ use Composer\Repository\ComposerRepository;
 use Composer\Repository\CompositeRepository;
 use Composer\Repository\PlatformRepository;
 use Composer\Repository\RepositoryInterface;
-
-use Psr\Log\LoggerInterface;
-
 use Oro\Bundle\DistributionBundle\Entity\PackageRequirement;
 use Oro\Bundle\DistributionBundle\Entity\PackageUpdate;
 use Oro\Bundle\DistributionBundle\Exception\VerboseException;
@@ -28,6 +25,7 @@ use Oro\Bundle\DistributionBundle\Manager\Helper\ChangeSetBuilder;
 use Oro\Bundle\DistributionBundle\Script\Runner;
 use Oro\Bundle\PlatformBundle\Maintenance\Mode as MaintenanceMode;
 use Oro\Bundle\PlatformBundle\OroPlatformBundle;
+use Psr\Log\LoggerInterface;
 
 class PackageManager
 {
@@ -386,7 +384,6 @@ class PackageManager
                 if (in_array($needleName, $packageRequirements)) {
                     $dependents[] = $localPackage->getName();
                     $dependents = array_merge($dependents, $this->getDependents($localPackage->getName()));
-
                 }
             },
             $localRepository->getCanonicalPackages()
@@ -590,9 +587,9 @@ class PackageManager
         $this->installer
             ->setDryRun(false)
             ->setVerbose(false)
-            ->setPreferSource(true)
-            ->setPreferDist(false)
-            ->setDevMode(true)
+            ->setPreferSource(false)
+            ->setPreferDist(true)
+            ->setDevMode(false)
             ->setRunScripts(true)
             ->setUpdate(true)
             ->setUpdateWhitelist([$packageName])

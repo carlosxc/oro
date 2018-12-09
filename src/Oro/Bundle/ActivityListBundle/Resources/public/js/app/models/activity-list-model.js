@@ -5,9 +5,9 @@ define([
 ], function($, _, BaseModel) {
     'use strict';
 
-    var ActivityModel;
+    var ActivityListModel;
 
-    ActivityModel = BaseModel.extend({
+    ActivityListModel = BaseModel.extend({
         defaults: {
             id: '',
 
@@ -38,14 +38,26 @@ define([
             removable: true,
             commentable: false,
 
-            targetEntityData: {}
+            targetEntityData: {},
+
+            routes: {}
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActivityListModel() {
+            ActivityListModel.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function() {
             this.once('change:contentHTML', function() {
                 this.set('is_loaded', true);
             });
-            ActivityModel.__super__.initialize.apply(this, arguments);
+            ActivityListModel.__super__.initialize.apply(this, arguments);
         },
 
         getRelatedActivityClass: function() {
@@ -55,11 +67,11 @@ define([
         /**
          * Compares current model to attributes. Returns true if models are same
          *
-         * @param model {Object|ActivityModel} attributes or model to compare
+         * @param model {Object|ActivityListModel} attributes or model to compare
          */
         isSameActivity: function(model) {
             var attrsToCompare;
-            attrsToCompare = model instanceof ActivityModel ? model.toJSON() : model;
+            attrsToCompare = model instanceof ActivityListModel ? model.toJSON() : model;
 
             if (attrsToCompare.id === this.get('id')) {
                 return true;
@@ -72,7 +84,8 @@ define([
                 // @TODO: move to descendant
                 if (attrsToCompare.relatedActivityClass === 'Oro\\Bundle\\EmailBundle\\Entity\\Email') {
                     // if tread is same
-                    if (attrsToCompare.data.treadId === this.get('data').treadId) {
+                    if (attrsToCompare.data.treadId !== null &&
+                        attrsToCompare.data.treadId === this.get('data').treadId) {
                         return true;
                     }
                     // if compared model is not in tread and if tread was just created (it contains replayedEmailId)
@@ -88,32 +101,34 @@ define([
 
         loadContentHTML: function(url) {
             var options = {
-                    url: url,
-                    type: 'get',
-                    dataType: 'html',
-                    data: {
-                        _widgetContainer: 'dialog',
-                        targetActivityClass: this.get('targetEntityData').class,
-                        targetActivityId: this.get('targetEntityData').id
-                    }
-                };
+                url: url,
+                type: 'get',
+                dataType: 'html',
+                data: {
+                    _widgetContainer: 'dialog',
+                    targetActivityClass: this.get('targetEntityData').class,
+                    targetActivityId: this.get('targetEntityData').id
+                }
+            };
 
             this.set('isContentLoading', true);
             return $.ajax(options)
-                .always(_.bind(function() {
-                    this.set('isContentLoading', false);
-                }, this))
                 .done(_.bind(function(data) {
-                    this.set('is_loaded', true);
-                    this.set('contentHTML', data);
+                    this.set({
+                        is_loaded: true,
+                        contentHTML: data,
+                        isContentLoading: false
+                    });
                 }, this))
                 .fail(_.bind(function(response) {
+                    var attrs = {isContentLoading: false};
                     if (response.status === 403) {
-                        this.set('is_loaded', true);
+                        attrs.is_loaded = true;
                     }
+                    this.set(attrs);
                 }, this));
         }
     });
 
-    return ActivityModel;
+    return ActivityListModel;
 });

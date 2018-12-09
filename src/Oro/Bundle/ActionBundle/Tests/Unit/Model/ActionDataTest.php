@@ -5,9 +5,9 @@ namespace Oro\Bundle\ActionBundle\Tests\Unit\Model;
 use Oro\Bundle\ActionBundle\Model\ActionData;
 
 /**
- * @SuppressWarnings(PHPMD.TooManyMethods)
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  */
-class ActionDataTest extends \PHPUnit_Framework_TestCase
+class ActionDataTest extends \PHPUnit\Framework\TestCase
 {
     public function testOffsetExistsSetGetUnset()
     {

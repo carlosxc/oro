@@ -2,19 +2,18 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Validator\Constraints;
 
-use Symfony\Component\Validator\Context\ExecutionContextInterface;
-use Symfony\Component\Validator\Constraint;
-
 use Oro\Bundle\LocaleBundle\Entity;
 use Oro\Bundle\LocaleBundle\Validator\Constraints;
 use Oro\Bundle\LocaleBundle\Validator\Constraints\LocalizationValidator;
+use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
-class LocalizationValidatorTest extends \PHPUnit_Framework_TestCase
+class LocalizationValidatorTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Constraints\Localization */
     protected $constraint;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ExecutionContextInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ExecutionContextInterface */
     protected $context;
 
     /** @var LocalizationValidator */
@@ -101,8 +100,8 @@ class LocalizationValidatorTest extends \PHPUnit_Framework_TestCase
 
     public function testUnexpectedClass()
     {
-        $this->setExpectedException(
-            '\Symfony\Component\Validator\Exception\UnexpectedTypeException',
+        $this->expectException('\Symfony\Component\Validator\Exception\UnexpectedTypeException');
+        $this->expectExceptionMessage(
             'Expected argument of type "Oro\Bundle\LocaleBundle\Entity\Localization", "stdClass" given'
         );
         $this->validator->validate(new \stdClass(), $this->constraint);
@@ -110,7 +109,8 @@ class LocalizationValidatorTest extends \PHPUnit_Framework_TestCase
 
     private function expectViolation()
     {
-        $violationBuilder = $this->getMock('Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface');
+        $violationBuilder = $this
+            ->createMock('Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface');
         $violationBuilder->expects($this->once())
             ->method('atPath')
             ->with('parentLocalization')

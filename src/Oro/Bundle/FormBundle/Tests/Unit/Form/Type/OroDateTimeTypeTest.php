@@ -2,48 +2,38 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Type;
 
+use Oro\Bundle\FormBundle\Form\Extension\DateTimeExtension;
 use Oro\Bundle\FormBundle\Form\Type\OroDateTimeType;
-use Oro\Bundle\FormBundle\Form\Type\OroDateType;
+use Oro\Component\Testing\Unit\FormIntegrationTestCase;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
 use Symfony\Component\Form\FormView;
-use Symfony\Component\Form\Test\TypeTestCase;
 
-class OroDateTimeTypeTest extends TypeTestCase
+class OroDateTimeTypeTest extends FormIntegrationTestCase
 {
-    /**
-     * @var OroDateTimeType
-     */
-    private $type;
-
-    protected function setUp()
+    public function testGetParent()
     {
-        parent::setUp();
-
-        $this->type = new OroDateTimeType();
+        $type = new OroDateTimeType();
+        $this->assertEquals(DateTimeType::class, $type->getParent());
     }
 
     public function testGetName()
     {
-        $this->assertEquals('oro_datetime', $this->type->getName());
+        $type = new OroDateTimeType();
+        $this->assertEquals('oro_datetime', $type->getName());
     }
 
-    public function testGetParent()
-    {
-        $this->assertEquals('datetime', $this->type->getParent());
-    }
-
-    public function testSetDefaultOptions()
+    public function testConfigureOptions()
     {
         $expectedOptions = array(
             'model_timezone'   => 'UTC',
             'view_timezone'    => 'UTC',
-            'format'           => DateTimeType::HTML5_FORMAT,
+            'format'           => DateTimeExtension::HTML5_FORMAT_WITH_TIMEZONE,
             'widget'           => 'single_text',
             'placeholder'      => 'oro.form.click_here_to_select',
             'years'            => [],
         );
 
-        $form = $this->factory->create($this->type);
+        $form = $this->factory->create(OroDateTimeType::class);
         $form->submit((new \DateTime()));
 
         $options = $form->getConfig()->getOptions();
@@ -56,32 +46,39 @@ class OroDateTimeTypeTest extends TypeTestCase
     /**
      * @dataProvider optionsDataProvider
      * @param array  $options
-     * @param string $expectedKey
-     * @param mixed  $expectedValue
+     * @param array $expectedKeys
+     * @param array  $expectedValues
      */
-    public function testFinishView($options, $expectedKey, $expectedValue)
+    public function testFinishView($options, $expectedKeys, $expectedValues)
     {
         $form = $this->getMockBuilder('Symfony\Component\Form\Form')
             ->disableOriginalConstructor()->getMock();
 
         $view = new FormView();
-        $this->type->finishView($view, $form, $options);
-        $this->assertArrayHasKey($expectedKey, $view->vars);
-        $this->assertEquals($expectedValue, $view->vars[$expectedKey]);
+        $type = new OroDateTimeType();
+        $type->finishView($view, $form, $options);
+        foreach ($expectedKeys as $key => $expectedKey) {
+            $this->assertArrayHasKey($expectedKey, $view->vars);
+            $this->assertEquals($expectedValues[$key], $view->vars[$expectedKey]);
+        }
     }
 
     public function optionsDataProvider()
     {
         return array(
             array(
-                array('placeholder' => 'some.placeholder'),
-                'attr',
-                array('placeholder' => 'some.placeholder'),
+                array('placeholder' => 'some.placeholder', 'minDate' => '-120y', 'maxDate' => '0'),
+                array('attr', 'minDate', 'maxDate'),
+                array(
+                    ['placeholder' => 'some.placeholder'],
+                    '-120y',
+                    '0'
+                ),
             ),
             array(
-                array('years' => [2001, 2002, 2003]),
-                'years',
-                '2001:2003',
+                array('years' => [2001, 2002, 2003], 'minDate' => '-120y', 'maxDate' => '0'),
+                array('years', 'minDate', 'maxDate'),
+                array('2001:2003', '-120y', '0')
             ),
         );
     }
@@ -93,9 +90,9 @@ class OroDateTimeTypeTest extends TypeTestCase
      */
     public function testSubmitValidData($value, $expectedValue)
     {
-        $form = $this->factory->create($this->type);
+        $form = $this->factory->create(OroDateTimeType::class);
         $form->submit($value);
-        $this->assertDateTimeEquals($expectedValue, $form->getData());
+        $this->assertEquals($expectedValue->format('U'), $form->getData()->format('U'));
     }
 
     public function valuesDataProvider()
@@ -109,10 +106,6 @@ class OroDateTimeTypeTest extends TypeTestCase
                 '2002-10-02T15:00:00Z',
                 new \DateTime('2002-10-02T15:00:00Z')
             ),
-            array(
-                '2002-10-02T15:00:00.05Z',
-                new \DateTime('2002-10-02T15:00:00.05Z')
-            )
         );
     }
 }

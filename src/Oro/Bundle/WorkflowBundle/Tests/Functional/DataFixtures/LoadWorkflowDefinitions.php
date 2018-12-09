@@ -2,22 +2,26 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Functional\DataFixtures;
 
+use Doctrine\Common\DataFixtures\AbstractFixture;
+use Doctrine\Common\Persistence\ObjectManager;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Yaml\Yaml;
-
-use Doctrine\Common\DataFixtures\AbstractFixture;
-use Doctrine\Common\Persistence\ObjectManager;
 
 class LoadWorkflowDefinitions extends AbstractFixture implements ContainerAwareInterface
 {
     const NO_START_STEP    = 'test_flow';
     const WITH_START_STEP  = 'test_start_step_flow';
+    const WITH_INIT_OPTION = 'test_start_init_option';
+    const WITH_DATAGRIDS = 'test_flow_datagrids';
     const START_TRANSITION = 'start_transition';
     const MULTISTEP_START_TRANSITION = 'starting_point_transition';
     const MULTISTEP = 'test_multistep_flow';
     const WITH_GROUPS1 = 'test_groups_flow1';
     const WITH_GROUPS2 = 'test_groups_flow2';
+    const START_FROM_ENTITY_TRANSITION = 'start_transition_from_entities';
+    const START_FROM_ROUTE_TRANSITION = 'start_transition_from_routes';
+    const START_FROM_ROUTE_TRANSITION_WITH_FORM ='start_transition_from_routes_with_form';
 
     /**
      * @var ContainerInterface
@@ -56,6 +60,7 @@ class LoadWorkflowDefinitions extends AbstractFixture implements ContainerAwareI
             }
 
             $manager->persist($workflowDefinition);
+            $this->addReference('workflow.' . $workflowDefinition->getName(), $workflowDefinition);
             $hasDefinitions = true;
         }
 
@@ -69,6 +74,6 @@ class LoadWorkflowDefinitions extends AbstractFixture implements ContainerAwareI
      */
     protected function getWorkflowConfiguration()
     {
-        return Yaml::parse(file_get_contents(__DIR__ . '/config/workflows.yml')) ? : [];
+        return Yaml::parse(file_get_contents(__DIR__ . '/config/oro/workflows.yml')) ? : [];
     }
 }

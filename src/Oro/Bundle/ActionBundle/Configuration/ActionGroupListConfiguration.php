@@ -2,8 +2,8 @@
 
 namespace Oro\Bundle\ActionBundle\Configuration;
 
-use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
+use Symfony\Component\Config\Definition\Processor;
 
 class ActionGroupListConfiguration implements ConfigurationDefinitionInterface
 {
@@ -36,7 +36,7 @@ class ActionGroupListConfiguration implements ConfigurationDefinitionInterface
                         ->children()
                             ->scalarNode('type')->end()
                             ->scalarNode('message')->end()
-                            ->scalarNode('default')->end()
+                            ->variableNode('default')->end()
                         ->end()
                     ->end()
                 ->end()

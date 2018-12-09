@@ -2,19 +2,24 @@
 
 namespace Oro\Bundle\ApiBundle\Command;
 
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfigExtra;
+use Oro\Bundle\ApiBundle\Filter\NullFilterValueAccessor;
+use Oro\Bundle\ApiBundle\Metadata\ActionMetadataExtra;
+use Oro\Bundle\ApiBundle\Metadata\HateoasMetadataExtra;
+use Oro\Bundle\ApiBundle\Provider\ConfigProvider;
+use Oro\Bundle\ApiBundle\Provider\MetadataProvider;
+use Oro\Bundle\ApiBundle\Request\RequestType;
+use Oro\Bundle\ApiBundle\Request\Version;
+use Oro\Component\ChainProcessor\ProcessorBagInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Yaml\Yaml;
 
-use Oro\Component\ChainProcessor\ProcessorBagInterface;
-use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfigExtra;
-use Oro\Bundle\ApiBundle\Provider\ConfigProvider;
-use Oro\Bundle\ApiBundle\Provider\MetadataProvider;
-use Oro\Bundle\ApiBundle\Request\RequestType;
-use Oro\Bundle\ApiBundle\Request\Version;
-
+/**
+ * The CLI command to show metadata of Data API resources.
+ */
 class DumpMetadataCommand extends AbstractDebugCommand
 {
     /**
@@ -30,13 +35,6 @@ class DumpMetadataCommand extends AbstractDebugCommand
                 InputArgument::REQUIRED,
                 'The entity class name or alias'
             )
-            // @todo: API version is not supported for now
-            //->addArgument(
-            //    'version',
-            //    InputArgument::OPTIONAL,
-            //    'API version',
-            //    Version::LATEST
-            //)
             ->addOption(
                 'action',
                 null,
@@ -44,6 +42,12 @@ class DumpMetadataCommand extends AbstractDebugCommand
                 'The name of action for which the metadata should be displayed.' .
                 'Can be "get", "get_list", "create", "update", "delete", "delete_list", etc.'.
                 'get'
+            )
+            ->addOption(
+                'hateoas',
+                null,
+                InputOption::VALUE_NONE,
+                'Adds HATEOAS related links to the metadata.'
             );
         parent::configure();
     }
@@ -54,10 +58,10 @@ class DumpMetadataCommand extends AbstractDebugCommand
     public function execute(InputInterface $input, OutputInterface $output)
     {
         $requestType = $this->getRequestType($input);
-        // @todo: API version is not supported for now
-        //$version = $input->getArgument('version');
+        // API version is not supported for now
         $version = Version::normalizeVersion(null);
         $action = $input->getOption('action');
+        $hateoas = $input->getOption('hateoas');
 
         /** @var ProcessorBagInterface $processorBag */
         $processorBag = $this->getContainer()->get('oro_api.processor_bag');
@@ -65,8 +69,8 @@ class DumpMetadataCommand extends AbstractDebugCommand
 
         $entityClass = $this->resolveEntityClass($input->getArgument('entity'), $version, $requestType);
 
-        $metadata = $this->getMetadata($entityClass, $version, $requestType, $action);
-        $output->write(Yaml::dump($metadata, 100, 4, true, true));
+        $metadata = $this->getMetadata($entityClass, $version, $requestType, $action, $hateoas);
+        $output->write(Yaml::dump($metadata, 100, 4, Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE | Yaml::DUMP_OBJECT));
     }
 
     /**
@@ -74,10 +78,11 @@ class DumpMetadataCommand extends AbstractDebugCommand
      * @param string      $version
      * @param RequestType $requestType
      * @param string      $action
+     * @param bool        $hateoas
      *
      * @return array
      */
-    protected function getMetadata($entityClass, $version, RequestType $requestType, $action)
+    protected function getMetadata($entityClass, $version, RequestType $requestType, $action, $hateoas)
     {
         /** @var MetadataProvider $configProvider */
         $metadataProvider = $this->getContainer()->get('oro_api.metadata_provider');
@@ -87,6 +92,12 @@ class DumpMetadataCommand extends AbstractDebugCommand
         $configExtras = [
             new EntityDefinitionConfigExtra($action)
         ];
+        $metadataExtras = [
+            new ActionMetadataExtra($action)
+        ];
+        if ($hateoas) {
+            $metadataExtras[] = new HateoasMetadataExtra(new NullFilterValueAccessor());
+        }
 
         $config   = $configProvider->getConfig($entityClass, $version, $requestType, $configExtras);
         $metadata = $metadataProvider->getMetadata(
@@ -94,15 +105,11 @@ class DumpMetadataCommand extends AbstractDebugCommand
             $version,
             $requestType,
             $config->getDefinition(),
-            []
+            $metadataExtras
         );
 
         return [
-            'oro_api' => [
-                'metadata' => [
-                    $entityClass => null !== $metadata ? $metadata->toArray() : null
-                ]
-            ]
+            $entityClass => null !== $metadata ? $metadata->toArray() : null
         ];
     }
 }

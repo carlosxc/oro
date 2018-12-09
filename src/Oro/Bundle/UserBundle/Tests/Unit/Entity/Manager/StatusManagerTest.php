@@ -5,7 +5,7 @@ namespace Oro\Bundle\UserBundle\Tests\Unit\Entity\Manager;
 use Oro\Bundle\UserBundle\Entity\Manager\StatusManager;
 use Oro\Bundle\UserBundle\Entity\Status;
 
-class StatusManagerTest extends \PHPUnit_Framework_TestCase
+class StatusManagerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var \Oro\Bundle\UserBundle\Entity\Manager\StatusManager
@@ -29,7 +29,7 @@ class StatusManagerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->repository = $this->getMock(
+        $this->repository = $this->createMock(
             'Doctrine\Common\Persistence\ObjectRepository',
             array('find', 'findAll', 'findBy', 'findOneBy', 'getClassName')
         );

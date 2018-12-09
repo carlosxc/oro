@@ -2,12 +2,11 @@
 namespace Oro\Bundle\OrganizationBundle\Entity\Repository;
 
 use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\Query\Expr;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\OrganizationBundle\Entity\BusinessUnit;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\UserBundle\Entity\User;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
 
 class BusinessUnitRepository extends EntityRepository
 {
@@ -38,12 +37,12 @@ class BusinessUnitRepository extends EntityRepository
     public function getBusinessUnitsTree(User $user = null, $organizationId = null)
     {
         $businessUnits = $this->createQueryBuilder('businessUnit')->select(
-            array(
+            [
                 'businessUnit.id',
                 'businessUnit.name',
                 'IDENTITY(businessUnit.owner) parent',
                 'IDENTITY(businessUnit.organization) organization',
-            )
+            ]
         );
         if ($user && $user->getId()) {
             $units = $user->getBusinessUnits()->map(
@@ -64,7 +63,7 @@ class BusinessUnitRepository extends EntityRepository
         }
 
         $businessUnits = $businessUnits->getQuery()->getArrayResult();
-        $children      = array();
+        $children      = [];
         foreach ($businessUnits as &$businessUnit) {
             $parent              = $businessUnit['parent'] ? : 0;
             $children[$parent][] = & $businessUnit;
@@ -171,7 +170,7 @@ class BusinessUnitRepository extends EntityRepository
     public function getBusinessUnitsCount()
     {
         $qb = $this->createQueryBuilder('businessUnit');
-        $qb->select('count(businessUnit.id)');
+        $qb->select('COUNT(businessUnit.id)');
 
         return $qb->getQuery()->getSingleScalarResult();
     }
@@ -185,13 +184,15 @@ class BusinessUnitRepository extends EntityRepository
      */
     public function getGridFilterChoices($field, $entity, $alias = 'bu')
     {
+        QueryBuilderUtil::checkIdentifier($alias);
+        QueryBuilderUtil::checkIdentifier($field);
         $options = [];
 
         $result = $this->_em->createQueryBuilder()
             ->select($alias)
             ->from($entity, $alias)
-            ->add('select', $alias . '.' . $field)
-            ->distinct($alias . '.' . $field)
+            ->addSelect($alias . '.' . $field)
+            ->distinct()
             ->getQuery()
             ->getArrayResult();
 

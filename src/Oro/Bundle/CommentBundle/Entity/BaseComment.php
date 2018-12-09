@@ -3,10 +3,9 @@
 namespace Oro\Bundle\CommentBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\UserBundle\Entity\User;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 
 abstract class BaseComment
 {
@@ -197,11 +196,11 @@ abstract class BaseComment
     /**
      * Sets creation date
      *
-     * @param \DateTime $createdAt
+     * @param \DateTime|null $createdAt
      *
      * @return self
      */
-    public function setCreatedAt(\DateTime $createdAt)
+    public function setCreatedAt(\DateTime $createdAt = null)
     {
         $this->createdAt = $createdAt;
 
@@ -221,11 +220,11 @@ abstract class BaseComment
     /**
      * Sets a date update
      *
-     * @param \DateTime $updatedAt
+     * @param \DateTime|null $updatedAt
      *
      * @return self
      */
-    public function setUpdatedAt(\DateTime $updatedAt)
+    public function setUpdatedAt(\DateTime $updatedAt = null)
     {
         $this->updatedAt = $updatedAt;
 

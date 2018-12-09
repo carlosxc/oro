@@ -4,12 +4,12 @@ namespace Oro\Bundle\EntityBundle\Tests\Unit\Provider;
 
 use Oro\Bundle\EntityBundle\Provider\EntityNameResolver;
 
-class EntityNameResolverTest extends \PHPUnit_Framework_TestCase
+class EntityNameResolverTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $provider1;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $provider2;
 
     /** @var EntityNameResolver */
@@ -17,8 +17,8 @@ class EntityNameResolverTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->provider1 = $this->getMock('Oro\Bundle\EntityBundle\Provider\EntityNameProviderInterface');
-        $this->provider2 = $this->getMock('Oro\Bundle\EntityBundle\Provider\EntityNameProviderInterface');
+        $this->provider1 = $this->createMock('Oro\Bundle\EntityBundle\Provider\EntityNameProviderInterface');
+        $this->provider2 = $this->createMock('Oro\Bundle\EntityBundle\Provider\EntityNameProviderInterface');
 
         $this->entityNameResolver = new EntityNameResolver(
             'full',
@@ -169,5 +169,29 @@ class EntityNameResolverTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->entityNameResolver->getNameDQL($className, $alias, $format, $locale);
         $this->assertEquals($expected, $result);
+    }
+
+    public function testPrepareNameDQLForEmptyExpr()
+    {
+        self::assertEquals(
+            '\'\'',
+            $this->entityNameResolver->prepareNameDQL(null)
+        );
+    }
+
+    public function testPrepareNameDQLWithoutCastToString()
+    {
+        self::assertEquals(
+            'e.name',
+            $this->entityNameResolver->prepareNameDQL('e.name')
+        );
+    }
+
+    public function testPrepareNameDQLWithCastToString()
+    {
+        self::assertEquals(
+            'CAST(e.name AS string)',
+            $this->entityNameResolver->prepareNameDQL('e.name', true)
+        );
     }
 }

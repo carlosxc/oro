@@ -4,24 +4,23 @@ namespace Oro\Bundle\FilterBundle\Tests\Unit\Filter;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
-
-use Oro\Bundle\FilterBundle\Filter\MultiEnumFilter;
-use Oro\Bundle\FilterBundle\Form\Type\Filter\EnumFilterType;
-use Oro\Bundle\FilterBundle\Tests\Unit\Filter\Fixtures\TestEnumValue;
 use Oro\Bundle\FilterBundle\Datasource\ManyRelationBuilder;
 use Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter;
 use Oro\Bundle\FilterBundle\Datasource\Orm\OrmManyRelationBuilder;
 use Oro\Bundle\FilterBundle\Filter\FilterUtility;
+use Oro\Bundle\FilterBundle\Filter\MultiEnumFilter;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\ChoiceFilterType;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\OrmTestCase;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\Mocks\EntityManagerMock;
+use Oro\Bundle\FilterBundle\Form\Type\Filter\EnumFilterType;
+use Oro\Bundle\FilterBundle\Tests\Unit\Filter\Fixtures\TestEnumValue;
+use Oro\Component\TestUtils\ORM\Mocks\EntityManagerMock;
+use Oro\Component\TestUtils\ORM\OrmTestCase;
 
 class MultiEnumFilterTest extends OrmTestCase
 {
     /** @var EntityManagerMock */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $formFactory;
 
     /** @var MultiEnumFilter */
@@ -43,7 +42,7 @@ class MultiEnumFilterTest extends OrmTestCase
             ]
         );
 
-        $this->formFactory = $this->getMock('Symfony\Component\Form\FormFactoryInterface');
+        $this->formFactory = $this->createMock('Symfony\Component\Form\FormFactoryInterface');
 
         $doctrine = $this->getMockBuilder('Doctrine\Common\Persistence\ManagerRegistry')
             ->disableOriginalConstructor()
@@ -131,11 +130,11 @@ class MultiEnumFilterTest extends OrmTestCase
 
     public function testGetForm()
     {
-        $form = $this->getMock('Symfony\Component\Form\Test\FormInterface');
+        $form = $this->createMock('Symfony\Component\Form\Test\FormInterface');
 
         $this->formFactory->expects($this->once())
             ->method('create')
-            ->with(EnumFilterType::NAME)
+            ->with(EnumFilterType::class)
             ->will($this->returnValue($form));
 
         $this->assertSame(
@@ -164,12 +163,12 @@ class MultiEnumFilterTest extends OrmTestCase
         ];
         $this->filter->init('test', $params);
 
-        /** @var OrmFilterDatasourceAdapter|\PHPUnit_Framework_MockObject_MockObject $ds */
-        $ds = $this->getMock(
-            'Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter',
-            ['generateParameterName'],
-            [$qb]
-        );
+        /** @var OrmFilterDatasourceAdapter|\PHPUnit\Framework\MockObject\MockObject $ds */
+        $ds = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter')
+            ->setMethods(['generateParameterName'])
+            ->setConstructorArgs([$qb])
+            ->getMock();
+
         $ds->expects($this->any())
             ->method('generateParameterName')
             ->will($this->returnValue('param1'));
@@ -210,12 +209,12 @@ class MultiEnumFilterTest extends OrmTestCase
         ];
         $this->filter->init('test', $params);
 
-        /** @var OrmFilterDatasourceAdapter|\PHPUnit_Framework_MockObject_MockObject $ds */
-        $ds = $this->getMock(
-            'Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter',
-            ['generateParameterName'],
-            [$qb]
-        );
+        /** @var OrmFilterDatasourceAdapter|\PHPUnit\Framework\MockObject\MockObject $ds */
+        $ds = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter')
+            ->setMethods(['generateParameterName'])
+            ->setConstructorArgs([$qb])
+            ->getMock();
+
         $ds->expects($this->any())
             ->method('generateParameterName')
             ->will($this->returnValue('param1'));

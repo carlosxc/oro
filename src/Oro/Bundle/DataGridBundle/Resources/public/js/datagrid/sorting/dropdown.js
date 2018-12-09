@@ -8,7 +8,9 @@ define(function(require) {
     var module = require('module');
     var config = _.defaults(module.config(), {
         hasSortingOrderButton: true,
-        className: 'sorting-select-control',
+        inlineSortingLabel: false, // Draws inline label for sorter if soring order button (previous option) is not enabled
+        disableNotSelectedOption: false,
+        className: 'sorting-select sorting-select-control',
         dropdownClassName: 'sorting-select-control'
     });
 
@@ -39,14 +41,27 @@ define(function(require) {
 
         dropdownClassName: config.dropdownClassName,
 
+        select2Config: {},
+
         /** @property */
         enabled: true,
 
-        hasSortingOrderButton:  config.hasSortingOrderButton,
+        hasSortingOrderButton: config.hasSortingOrderButton,
+
+        inlineSortingLabel: config.inlineSortingLabel,
+
+        disableNotSelectedOption: config.disableNotSelectedOption,
 
         currentColumn: null,
 
         currentDirection: null,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function SortingDropdown() {
+            SortingDropdown.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * Initializer.
@@ -67,6 +82,7 @@ define(function(require) {
             }
 
             _.extend(this, _.pick(options, ['columns', 'collection', 'hasSortingOrderButton']));
+            _.extend(this, _.pick(options.collection.options.toolbarOptions, ['disableNotSelectedOption']));
 
             this.listenTo(this.columns, 'change:direction', this._selectCurrentSortableColumn);
             this.listenTo(this.columns, 'change:renderable', this._columnRenderableChanged);
@@ -168,16 +184,16 @@ define(function(require) {
         },
 
         _updateDisplayValue: function() {
-            this.$('select').select2('val', this._getCurrentValue());
+            this.$('select').inputWidget('val', this._getCurrentValue());
             if (this.hasSortingOrderButton) {
                 this._updateDisplayDirection();
             }
         },
 
         _updateDisplayDirection: function() {
-            this.$('[data-name=order-toggle]')
-                .toggleClass('icon-sort-by-attributes', this.currentDirection === this.DIRECTIONS[0])
-                .toggleClass('icon-sort-by-attributes-alt', this.currentDirection === this.DIRECTIONS[1]);
+            this.$('[data-name=order-toggle-icon]')
+                .toggleClass('fa-sort-amount-asc', this.currentDirection === this.DIRECTIONS[0])
+                .toggleClass('fa-sort-amount-desc', this.currentDirection === this.DIRECTIONS[1]);
         },
 
         onDirectionToggle: function() {
@@ -204,7 +220,8 @@ define(function(require) {
                 columnName = value[0];
                 newDirection = value[1];
             }
-            column = this.columns.findWhere({'name': columnName});
+            column = this.columns.findWhere({name: columnName});
+
             if (column) {
                 if (newDirection) {
                     this.currentDirection = newDirection;
@@ -215,6 +232,8 @@ define(function(require) {
             } else {
                 this.currentColumn = null;
                 this.currentDirection = null;
+
+                this.collection.trigger('backgrid:sort', '', this.currentDirection);
             }
             if (this.hasSortingOrderButton) {
                 this._updateDisplayDirection();
@@ -227,7 +246,9 @@ define(function(require) {
                 columns: this._getSelectOptionsData(),
                 selectedValue: this._getCurrentValue(),
                 currentDirection: this.currentDirection,
-                hasSortingOrderButton: this.hasSortingOrderButton
+                hasSortingOrderButton: this.hasSortingOrderButton,
+                disableNotSelectedOption: this.disableNotSelectedOption,
+                inlineSortingLabel: this.inlineSortingLabel
             });
             return data;
         },
@@ -251,7 +272,18 @@ define(function(require) {
                     }, this));
                 }
             }, this));
+
             return options;
+        },
+
+        /**
+         * Init sorting subview
+         */
+        initSubview: function() {
+            this.subview('select2', new Select2View({
+                el: this.$('select'),
+                select2Config: this.select2Config
+            }));
         },
 
         /**
@@ -264,28 +296,25 @@ define(function(require) {
             }
             SortingDropdown.__super__.render.call(this);
 
-            var select2Config = {
+            this.select2Config = {
                 dropdownCssClass: _.result(this, 'dropdownClassName'),
                 dropdownAutoWidth: true
             };
-            var searchCapabilityGate =  this.SEARCH_CAPABILITY_GATE;
+            var searchCapabilityGate = this.SEARCH_CAPABILITY_GATE;
             if (!this.hasSortingOrderButton) {
                 searchCapabilityGate = Math.floor(searchCapabilityGate / this.DIRECTIONS.length);
             }
 
             if (this.columns.where({sortable: true, renderable: true}).length < searchCapabilityGate) {
-                select2Config.minimumResultsForSearch = -1;
+                this.select2Config.minimumResultsForSearch = -1;
             }
 
-            this.subview('select2', new Select2View({
-                el: this.$('select'),
-                select2Config: select2Config
-            }));
+            this.initSubview();
 
             this._updateDisplayDirection();
 
             return this;
-        },
+        }
     });
 
     return SortingDropdown;

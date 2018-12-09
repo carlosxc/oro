@@ -5,18 +5,20 @@
     "keywords": ["BAP", "DataGrid"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "oro/config": "dev-master",
         "oro/ui-bundle": "dev-master",
         "oro/requirejs-bundle": "dev-master",
-        "oro/security-bundle": "dev-master"
+        "oro/security-bundle": "dev-master",
+        "bower-asset/backgrid": "0.3.7",
+        "bower-asset/backgrid-paginator": "0.3.8",
+        "bower-asset/backbone-pageable": "1.2.3"
     },
     "autoload": {
         "psr-0": { "Oro\\Bundle\\DataGridBundle": "" }
     },
     "target-dir": "Oro/Bundle/DataGridBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

@@ -3,15 +3,13 @@
 namespace Oro\Bundle\ActionBundle\Tests\Unit\Command;
 
 use Doctrine\Common\Collections\Collection;
-
+use Oro\Bundle\ActionBundle\Command\ValidateActionConfigurationCommand;
+use Oro\Bundle\ActionBundle\Configuration\ConfigurationProviderInterface;
+use Oro\Component\Testing\Unit\Command\Stub\OutputStub;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-use Oro\Bundle\ActionBundle\Command\ValidateActionConfigurationCommand;
-use Oro\Bundle\ActionBundle\Configuration\ConfigurationProviderInterface;
-use Oro\Bundle\ActionBundle\Tests\Unit\Command\Stub\OutputStub;
-
-class ValidateActionConfigurationCommandTest extends \PHPUnit_Framework_TestCase
+class ValidateActionConfigurationCommandTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ValidateActionConfigurationCommand
@@ -19,17 +17,17 @@ class ValidateActionConfigurationCommandTest extends \PHPUnit_Framework_TestCase
     protected $command;
 
     /**
-     * @var ConfigurationProviderInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigurationProviderInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $provider;
 
     /**
-     * @var ContainerInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var ContainerInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $container;
 
     /**
-     * @var InputInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var InputInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $input;
 
@@ -40,15 +38,15 @@ class ValidateActionConfigurationCommandTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->provider = $this->getMock('Oro\Bundle\ActionBundle\Configuration\ConfigurationProviderInterface');
+        $this->provider = $this->createMock('Oro\Bundle\ActionBundle\Configuration\ConfigurationProviderInterface');
 
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $this->container->expects($this->any())
             ->method('get')
             ->with('oro_action.configuration.provider.operations', 1)
             ->willReturn($this->provider);
 
-        $this->input = $this->getMock('Symfony\Component\Console\Input\InputInterface');
+        $this->input = $this->createMock('Symfony\Component\Console\Input\InputInterface');
 
         $this->output = new OutputStub();
 

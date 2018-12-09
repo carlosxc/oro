@@ -1,24 +1,26 @@
 <?php
 namespace Oro\Component\MessageQueue\Tests\Unit\Job;
 
+use Oro\Component\MessageQueue\Client\Message;
+use Oro\Component\MessageQueue\Client\MessagePriority;
 use Oro\Component\MessageQueue\Client\MessageProducerInterface;
 use Oro\Component\MessageQueue\Consumption\MessageProcessorInterface;
-use Oro\Component\MessageQueue\Job\CalculateRootJobStatusService;
 use Oro\Component\MessageQueue\Job\CalculateRootJobStatusProcessor;
 use Oro\Component\MessageQueue\Job\Job;
 use Oro\Component\MessageQueue\Job\JobStorage;
+use Oro\Component\MessageQueue\Job\RootJobStatusCalculator;
 use Oro\Component\MessageQueue\Job\Topics;
 use Oro\Component\MessageQueue\Transport\Null\NullMessage;
 use Oro\Component\MessageQueue\Transport\SessionInterface;
 use Psr\Log\LoggerInterface;
 
-class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
+class CalculateRootJobStatusProcessorTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
         new CalculateRootJobStatusProcessor(
             $this->createJobStorageMock(),
-            $this->createCalculateRootJobStatusCaseMock(),
+            $this->createRootJobStatusCalculatorMock(),
             $this->createMessageProducerMock(),
             $this->createLoggerMock()
         );
@@ -41,12 +43,12 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
         $logger
             ->expects($this->once())
             ->method('critical')
-            ->with('Got invalid message. body: ""')
+            ->with('Got invalid message')
         ;
 
         $processor = new CalculateRootJobStatusProcessor(
             $this->createJobStorageMock(),
-            $this->createCalculateRootJobStatusCaseMock(),
+            $this->createRootJobStatusCalculatorMock(),
             $this->createMessageProducerMock(),
             $logger
         );
@@ -71,7 +73,7 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
             ->with('Job was not found. id: "12345"')
         ;
 
-        $case = $this->createCalculateRootJobStatusCaseMock();
+        $case = $this->createRootJobStatusCalculatorMock();
         $case
             ->expects($this->never())
             ->method('calculate')
@@ -110,7 +112,7 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
             ->method('critical')
         ;
 
-        $case = $this->createCalculateRootJobStatusCaseMock();
+        $case = $this->createRootJobStatusCalculatorMock();
         $case
             ->expects($this->once())
             ->method('calculate')
@@ -149,7 +151,7 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
 
         $logger = $this->createLoggerMock();
 
-        $case = $this->createCalculateRootJobStatusCaseMock();
+        $case = $this->createRootJobStatusCalculatorMock();
         $case
             ->expects($this->once())
             ->method('calculate')
@@ -161,8 +163,10 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
         $producer
             ->expects($this->once())
             ->method('send')
-            ->with(Topics::ROOT_JOB_STOPPED, ['jobId' => 12345])
-        ;
+            ->with(
+                Topics::ROOT_JOB_STOPPED,
+                new Message(['jobId' => 12345], MessagePriority::HIGH)
+            );
 
         $message = new NullMessage();
         $message->setBody(json_encode(['jobId' => 12345]));
@@ -174,42 +178,42 @@ class CalculateRootJobStatusProcessorTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProducerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProducerInterface
      */
     private function createMessageProducerMock()
     {
-        return $this->getMock(MessageProducerInterface::class);
+        return $this->createMock(MessageProducerInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|SessionInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|SessionInterface
      */
     private function createSessionMock()
     {
-        return $this->getMock(SessionInterface::class);
+        return $this->createMock(SessionInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|LoggerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|LoggerInterface
      */
     private function createLoggerMock()
     {
-        return $this->getMock(LoggerInterface::class);
+        return $this->createMock(LoggerInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|CalculateRootJobStatusService
+     * @return \PHPUnit\Framework\MockObject\MockObject|RootJobStatusCalculator
      */
-    private function createCalculateRootJobStatusCaseMock()
+    private function createRootJobStatusCalculatorMock()
     {
-        return $this->getMock(CalculateRootJobStatusService::class, [], [], '', false);
+        return $this->createMock(RootJobStatusCalculator::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|JobStorage
+     * @return \PHPUnit\Framework\MockObject\MockObject|JobStorage
      */
     private function createJobStorageMock()
     {
-        return $this->getMock(JobStorage::class, [], [], '', false);
+        return $this->createMock(JobStorage::class);
     }
 }

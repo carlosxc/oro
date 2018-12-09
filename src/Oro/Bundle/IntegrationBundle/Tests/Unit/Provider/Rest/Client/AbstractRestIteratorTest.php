@@ -2,21 +2,21 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Provider\Rest\Client\Guzzle;
 
-class AbstractRestIteratorTest extends \PHPUnit_Framework_TestCase
+class AbstractRestIteratorTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $client;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $iterator;
 
     protected function setUp()
     {
-        $this->client = $this->getMock('Oro\\Bundle\\IntegrationBundle\\Provider\\Rest\\Client\\RestClientInterface');
+        $this->client = $this->createMock('Oro\Bundle\IntegrationBundle\Provider\Rest\Client\RestClientInterface');
         $this->iterator = $this->transport = $this->getMockBuilder(
             'Oro\\Bundle\\IntegrationBundle\\Provider\\Rest\\Client\\AbstractRestIterator'
         )->setConstructorArgs([$this->client])

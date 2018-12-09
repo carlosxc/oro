@@ -5,7 +5,7 @@ use Oro\Component\MessageQueue\Client\Config;
 use Oro\Component\MessageQueue\Client\Meta\DestinationMeta;
 use Oro\Component\MessageQueue\Client\Meta\DestinationMetaRegistry;
 
-class DestinationMetaRegistryTest extends \PHPUnit_Framework_TestCase
+class DestinationMetaRegistryTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithDestinations()
     {
@@ -30,11 +30,9 @@ class DestinationMetaRegistryTest extends \PHPUnit_Framework_TestCase
             [],
             'default'
         );
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The destination meta not found. Requested name `aName`');
 
-        $this->setExpectedException(
-            \InvalidArgumentException::class,
-            'The destination meta not found. Requested name `aName`'
-        );
         $registry->getDestinationMeta('aName');
     }
 

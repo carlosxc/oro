@@ -7,7 +7,7 @@ use Oro\Component\ChainProcessor\Context;
 use Oro\Component\ChainProcessor\ProcessorFactoryInterface;
 use Oro\Component\ChainProcessor\ProcessorIterator;
 
-class ProcessorIteratorTest extends \PHPUnit_Framework_TestCase
+class ProcessorIteratorTest extends \PHPUnit\Framework\TestCase
 {
     public function testEmptyIterator()
     {
@@ -31,8 +31,8 @@ class ProcessorIteratorTest extends \PHPUnit_Framework_TestCase
     {
         $context = new Context();
         $processors = [
-            ['processor' => 'processor1', 'attributes' => []],
-            ['processor' => 'processor2', 'attributes' => []]
+            ['processor1', []],
+            ['processor2', []]
         ];
 
         $iterator = new ProcessorIterator(
@@ -55,12 +55,12 @@ class ProcessorIteratorTest extends \PHPUnit_Framework_TestCase
     {
         $context = new Context();
         $processors = [
-            ['processor' => 'processor1', 'attributes' => []],
-            ['processor' => 'processor2', 'attributes' => []],
-            ['processor' => 'processor3', 'attributes' => []]
+            ['processor1', []],
+            ['processor2', []],
+            ['processor3', []]
         ];
 
-        $factory = $this->getMock('Oro\Component\ChainProcessor\ProcessorFactoryInterface');
+        $factory = $this->createMock('Oro\Component\ChainProcessor\ProcessorFactoryInterface');
         $factory->expects($this->at(0))
             ->method('getProcessor')
             ->with('processor1')
@@ -125,14 +125,8 @@ class ProcessorIteratorTest extends \PHPUnit_Framework_TestCase
         $context->setAction('action1');
 
         $processors = [
-            [
-                'processor'  => 'processor1',
-                'attributes' => ['group' => 'group1', 'attr1' => 'val1']
-            ],
-            [
-                'processor'  => 'processor2',
-                'attributes' => ['group' => 'group2', 'attr1' => 'val1']
-            ]
+            ['processor1', ['group' => 'group1', 'attr1' => 'val1']],
+            ['processor2', ['group' => 'group2', 'attr1' => 'val1']]
         ];
 
         $iterator = new ProcessorIterator(
@@ -160,7 +154,7 @@ class ProcessorIteratorTest extends \PHPUnit_Framework_TestCase
      */
     protected function getProcessorFactory()
     {
-        $factory = $this->getMock('Oro\Component\ChainProcessor\ProcessorFactoryInterface');
+        $factory = $this->createMock('Oro\Component\ChainProcessor\ProcessorFactoryInterface');
         $factory->expects($this->any())
             ->method('getProcessor')
             ->willReturnCallback(

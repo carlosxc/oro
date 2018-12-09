@@ -2,11 +2,10 @@
 
 namespace Oro\Bundle\MigrationBundle\Tests\Unit\Migration;
 
+use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Types\Type;
-
 use Oro\Bundle\MigrationBundle\Migration\MigrationExecutor;
 use Oro\Bundle\MigrationBundle\Migration\MigrationState;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
@@ -23,7 +22,7 @@ class MigrationExecutorTest extends AbstractTestMigrationExecutor
     {
         parent::setUp();
 
-        $this->executor = new MigrationExecutor($this->queryExecutor);
+        $this->executor = new MigrationExecutor($this->queryExecutor, $this->cacheManager);
         $this->executor->setLogger($this->logger);
     }
 
@@ -32,6 +31,8 @@ class MigrationExecutorTest extends AbstractTestMigrationExecutor
         $migrations = [
             new MigrationState(new IndexMigration()),
         ];
+        $this->cacheManager->expects($this->once())
+            ->method('clear');
 
         $this->executor->executeUp($migrations);
     }
@@ -45,10 +46,13 @@ class MigrationExecutorTest extends AbstractTestMigrationExecutor
             $migrationsToExecute[] = new MigrationState(new $migrationClass());
         }
 
-        $this->setExpectedException(
-            '\RuntimeException',
+        $this->expectException('\RuntimeException');
+        $this->expectExceptionMessage(
             'Failed migrations: Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\InvalidIndexMigration.'
         );
+        $this->cacheManager->expects($this->never())
+            ->method('clear');
+
         $this->executor->executeUp($migrationsToExecute);
         $this->assertEquals(
             '> Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\InvalidIndexMigration',
@@ -72,10 +76,13 @@ class MigrationExecutorTest extends AbstractTestMigrationExecutor
         }
         $migrationsToExecute[] = new MigrationState(new Test1BundleInstallation());
 
-        $this->setExpectedException(
-            '\RuntimeException',
+        $this->expectException('\RuntimeException');
+        $this->expectExceptionMessage(
             'Failed migrations: Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\UpdatedColumnIndexMigration.'
         );
+        $this->cacheManager->expects($this->never())
+            ->method('clear');
+
         $this->executor->executeUp($migrationsToExecute);
         $this->assertEquals(
             '> Oro\Bundle\MigrationBundle\Tests\Unit\Fixture\TestPackage\UpdatedColumnIndexMigration',
@@ -104,7 +111,7 @@ class MigrationExecutorTest extends AbstractTestMigrationExecutor
 
         $schemaUpdateQuery = new SqlSchemaUpdateMigrationQuery('ALTER TABLE');
 
-        $migration = $this->getMock('Oro\Bundle\MigrationBundle\Migration\Migration');
+        $migration = $this->createMock('Oro\Bundle\MigrationBundle\Migration\Migration');
         $migration->expects($this->once())
             ->method('up')
             ->willReturnCallback(

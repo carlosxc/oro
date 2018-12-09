@@ -16,6 +16,17 @@ define([
      * @extends Backgrid.SelectCell
      */
     SelectCell = Backgrid.SelectCell.extend({
+        events: {},
+
+        optionValues: [],
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function SelectCell() {
+            SelectCell.__super__.constructor.apply(this, arguments);
+        },
+
         /**
          * @inheritDoc
          */
@@ -24,10 +35,11 @@ define([
                 this.editor = SelectCellRadioEditor;
             }
 
-            if (options.column.get('metadata').choices) {
+            var choices = options.column.get('metadata').choices;
+            if (choices) {
                 this.optionValues = [];
-                _.each(options.column.get('metadata').choices, function(value, key) {
-                    this.optionValues.push([textUtil.prepareText(value), key]);
+                _.each(choices, function(value, label) {
+                    this.optionValues.push([_.escape(textUtil.prepareText(label)), value]);
                 }, this);
             } else {
                 throw new Error('Column metadata must have choices specified');
@@ -45,6 +57,10 @@ define([
          * @inheritDoc
          */
         render: function() {
+            if (_.isEmpty(this.optionValues)) {
+                return;
+            }
+
             var render = SelectCell.__super__.render.apply(this, arguments);
 
             this.enterEditMode();
@@ -56,7 +72,7 @@ define([
          * @inheritDoc
          */
         enterEditMode: function() {
-            if (this.column.get('editable')) {
+            if (this.isEditableColumn()) {
                 SelectCell.__super__.enterEditMode.apply(this, arguments);
             }
         },

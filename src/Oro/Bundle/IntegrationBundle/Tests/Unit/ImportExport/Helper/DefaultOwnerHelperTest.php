@@ -2,27 +2,26 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\ImportExport\Helper;
 
-use Doctrine\ORM\UnitOfWork;
 use Doctrine\ORM\EntityManager;
-
+use Doctrine\ORM\UnitOfWork;
 use Oro\Bundle\IntegrationBundle\Entity\Channel as Integration;
 use Oro\Bundle\IntegrationBundle\ImportExport\Helper\DefaultOwnerHelper;
 use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadata;
-use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider;
+use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface;
 
-class DefaultOwnerHelperTest extends \PHPUnit_Framework_TestCase
+class DefaultOwnerHelperTest extends \PHPUnit\Framework\TestCase
 {
     const USER_OWNER_FIELD_NAME  = 'owner';
     const USER_OWNER_COLUMN_NAME = 'owner';
     const ORGANIZATION_FIELD_NAME = 'organization';
 
-    /** @var EntityManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var EntityManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var OwnershipMetadataProvider|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var OwnershipMetadataProviderInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $metadataProvider;
 
-    /** @var UnitOfWork|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var UnitOfWork|\PHPUnit\Framework\MockObject\MockObject */
     protected $uow;
 
     /** @var DefaultOwnerHelper */
@@ -35,13 +34,13 @@ class DefaultOwnerHelperTest extends \PHPUnit_Framework_TestCase
         $this->uow              = $this->getMockBuilder('Doctrine\ORM\UnitOfWork')
             ->disableOriginalConstructor()->getMock();
         $this->metadataProvider =
-            $this->getMockBuilder('Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider')
+            $this->getMockBuilder('Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface')
                 ->disableOriginalConstructor()->getMock();
 
         $this->em->expects($this->any())->method('getUnitOfWork')
             ->will($this->returnValue($this->uow));
 
-        $registry = $this->getMock('Symfony\Bridge\Doctrine\RegistryInterface');
+        $registry = $this->createMock('Symfony\Bridge\Doctrine\RegistryInterface');
         $registry->expects($this->any())->method('getManager')
             ->will($this->returnValue($this->em));
 
@@ -120,8 +119,8 @@ class DefaultOwnerHelperTest extends \PHPUnit_Framework_TestCase
     {
         $integrationEmptyOwner = new Integration();
 
-        $user                 = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
-        $organization        = $this->getMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
+        $user                 = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
+        $organization        = $this->createMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
         $integrationWithOwner = new Integration();
         $integrationWithOwner->setDefaultUserOwner($user);
 

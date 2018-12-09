@@ -3,144 +3,388 @@
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Datagrid;
 
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureChecker;
+use Oro\Bundle\WorkflowBundle\Configuration\Checker\ConfigurationChecker;
 use Oro\Bundle\WorkflowBundle\Datagrid\ActionPermissionProvider;
 
-class ActionPermissionProviderTest extends \PHPUnit_Framework_TestCase
+class ActionPermissionProviderTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var ActionPermissionProvider
-     */
+    /** @var ActionPermissionProvider */
     protected $provider;
+
+    /** @var FeatureChecker|\PHPUnit\Framework\MockObject\MockObject */
+    protected $featureChecker;
+
+    /** @var ConfigurationChecker|\PHPUnit\Framework\MockObject\MockObject */
+    protected $configurationChecker;
 
     protected function setUp()
     {
-        $this->provider = new ActionPermissionProvider();
+        $this->featureChecker = $this->createMock(FeatureChecker::class);
+        $this->configurationChecker = $this->createMock(ConfigurationChecker::class);
+
+        $this->provider = new ActionPermissionProvider($this->featureChecker, $this->configurationChecker);
     }
 
     /**
-     * @param array $expected
-     * @param object $input
      * @dataProvider getWorkflowDefinitionPermissionsDataProvider
+     *
+     * @param array $expected
+     * @param ResultRecordInterface $input
+     * @param bool $featureEnabled
+     * @param bool $configurationClean
      */
-    public function testGetWorkflowDefinitionPermissionsSystemRelated(array $expected, $input)
-    {
+    public function testGetWorkflowDefinitionPermissionsSystemRelated(
+        array $expected,
+        ResultRecordInterface $input,
+        $featureEnabled,
+        $configurationClean
+    ) {
+        $this->featureChecker->expects($this->any())->method('isResourceEnabled')->willReturn($featureEnabled);
+        $this->configurationChecker->expects($this->any())->method('isClean')->willReturn($configurationClean);
+
         $this->assertEquals($expected, $this->provider->getWorkflowDefinitionPermissions($input));
     }
 
     /**
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     *
      * @return array
      */
     public function getWorkflowDefinitionPermissionsDataProvider()
     {
-        $systemDefinition = $this->getMock(ResultRecordInterface::class);
+        $systemDefinition = $this->createMock(ResultRecordInterface::class);
         $systemDefinition->expects($this->any())
             ->method('getValue')
-            ->will($this->returnValueMap(array(array('system', true))));
+            ->willReturnMap(
+                [
+                    ['system', true],
+                    ['configuration', []],
+                ]
+            );
 
-        $regularDefinition = $this->getMock(ResultRecordInterface::class);
+        $regularDefinition = $this->createMock(ResultRecordInterface::class);
         $regularDefinition->expects($this->any())
             ->method('getValue')
-            ->will($this->returnValueMap(array(array('system', false))));
+            ->willReturnMap(
+                [
+                    ['system', false],
+                    ['configuration', []],
+                ]
+            );
 
-        return array(
-            'system definition' => array(
-                'expected' => array(
+        return [
+            'system definition' => [
+                'expected' => [
                     'view' => true,
                     'update' => false,
                     'clone'  => true,
                     'delete' => false,
                     'activate' => true,
                     'deactivate' => false
-                ),
-                'input' => $systemDefinition
-            ),
-            'regular definition' => array(
-                'expected' => array(
+                ],
+                'input' => $systemDefinition,
+                'featureEnabled' => true,
+                'configurationClean' => true
+            ],
+            'system definition not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => false,
+                    'activate' => true,
+                    'deactivate' => false
+                ],
+                'input' => $systemDefinition,
+                'featureEnabled' => true,
+                'configurationClean' => false
+            ],
+            'regular definition' => [
+                'expected' => [
                     'view' => true,
                     'update' => true,
                     'clone'  => true,
                     'delete' => true,
                     'activate' => true,
                     'deactivate' => false
-                ),
-                'input' => $regularDefinition
-            )
-        );
+                ],
+                'input' => $regularDefinition,
+                'featureEnabled' => true,
+                'configurationClean' => true
+            ],
+            'regular definition not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => true,
+                    'deactivate' => false
+                ],
+                'input' => $regularDefinition,
+                'featureEnabled' => true,
+                'configurationClean' => false
+            ],
+            'system definition feature disabled' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => true,
+                    'delete' => false,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $systemDefinition,
+                'featureEnabled' => false,
+                'configurationClean' => true
+            ],
+            'system definition feature disabled not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => false,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $systemDefinition,
+                'featureEnabled' => false,
+                'configurationClean' => false
+            ],
+            'regular definition feature disabled' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => true,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $regularDefinition,
+                'featureEnabled' => false,
+                'configurationClean' => true
+            ],
+            'regular definition feature disabled not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $regularDefinition,
+                'featureEnabled' => false,
+                'configurationClean' => false
+            ]
+        ];
     }
 
     /**
-     * @param array $expected
-     * @param object $input
      * @dataProvider getWorkflowDefinitionActivationDataProvider
+     *
+     * @param array $expected
+     * @param ResultRecordInterface $input
+     * @param bool $featureEnabled
+     * @param bool $configurationClean
      */
     public function testGetWorkflowDefinitionPermissionsActivationRelated(
         array $expected,
-        $input
+        ResultRecordInterface $input,
+        $featureEnabled,
+        $configurationClean
     ) {
+        $this->featureChecker->expects($this->any())->method('isResourceEnabled')->willReturn($featureEnabled);
+        $this->configurationChecker->expects($this->any())->method('isClean')->willReturn($configurationClean);
 
         $this->assertEquals($expected, $this->provider->getWorkflowDefinitionPermissions($input));
     }
 
     /**
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     *
      * @return array
      */
     public function getWorkflowDefinitionActivationDataProvider()
     {
-
-        return array(
-            'no config' => array(
-                'expected' => array(
+        return [
+            'no config' => [
+                'expected' => [
                     'view' => true,
                     'update' => true,
                     'clone'  => true,
                     'delete' => true,
                     'activate' => true,
                     'deactivate' => false
-                ),
-                'input' => $this->getDefinitionMock(false)
-            ),
-            'active definition' => array(
-                'expected' => array(
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => true,
+                'configurationClean' => true
+            ],
+            'no config not clean' => [
+                'expected' => [
                     'view' => true,
-                    'update' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => true,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => true,
+                'configurationClean' => false
+            ],
+            'active definition' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
                     'clone'  => true,
                     'delete' => true,
                     'activate' => false,
                     'deactivate' => true
-                ),
-                'input' => $this->getDefinitionMock(true)
-            ),
-            'inactive definition' => array(
-                'expected' => array(
+                ],
+                'input' => $this->getDefinitionMock(true),
+                'featureEnabled' => true,
+                'configurationClean' => true
+            ],
+            'active definition not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => true
+                ],
+                'input' => $this->getDefinitionMock(true),
+                'featureEnabled' => true,
+                'configurationClean' => false
+            ],
+            'inactive definition' => [
+                'expected' => [
                     'view' => true,
                     'update' => true,
                     'clone'  => true,
                     'delete' => true,
                     'activate' => true,
                     'deactivate' => false
-                ),
-                'input' => $this->getDefinitionMock(false)
-            )
-        );
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => true,
+                'configurationClean' => true
+            ],
+            'inactive definition not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => true,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => true,
+                'configurationClean' => false
+            ],
+            'no config feature disabled' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => true,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => false,
+                'configurationClean' => true
+            ],
+            'no config feature disabled not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => false,
+                'configurationClean' => false
+            ],
+            'active definition feature disabled' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => true,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(true),
+                'featureEnabled' => false,
+                'configurationClean' => true
+            ],
+            'active definition feature disabled not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(true),
+                'featureEnabled' => false,
+                'configurationClean' => false
+            ],
+            'inactive definition feature disabled' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => true,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => false,
+                'configurationClean' => true
+            ],
+            'inactive definition feature disabled not clean' => [
+                'expected' => [
+                    'view' => true,
+                    'update' => false,
+                    'clone'  => false,
+                    'delete' => true,
+                    'activate' => false,
+                    'deactivate' => false
+                ],
+                'input' => $this->getDefinitionMock(false),
+                'featureEnabled' => false,
+                'configurationClean' => false
+            ]
+        ];
     }
 
     /**
      * @param bool $active weather workflow is active
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject|ResultRecordInterface
      */
     protected function getDefinitionMock($active)
     {
-        $definition = $this->getMock(ResultRecordInterface::class);
-
+        $definition = $this->createMock(ResultRecordInterface::class);
         $definition->expects($this->any())
             ->method('getValue')
             ->will(
                 $this->returnValueMap(
-                    array(
-                        array('active', $active),
-                        array('name', 'workflow_name'),
-                        array('entityClass', \stdClass::class)
-                    )
+                    [
+                        ['active', $active],
+                        ['name', 'workflow_name'],
+                        ['entityClass', \stdClass::class],
+                        ['configuration', []]
+                    ]
                 )
             );
 

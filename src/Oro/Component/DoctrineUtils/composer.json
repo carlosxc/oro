@@ -5,14 +5,14 @@
     "keywords": ["ORO", "BAP", "Entity", "Doctrine", "DBAL", "ORM", "Utils", "Util"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "doctrine/orm": "~2.3"
+        "php": "7.1.*",
+        "doctrine/orm": "2.5.*",
+        "symfony/dependency-injection": "2.8.*"
     },
     "autoload": {
         "psr-0": { "Oro\\Component\\DoctrineUtils": "" }
     },
     "target-dir": "Oro/Component/DoctrineUtils",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

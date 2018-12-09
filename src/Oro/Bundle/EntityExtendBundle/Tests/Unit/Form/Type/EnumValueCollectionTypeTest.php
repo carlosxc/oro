@@ -2,28 +2,31 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Form\Type;
 
-use Symfony\Component\Form\FormView;
-use Symfony\Component\Form\Test\TypeTestCase;
-use Symfony\Component\OptionsResolver\OptionsResolver;
-
 use Oro\Bundle\EntityConfigBundle\Config\Id\ConfigIdInterface;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityExtendBundle\Form\Type\EnumValueCollectionType;
+use Oro\Bundle\EntityExtendBundle\Form\Type\EnumValueType;
+use Oro\Bundle\EntityExtendBundle\Form\Util\EnumTypeHelper;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
+use Oro\Bundle\FormBundle\Form\Type\CollectionType;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\Form\Test\TypeTestCase;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class EnumValueCollectionTypeTest extends TypeTestCase
 {
     /** @var EnumValueCollectionType */
     protected $type;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var EnumTypeHelper|\PHPUnit\Framework\MockObject\MockObject */
     protected $typeHelper;
 
     protected function setUp()
     {
         parent::setUp();
 
-        $this->typeHelper = $this->getMockBuilder('Oro\Bundle\EntityExtendBundle\Form\Util\EnumTypeHelper')
+        $this->typeHelper = $this->getMockBuilder(EnumTypeHelper::class)
             ->disableOriginalConstructor()
             ->setMethods(['getEnumCode', 'isImmutable'])
             ->getMock();
@@ -32,16 +35,23 @@ class EnumValueCollectionTypeTest extends TypeTestCase
     }
 
     /**
-     * @dataProvider setDefaultOptionsProvider
+     * @dataProvider configureOptionsProvider
+     * @param ConfigIdInterface $configId
+     * @param boolean $isNewConfig
+     * @param string $enumCode
+     * @param boolean $isImmutableAdd
+     * @param boolean $isImmutableDelete
+     * @param array $options
+     * @param array $expectedOptions
      */
-    public function testSetDefaultOptions(
+    public function testConfigureOptions(
         ConfigIdInterface $configId,
         $isNewConfig,
         $enumCode,
         $isImmutableAdd,
         $isImmutableDelete,
-        $options,
-        $expectedOptions
+        array $options,
+        array $expectedOptions
     ) {
         $enumValueClassName = $enumCode ? ExtendHelper::buildEnumValueClassName($enumCode) : null;
 
@@ -64,7 +74,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
             );
 
         $resolver = $this->getOptionsResolver();
-        $this->type->setDefaultOptions($resolver);
+        $this->type->configureOptions($resolver);
 
         $options['config_id']     = $configId;
         $options['config_is_new'] = $isNewConfig;
@@ -77,8 +87,8 @@ class EnumValueCollectionTypeTest extends TypeTestCase
         unset($resolvedOptions['config_is_new']);
         $this->assertFalse($resolvedOptions['handle_primary']);
         unset($resolvedOptions['handle_primary']);
-        $this->assertEquals('oro_entity_extend_enum_value', $resolvedOptions['type']);
-        unset($resolvedOptions['type']);
+        $this->assertEquals(EnumValueType::class, $resolvedOptions['entry_type']);
+        unset($resolvedOptions['entry_type']);
 
         $this->assertEquals($expectedOptions, $resolvedOptions);
     }
@@ -97,7 +107,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                 'allow_add'         => true,
                 'allow_delete'      => true,
                 'validation_groups' => true,
-                'options'           => []
+                'entry_options'     => []
             ]
         );
 
@@ -107,7 +117,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
     /**
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
      */
-    public function setDefaultOptionsProvider()
+    public function configureOptionsProvider()
     {
         return [
             [
@@ -122,7 +132,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => true,
                     'allow_delete'      => true,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'     => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -139,7 +149,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => true,
                     'allow_delete'      => true,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'     => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -158,7 +168,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => false,
                     'allow_delete'      => false,
                     'validation_groups' => false,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -178,7 +188,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => false,
                     'allow_delete'      => false,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -195,7 +205,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => false,
                     'allow_delete'      => false,
                     'validation_groups' => false,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -212,7 +222,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => false,
                     'allow_delete'      => true,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -229,7 +239,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => true,
                     'allow_delete'      => false,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => false
                     ]
                 ]
@@ -246,7 +256,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
                     'allow_add'         => true,
                     'allow_delete'      => false,
                     'validation_groups' => true,
-                    'options'           => [
+                    'entry_options'           => [
                         'allow_multiple_selection' => true
                     ]
                 ]
@@ -258,6 +268,7 @@ class EnumValueCollectionTypeTest extends TypeTestCase
     {
         $configId = new FieldConfigId('enum', 'Test\Entity', 'testField', 'enum');
 
+        /** @var FormInterface $form */
         $form    = $this->getMockBuilder('Symfony\Component\Form\Test\FormInterface')
             ->disableOriginalConstructor()
             ->getMock();
@@ -266,12 +277,14 @@ class EnumValueCollectionTypeTest extends TypeTestCase
 
         $this->type->buildView($view, $form, $options);
         $this->assertFalse($view->vars['multiple']);
+        $this->assertFalse($view->vars['show_form_when_empty']);
     }
 
     public function testBuildViewForMultiEnum()
     {
         $configId = new FieldConfigId('enum', 'Test\Entity', 'testField', 'multiEnum');
 
+        /** @var FormInterface $form */
         $form    = $this->getMockBuilder('Symfony\Component\Form\Test\FormInterface')
             ->disableOriginalConstructor()
             ->getMock();
@@ -280,21 +293,11 @@ class EnumValueCollectionTypeTest extends TypeTestCase
 
         $this->type->buildView($view, $form, $options);
         $this->assertTrue($view->vars['multiple']);
-    }
-
-    public function testGetName()
-    {
-        $this->assertEquals(
-            'oro_entity_extend_enum_value_collection',
-            $this->type->getName()
-        );
+        $this->assertFalse($view->vars['show_form_when_empty']);
     }
 
     public function testGetParent()
     {
-        $this->assertEquals(
-            'oro_collection',
-            $this->type->getParent()
-        );
+        $this->assertEquals(CollectionType::class, $this->type->getParent());
     }
 }

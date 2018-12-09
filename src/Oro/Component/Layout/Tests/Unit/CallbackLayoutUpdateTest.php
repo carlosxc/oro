@@ -6,7 +6,7 @@ use Oro\Component\Layout\CallbackLayoutUpdate;
 use Oro\Component\Layout\LayoutItemInterface;
 use Oro\Component\Layout\LayoutManipulatorInterface;
 
-class CallbackLayoutUpdateTest extends \PHPUnit_Framework_TestCase
+class CallbackLayoutUpdateTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @expectedException \Oro\Component\Layout\Exception\UnexpectedTypeException
@@ -21,8 +21,8 @@ class CallbackLayoutUpdateTest extends \PHPUnit_Framework_TestCase
     {
         $layoutUpdate = new CallbackLayoutUpdate([$this, 'callbackFunction']);
 
-        $layoutManipulator = $this->getMock('Oro\Component\Layout\LayoutManipulatorInterface');
-        $item              = $this->getMock('Oro\Component\Layout\LayoutItemInterface');
+        $layoutManipulator = $this->createMock('Oro\Component\Layout\LayoutManipulatorInterface');
+        $item              = $this->createMock('Oro\Component\Layout\LayoutItemInterface');
 
         $layoutManipulator->expects($this->once())
             ->method('add')

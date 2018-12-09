@@ -6,7 +6,7 @@ use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\TagBundle\Entity\Tag;
 use Oro\Bundle\UserBundle\Entity\User;
 
-class TagTest extends \PHPUnit_Framework_TestCase
+class TagTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var Tag
@@ -44,7 +44,7 @@ class TagTest extends \PHPUnit_Framework_TestCase
 
     public function testAuthorAndUpdaterStoring()
     {
-        $user = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $user = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
         $this->tag->setOwner($user);
         $this->assertEquals($user, $this->tag->getOwner());

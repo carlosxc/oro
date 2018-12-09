@@ -2,27 +2,34 @@ define(function(require) {
     'use strict';
 
     var EmailAttachmentView;
-    var $ = require('jquery');
     var EmailAttachmentModel = require('oroemail/js/app/models/email-attachment-model');
     var BaseView = require('oroui/js/app/views/base/view');
 
     EmailAttachmentView = BaseView.extend({
         model: EmailAttachmentModel,
+
         inputName: '',
 
         events: {
-            'click i.icon-remove': 'removeClick'
+            'click i.fa-close': 'removeClick'
         },
 
         listen: {
             'change:fileName model': 'fileNameChange',
-            'change:type model':     'typeChange',
-            'change:icon model':     'iconChange'
+            'change:type model': 'typeChange',
+            'change:icon model': 'iconChange'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function EmailAttachmentView() {
+            EmailAttachmentView.__super__.constructor.apply(this, arguments);
         },
 
         getTemplateFunction: function() {
             if (!this.template) {
-                this.template = $('#email-attachment-item').html();
+                this.template = require('tpl!oroemail/templates/email-attachment/email-attachment-item.html');
             }
 
             return EmailAttachmentView.__super__.getTemplateFunction.call(this);
@@ -66,7 +73,9 @@ define(function(require) {
         },
 
         fileNameChange: function() {
-            this.$('span.filename-label').html(this.model.get('fileName'));
+            this.$('.attachment-item__filename')
+                .html(this.model.get('fileName'))
+                .attr('title', this.model.get('fileName'));
         },
 
         typeChange: function() {
@@ -74,7 +83,7 @@ define(function(require) {
         },
 
         iconChange: function() {
-            this.$('.filename .fa').addClass(this.model.get('icon'));
+            this.$('.attachment-item .fa').addClass(this.model.get('icon'));
         }
     });
 

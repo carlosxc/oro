@@ -5,9 +5,9 @@ namespace Oro\Bundle\LocaleBundle\Tests\Unit\Cache;
 use Oro\Bundle\LocaleBundle\Cache\LocalizationCacheCleaner;
 use Oro\Bundle\LocaleBundle\Manager\LocalizationManager;
 
-class LocalizationCacheCleanerTest extends \PHPUnit_Framework_TestCase
+class LocalizationCacheCleanerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var LocalizationManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LocalizationManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $manager;
 
     /** @var LocalizationCacheCleaner */
@@ -20,15 +20,10 @@ class LocalizationCacheCleanerTest extends \PHPUnit_Framework_TestCase
         $this->cleaner = new LocalizationCacheCleaner($this->manager);
     }
 
-    protected function tearDown()
-    {
-        unset($this->cleaner, $this->manager);
-    }
-
     public function testClear()
     {
         $this->manager->expects($this->once())->method('clearCache');
 
-        $this->cleaner->clear(null);
+        $this->cleaner->clear();
     }
 }

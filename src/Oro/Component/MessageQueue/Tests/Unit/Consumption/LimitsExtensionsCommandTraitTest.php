@@ -10,7 +10,7 @@ use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Console\Tests\Output\TestOutput;
 
-class LimitsExtensionsCommandTraitTest extends \PHPUnit_Framework_TestCase
+class LimitsExtensionsCommandTraitTest extends \PHPUnit\Framework\TestCase
 {
     public function testShouldAddExtensionsOptions()
     {
@@ -58,7 +58,8 @@ class LimitsExtensionsCommandTraitTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionIfTimeLimitExpressionIsNotValid()
     {
-        $this->setExpectedException(\Exception::class, 'Failed to parse time string (time is not valid) at position');
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Failed to parse time string (time is not valid) at position');
 
         $command = new LimitsExtensionsCommand('name');
 

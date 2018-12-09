@@ -2,8 +2,8 @@
 
 namespace Oro\Bundle\SecurityBundle\Acl\Permission;
 
-use Symfony\Component\Security\Acl\Permission\PermissionMapInterface;
 use Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionSelector;
+use Symfony\Component\Security\Acl\Permission\PermissionMapInterface;
 
 /**
  * This is permission map complements the masks which have been defined
@@ -11,10 +11,11 @@ use Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionSelector;
  */
 class PermissionMap implements PermissionMapInterface
 {
-    /**
-     * @var AclExtensionSelector
-     */
-    protected $extensionSelector;
+    /** @var AclExtensionSelector */
+    private $extensionSelector;
+
+    /** @var array */
+    private $permissions = [];
 
     /**
      * Constructor
@@ -41,12 +42,29 @@ class PermissionMap implements PermissionMapInterface
      */
     public function contains($permission)
     {
-        foreach ($this->extensionSelector->all() as $extension) {
-            if ($extension->hasMasks(empty($permission) ? $extension->getDefaultPermission() : $permission)) {
-                return true;
-            }
+        if (isset($this->permissions[$permission])) {
+            return $this->permissions[$permission];
         }
 
-        return false;
+        $supported = false;
+        $extensions = $this->extensionSelector->all();
+        foreach ($extensions as $extension) {
+            $permissionToCheck = $permission;
+            if (!$permissionToCheck) {
+                $permissionToCheck = $extension->getDefaultPermission();
+            }
+            if ($extension->hasMasks($permissionToCheck)) {
+                $supported = true;
+                break;
+            }
+            $fieldExtension = $extension->getFieldExtension();
+            if (null !== $fieldExtension && $fieldExtension->hasMasks($permissionToCheck)) {
+                $supported = true;
+                break;
+            }
+        }
+        $this->permissions[$permission] = $supported;
+
+        return $supported;
     }
 }

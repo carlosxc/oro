@@ -7,7 +7,7 @@ define(function(require) {
     var moment = require('moment');
     var datetimeFormatter = require('orolocale/js/formatter/datetime');
     var localeSettings = require('orolocale/js/locale-settings');
-    require('oroui/lib/jquery.timepicker-1.4.13/jquery.timepicker');
+    require('jquery.timepicker');
 
     var TIMEPICKER_DROPDOWN_CLASS_NAME = 'timepicker-dialog-is-below';
     var TIMEPICKER_DROPUP_CLASS_NAME = 'timepicker-dialog-is-above';
@@ -47,6 +47,11 @@ define(function(require) {
         defaultTime: null,
 
         /**
+         * ClassName for empty field
+         */
+        emptyClassName: 'input--empty',
+
+        /**
          * Returns supper prototype
          *
          * @returns {Object}
@@ -83,6 +88,7 @@ define(function(require) {
             this.$frontTimeField.off().remove();
             if (this.$frontDateField.data('isWrapped')) {
                 this.$frontDateField.unwrap();
+                this.$frontDateField.removeData('isWrapped');
             }
             this._super().dispose.apply(this, arguments);
         },
@@ -97,13 +103,16 @@ define(function(require) {
             if (options.fieldsWrapper) {
                 this.$frontDateField
                     .wrap(options.fieldsWrapper)
-                    .data('isWrapped', true);
+                    .data('isWrapped', true)
+                    .before(this.$el);
             }
             this.$frontTimeField = $('<input />');
             options.timeInputAttrs.type = this.nativeMode ? 'time' : 'text';
             this.$frontTimeField.attr(options.timeInputAttrs);
             this.$frontTimeField.attr('data-fake-front-field', '');
             this.$frontTimeField.on('keyup change', _.bind(this.updateOrigin, this));
+            this.$frontTimeField.on('keypress keyup change focus blur', _.bind(this.checkEmpty, this));
+            this.checkEmpty();
             this.$frontDateField.on('blur', function(e) {
                 $(this).parent().removeClass(DATEPICKER_DROPDOWN_CLASS_NAME + ' ' + DATEPICKER_DROPUP_CLASS_NAME);
             }).on('datepicker:dialogReposition', function(e, position) {
@@ -146,6 +155,11 @@ define(function(require) {
             this._super().initPickerWidget.apply(this, arguments);
         },
 
+        setDisabled: function(disabled) {
+            this.$frontTimeField.prop('disabled', disabled).trigger(disabled ? 'disabled' : 'enabled');
+            this._super().setDisabled.apply(this, arguments);
+        },
+
         /**
          * Returns timepicker popup
          *
@@ -159,7 +173,25 @@ define(function(require) {
          * Destroys picker widget
          */
         destroyTimePickerWidget: function() {
+            if (!this.$frontTimeField.data('timepicker-settings')) {
+                // the widget was already removed.
+                return;
+            }
+            // this will trigger hide event before remove
+            // that is not done by default implementation
+            this.$frontTimeField.timepicker('hide');
             this.$frontTimeField.timepicker('remove');
+        },
+
+        /**
+         * Update empty state
+         */
+        checkEmpty: function() {
+            this._super().checkEmpty.apply(this, arguments);
+
+            if (this.nativeMode && this.$frontTimeField) {
+                this.$frontTimeField.toggleClass(this.emptyClassName, !this.$frontTimeField.val().length);
+            }
         },
 
         /**
@@ -271,27 +303,15 @@ define(function(require) {
         getFrontendMoment: function() {
             var date = this.$frontDateField.val();
             var time = this.$frontTimeField.val();
+            if (_.isEmpty(_.trim(date + time))) {
+                return null;
+            }
             var value = date + this.getSeparatorFormat() + time;
             var format = this.getDateTimeFormat();
             var momentInstance = moment.utc(value, format, true);
             if (momentInstance.isValid()) {
                 return momentInstance.tz(this.timezone, true);
             }
-        },
-
-        /**
-         * Reads value of front field and converts it to backend format
-         *
-         * @returns {string}
-         */
-        getBackendFormattedValue: function() {
-            var value = '';
-            var momentInstance = this.getFrontendMoment();
-            var format = _.isArray(this.backendFormat) ? this.backendFormat[0] : this.backendFormat;
-            if (momentInstance) {
-                value = momentInstance.utc().format(format);
-            }
-            return value;
         },
 
         /**

@@ -2,18 +2,29 @@
 
 namespace Oro\Bundle\ApiBundle\Metadata;
 
+use Oro\Bundle\ApiBundle\Util\ConfigUtil;
 use Oro\Component\ChainProcessor\ParameterBag;
 
+/**
+ * The base class for classes represents metadata for different kind of entity properties.
+ */
 abstract class PropertyMetadata extends ParameterBag
 {
-    /** the name of a property */
-    const NAME = 'name';
+    private const MASK_DIRECTION_INPUT         = 1;
+    private const MASK_DIRECTION_OUTPUT        = 2;
+    private const MASK_DIRECTION_BIDIRECTIONAL = 3;
 
-    /** the data-type of a property */
-    const DATA_TYPE = 'dataType';
+    /** @var string */
+    private $name;
 
-    /** a flag indicates whether a property can be NULL */
-    const NULLABLE = 'nullable';
+    /** @var string */
+    private $propertyPath;
+
+    /** @var string */
+    private $dataType;
+
+    /** @var integer */
+    private $flags;
 
     /**
      * PropertyMetadata constructor.
@@ -22,22 +33,31 @@ abstract class PropertyMetadata extends ParameterBag
      */
     public function __construct($name = null)
     {
-        if (null !== $name) {
-            $this->setName($name);
-        }
+        $this->name = $name;
+        $this->flags = self::MASK_DIRECTION_BIDIRECTIONAL;
     }
 
     /**
-     * Make a deep copy of object.
+     * Gets a native PHP array representation of the object.
+     *
+     * @return array [key => value, ...]
      */
-    public function __clone()
+    public function toArray()
     {
-        $this->items = array_map(
-            function ($value) {
-                return is_object($value) ? clone $value : $value;
-            },
-            $this->items
-        );
+        $result = ['name' => $this->name];
+        if ($this->propertyPath) {
+            $result['property_path'] = $this->propertyPath;
+        }
+        if ($this->dataType) {
+            $result['data_type'] = $this->dataType;
+        }
+        if ($this->isInput() && !$this->isOutput()) {
+            $result['direction'] = 'input-only';
+        } elseif ($this->isOutput() && !$this->isInput()) {
+            $result['direction'] = 'output-only';
+        }
+
+        return $result;
     }
 
     /**
@@ -47,21 +67,45 @@ abstract class PropertyMetadata extends ParameterBag
      */
     public function getName()
     {
-        return $this->get(self::NAME);
+        return $this->name;
     }
 
     /**
      * Sets the name of a property.
      *
      * @param string $name
-     *
-     * @return self
      */
     public function setName($name)
     {
-        $this->set(self::NAME, $name);
+        $this->name = $name;
+    }
 
-        return $this;
+    /**
+     * Gets the name of a property in the source entity.
+     *
+     * @return string The property path or NULL if the property is not mapped.
+     */
+    public function getPropertyPath()
+    {
+        if (null === $this->propertyPath) {
+            return $this->name;
+        }
+
+        return ConfigUtil::IGNORE_PROPERTY_PATH !== $this->propertyPath
+            ? $this->propertyPath
+            : null;
+    }
+
+    /**
+     * Sets the name of a property in the source entity.
+     *
+     * @param string|null $propertyPath The property path,
+     *                                  NULL if the property path equals to name
+     *                                  or "_" (ConfigUtil::IGNORE_PROPERTY_PATH) if the property is not mapped.
+     */
+    public function setPropertyPath($propertyPath)
+    {
+        $this->propertyPath = $propertyPath;
     }
 
     /**
@@ -71,44 +115,71 @@ abstract class PropertyMetadata extends ParameterBag
      */
     public function getDataType()
     {
-        return $this->get(self::DATA_TYPE);
+        return $this->dataType;
     }
 
     /**
      * Sets the data-type of a property.
      *
      * @param string $dataType
-     *
-     * @return self
      */
     public function setDataType($dataType)
     {
-        $this->set(self::DATA_TYPE, $dataType);
-
-        return $this;
+        $this->dataType = $dataType;
     }
 
     /**
-     * Whether a property can be NULL.
+     * Indicates whether the request data can contain this property.
      *
      * @return bool
      */
-    public function isNullable()
+    public function isInput()
     {
-        return (bool)$this->get(self::NULLABLE);
+        return $this->hasFlag(self::MASK_DIRECTION_INPUT);
     }
 
     /**
-     * Sets a flag indicates whether a property can be NULL.
+     * Indicates whether the response data can contain this property.
      *
-     * @param bool $value
-     *
-     * @return self
+     * @return bool
      */
-    public function setIsNullable($value)
+    public function isOutput()
     {
-        $this->set(self::NULLABLE, $value);
+        return $this->hasFlag(self::MASK_DIRECTION_OUTPUT);
+    }
 
-        return $this;
+    /**
+     * Sets a value indicates whether the request data and the response data can contain this property.
+     *
+     * @param bool $input
+     * @param bool $output
+     */
+    public function setDirection($input, $output)
+    {
+        $this->setFlag($input, self::MASK_DIRECTION_INPUT);
+        $this->setFlag($output, self::MASK_DIRECTION_OUTPUT);
+    }
+
+    /**
+     * @param int $valueMask
+     *
+     * @return bool
+     */
+    protected function hasFlag($valueMask)
+    {
+        return $valueMask === ($this->flags & $valueMask);
+    }
+
+    /**
+     * @param bool $value
+     * @param int  $valueMask
+     */
+    protected function setFlag($value, $valueMask)
+    {
+        if ($value) {
+            $this->flags |= $valueMask;
+        } else {
+            $this->flags &= ~$valueMask;
+        }
     }
 }

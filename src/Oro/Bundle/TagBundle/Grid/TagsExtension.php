@@ -5,11 +5,13 @@ namespace Oro\Bundle\TagBundle\Grid;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\ResultsObject;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface;
-use Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
 use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
+use Oro\Bundle\TagBundle\Entity\Tag;
 use Oro\Bundle\TagBundle\Entity\TagManager;
 use Oro\Bundle\TagBundle\Helper\TaggableHelper;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 class TagsExtension extends AbstractTagsExtension
 {
@@ -24,28 +26,34 @@ class TagsExtension extends AbstractTagsExtension
     /** @var EntityRoutingHelper */
     protected $entityRoutingHelper;
 
-    /** @var SecurityFacade */
-    protected $securityFacade;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
+
+    /** @var TokenStorageInterface */
+    protected $tokenStorage;
 
     /**
-     * @param TagManager              $tagManager
-     * @param GridConfigurationHelper $gridConfigurationHelper
-     * @param TaggableHelper          $helper
-     * @param EntityRoutingHelper     $entityRoutingHelper
-     * @param SecurityFacade          $securityFacade
+     * @param TagManager                    $tagManager
+     * @param EntityClassResolver           $entityClassResolver
+     * @param TaggableHelper                $helper
+     * @param EntityRoutingHelper           $entityRoutingHelper
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param TokenStorageInterface         $tokenStorage
      */
     public function __construct(
         TagManager $tagManager,
-        GridConfigurationHelper $gridConfigurationHelper,
+        EntityClassResolver $entityClassResolver,
         TaggableHelper $helper,
         EntityRoutingHelper $entityRoutingHelper,
-        SecurityFacade $securityFacade
+        AuthorizationCheckerInterface $authorizationChecker,
+        TokenStorageInterface $tokenStorage
     ) {
-        parent::__construct($tagManager, $gridConfigurationHelper);
+        parent::__construct($tagManager, $entityClassResolver);
 
-        $this->taggableHelper      = $helper;
+        $this->taggableHelper = $helper;
         $this->entityRoutingHelper = $entityRoutingHelper;
-        $this->securityFacade      = $securityFacade;
+        $this->authorizationChecker = $authorizationChecker;
+        $this->tokenStorage = $tokenStorage;
     }
 
     /**
@@ -62,11 +70,13 @@ class TagsExtension extends AbstractTagsExtension
     public function isApplicable(DatagridConfiguration $config)
     {
         return
+            parent::isApplicable($config) &&
             !$this->isDisabled() &&
-            !$this->isReportOrSegmentGrid($config) &&
+            !$this->isUnsupportedGridPrefix($config) &&
             $this->isGridRootEntityTaggable($config) &&
             null !== $config->offsetGetByPath(self::PROPERTY_ID_PATH) &&
-            $this->isAccessGranted();
+            null !== $this->tokenStorage->getToken() &&
+            $this->authorizationChecker->isGranted('oro_tag_view');
     }
 
     /**
@@ -91,16 +101,6 @@ class TagsExtension extends AbstractTagsExtension
         $className = $this->getEntity($configuration);
 
         return $className && $this->taggableHelper->isTaggable($className);
-    }
-
-    /**
-     * @return bool
-     */
-    protected function isAccessGranted()
-    {
-        return
-            null !== $this->securityFacade->getToken() &&
-            $this->securityFacade->isGranted('oro_tag_view');
     }
 
     /**
@@ -133,8 +133,7 @@ class TagsExtension extends AbstractTagsExtension
         $urlSafeClassName = $this->entityRoutingHelper->getUrlSafeClassName($className);
 
         $permissions = [
-            'oro_tag_create'          => $this->securityFacade->isGranted(TagManager::ACL_RESOURCE_CREATE_ID_KEY),
-            'oro_tag_unassign_global' => $this->securityFacade->isGranted(TagManager::ACL_RESOURCE_REMOVE_ID_KEY)
+            'oro_tag_create' => $this->authorizationChecker->isGranted(TagManager::ACL_RESOURCE_CREATE_ID_KEY)
         ];
 
         return [
@@ -148,7 +147,7 @@ class TagsExtension extends AbstractTagsExtension
             'translatable'   => true,
             'renderable'     => $this->taggableHelper->isEnableGridColumn($className),
             'inline_editing' => [
-                'enable'                    => $this->securityFacade->isGranted(
+                'enable'                    => $this->authorizationChecker->isGranted(
                     TagManager::ACL_RESOURCE_ASSIGN_ID_KEY
                 ),
                 'editor'                    => [
@@ -186,18 +185,18 @@ class TagsExtension extends AbstractTagsExtension
     protected function getColumnFilterDefinition(DatagridConfiguration $config)
     {
         $className = $this->getEntity($config);
-        $alias     = $this->gridConfigurationHelper->getEntityRootAlias($config);
-
+        $dataName = sprintf('%s.%s', $config->getOrmQuery()->getRootAlias(), 'id');
+        $enabled = $this->taggableHelper->isEnableGridFilter($className);
         return [
-            'type'      => 'tag',
-            'data_name' => sprintf('%s.%s', $alias, 'id'),
-            'label'     => 'oro.tag.entity_plural_label',
-            'enabled'   => $this->taggableHelper->isEnableGridFilter($className),
-            'options'   => [
-                'field_options' => [
-                    'entity_class' => $className,
-                ]
-            ]
+            'type' => 'tag',
+            'data_name' => $dataName,
+            'class' => Tag::class,
+            'null_value' => ':empty:',
+            'populate_default' => true,
+            'default_value' => 'Any',
+            'label' => 'oro.tag.entity_plural_label',
+            'enabled' => $enabled,
+            'entity_class' => $className
         ];
     }
 

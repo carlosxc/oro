@@ -6,8 +6,9 @@ define([
     'oroui/js/messenger',
     'oroui/js/app/views/base/view',
     'oroui/js/mediator',
-    'oroactivity/js/app/models/activity-context-activity-collection'
-], function($, _, __, routing, messenger, BaseView, mediator, ActivityContextActivityCollection) {
+    'oroactivity/js/app/models/activity-context-activity-collection',
+    'oroui/js/error'
+], function($, _, __, routing, messenger, BaseView, mediator, ActivityContextActivityCollection, error) {
     'use strict';
 
     var ActivityContextActivityView;
@@ -17,8 +18,19 @@ define([
      */
     ActivityContextActivityView = BaseView.extend({
         options: {},
+
         events: {},
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActivityContextActivityView() {
+            ActivityContextActivityView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             this.options = _.defaults(options || {}, this.options);
 
@@ -68,6 +80,8 @@ define([
                 success: function(r) {
                     collection.reset();
                     collection.add(r);
+                },
+                complete: function() {
                     self.render();
                 }
             });
@@ -75,6 +89,8 @@ define([
 
         render: function() {
             this.$el.toggle(this.collection.length > 0);
+
+            this.trigger('render');
         },
 
         initEvents: function() {
@@ -94,7 +110,7 @@ define([
                 var $view = $(view);
                 self.$containerContextTargets.append($view);
 
-                $view.find('i.icon-remove').click(function() {
+                $view.find('i.fa-close').click(function() {
                     $view.fadeOut();
                     model.destroy({
                         success: function(model, response) {
@@ -108,9 +124,9 @@ define([
                                 mediator.trigger('widget:doRefresh:activity-context-activity-list-widget');
                             }
                         },
+                        errorHandlerMessage: __('oro.ui.item_delete_error'),
                         error: function(model, response) {
                             $view.show();
-                            messenger.showErrorMessage(__('oro.ui.item_delete_error'), response.responseJSON || {});
                         }
                     });
                 });

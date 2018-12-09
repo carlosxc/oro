@@ -2,11 +2,11 @@
 
 namespace Oro\Bundle\TagBundle\Tests\Unit\EventListener;
 
+use Oro\Bundle\TagBundle\Entity\Taggable as TaggableInterface;
 use Oro\Bundle\TagBundle\EventListener\TagListener;
 use Oro\Bundle\TagBundle\Tests\Unit\Fixtures\Taggable;
-use Oro\Bundle\TagBundle\Entity\Taggable as TaggableInterface;
 
-class TagListenerTest extends \PHPUnit_Framework_TestCase
+class TagListenerTest extends \PHPUnit\Framework\TestCase
 {
     const TEST_ID = 1;
 
@@ -53,7 +53,7 @@ class TagListenerTest extends \PHPUnit_Framework_TestCase
             ->method('deleteTagging')
             ->with($this->resource, []);
 
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $container->expects($this->once())
             ->method('get')
             ->with($this->equalTo('oro_tag.tag.manager'))

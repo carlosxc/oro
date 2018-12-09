@@ -7,8 +7,8 @@ define(function(require) {
     var mediator = require('oroui/js/mediator');
     var tools = require('oroui/js/tools');
     var scrollHelper = require('oroui/js/tools/scroll-helper');
+    var Popover = require('bootstrap-popover');
 
-    require('bootstrap');
     require('jquery-ui');
     require('oroui/js/responsive-jquery-widget');
 
@@ -78,11 +78,7 @@ define(function(require) {
         },
 
         /**
-         * Initializes
-         *  - form widgets
-         *  - tooltips
-         *  - popovers
-         *  - scrollspy
+         * Initializes form widgets, scrollspy, and triggers `initLayout` event
          *
          * @param {string|HTMLElement|jQuery.Element} container
          */
@@ -90,34 +86,53 @@ define(function(require) {
             var $container;
 
             $container = $(container);
+
             this.styleForm($container);
 
             scrollspy.init($container);
 
-            $container.find('[data-toggle="tooltip"]').tooltip();
+            $container.trigger('initLayout');
 
-            this.initPopover($container);
+            $container.on({
+                'content:changed': this.onContentChanged,
+                'content:remove': this.onContentRemove
+            });
         },
 
-        initPopover: function(container) {
+        initPopover: function(container, options) {
             var $items = container.find('[data-toggle="popover"]').filter(function() {
                 // skip already initialized popovers
-                return !$(this).data('popover');
-            });
-            $items.not('[data-close="false"]').each(function(i, el) {
-                //append close link
-                var content = $(el).data('content');
-                content += '<i class="icon-remove popover-close"></i>';
-                $(el).data('content', content);
+                return !$(this).data(Popover.DATA_KEY);
             });
 
-            $items.popover({
+            this.initPopoverForElements($items, options);
+        },
+
+        initPopoverForElements: function($items, options, overrideOptionsByData) {
+            options = _.defaults(options || {}, {
                 animation: false,
                 delay: {show: 0, hide: 0},
                 html: true,
                 container: false,
                 trigger: 'manual'
-            }).on('click.popover', function(e) {
+            });
+
+            if (overrideOptionsByData) {
+                options = $.extend(options, $items.data());
+            }
+
+            $items.not('[data-close="false"]').each(function(i, el) {
+                // append close link
+                var content = el.getAttribute('data-content');
+                content += '<i class="fa-close popover-close"></i>';
+                el.setAttribute('data-content', content);
+            });
+
+            $items.popover(options).on('click' + Popover.EVENT_KEY, function(e) {
+                if ($(this).is('.disabled, :disabled')) {
+                    return;
+                }
+
                 $(this).popover('toggle');
                 e.preventDefault();
             });
@@ -125,13 +140,14 @@ define(function(require) {
             $('body')
                 .on('click.popover-hide', function(e) {
                     var $target = $(e.target);
-                    $items.each(function() {
-                        //the 'is' for buttons that trigger popups
-                        //the 'has' for icons within a button that triggers a popup
+                    // '[aria-describedby]' -- meens the popover is opened
+                    $items.filter('[aria-describedby]').each(function() {
+                        // the 'is' for buttons that trigger popups
+                        // the 'has' for icons within a button that triggers a popup
                         if (
                             !$(this).is($target) &&
-                                $(this).has($target).length === 0 &&
-                                ($('.popover').has($target).length === 0 || $target.hasClass('popover-close'))
+                            $(this).has($target).length === 0 &&
+                            ($('.popover').has($target).length === 0 || $target.hasClass('popover-close'))
                         ) {
                             $(this).popover('hide');
                         }
@@ -141,11 +157,32 @@ define(function(require) {
                         e.preventDefault();
                     }
                 }).on('focus.popover-hide', 'select, input, textarea', function() {
-                    $items.popover('hide');
+                    // '[aria-describedby]' -- meens the popover is opened
+                    $items.filter('[aria-describedby]').popover('hide');
                 });
             mediator.once('page:request', function() {
                 $('body').off('.popover-hide .popover-prevent');
             });
+        },
+
+        /**
+         * Disposes form widgets and triggers `disposeLayout` event
+         *
+         * @param {string|HTMLElement|jQuery.Element} container
+         */
+        dispose: function(container) {
+            var $container;
+
+            $container = $(container);
+
+            $container.off({
+                'content:changed': this.onContentChanged,
+                'content:remove': this.onContentRemove
+            });
+
+            this.unstyleForm($container);
+
+            $container.trigger('disposeLayout');
         },
 
         hideProgressBar: function() {
@@ -163,7 +200,6 @@ define(function(require) {
          */
         styleForm: function($container) {
             $container.inputWidget('seekAndCreate');
-            $container.one('content:changed', _.bind(this.styleForm, this, $container));
         },
 
         /**
@@ -229,7 +265,9 @@ define(function(require) {
             $parents.each(function() {
                 heightDiff += this.scrollTop;
             });
-            return heightDiff - this.getDevToolbarHeight() - this.PAGE_BOTTOM_PADDING;
+            heightDiff -= documentHeight - $('#container')[0].getBoundingClientRect().bottom;
+            heightDiff -= this.PAGE_BOTTOM_PADDING;
+            return heightDiff;
         },
 
         /**
@@ -290,6 +328,44 @@ define(function(require) {
          */
         scrollbarWidth: function() {
             return scrollHelper.scrollbarWidth();
+        },
+
+        onContentChanged: function(e) {
+            layout.styleForm($(e.target));
+        },
+
+        onContentRemove: function(e) {
+            layout.unstyleForm($(e.target));
+        },
+
+        /**
+         * Adjust width for form labels into dialog form
+         * @private
+         */
+        adjustLabelsWidth: function($context) {
+            var controlGroups = $context.find('.control-group').filter(function(i, group) {
+                return !$(group).find('> .control-label').length && !$(group).closest('.tab-content').length;
+            });
+            var labels = $context.find('.control-label').filter(function(i, label) {
+                return !$(label).closest('.widget-title-container').length;
+            });
+
+            labels.css('width', '');
+
+            var width = labels.map(function(i, label) {
+                return label.clientWidth;
+            }).get();
+
+            var newWidth = Math.max.apply(null, width) + 1;
+            labels.css('width', newWidth);
+
+            controlGroups.each(function(i, group) {
+                var prop = 'margin-' + (_.isRTL() ? 'right' : 'left');
+                var controls = $(group).find('> .controls');
+                controls
+                    .css(prop, '')
+                    .css(prop, parseInt(controls.css(prop)) + newWidth);
+            });
         }
     };
 

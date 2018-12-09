@@ -2,14 +2,14 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Tools;
 
+use CG\Core\DefaultGeneratorStrategy;
+use CG\Generator\PhpClass;
+use Oro\Bundle\EntityExtendBundle\Tools\GeneratorExtensions\AbstractEntityGeneratorExtension;
 use Symfony\Component\Yaml\Yaml;
 
-use CG\Generator\PhpClass;
-use CG\Core\DefaultGeneratorStrategy;
-
-use Oro\Bundle\EntityExtendBundle\Tools\Generator\Visitor;
-use Oro\Bundle\EntityExtendBundle\Tools\GeneratorExtensions\AbstractEntityGeneratorExtension;
-
+/**
+ * Builds proxy classes and ORM mapping for extended entities.
+ */
 class EntityGenerator
 {
     /** @var string */
@@ -112,11 +112,10 @@ class EntityGenerator
         $className = ExtendHelper::getShortClassName($schema['entity']);
 
         // write PHP class to the file
-        $strategy = new DefaultGeneratorStrategy(new Visitor());
-        file_put_contents(
-            $this->entityCacheDir . DIRECTORY_SEPARATOR . $className . '.php',
-            "<?php\n\n" . $strategy->generate($class)
-        );
+        $strategy = new DefaultGeneratorStrategy();
+        $fileName = $this->entityCacheDir . DIRECTORY_SEPARATOR . $className . '.php';
+        file_put_contents($fileName, "<?php\n\n" . $strategy->generate($class));
+        clearstatcache(true, $fileName);
         // write doctrine metadata in separate yaml file
         file_put_contents(
             $this->entityCacheDir . DIRECTORY_SEPARATOR . $className . '.orm.yml',
@@ -133,7 +132,7 @@ class EntityGenerator
     {
         if (null === $this->sortedExtensions) {
             krsort($this->extensions);
-            $this->sortedExtensions = call_user_func_array('array_merge', $this->extensions);
+            $this->sortedExtensions = array_merge(...$this->extensions);
         }
 
         return $this->sortedExtensions;

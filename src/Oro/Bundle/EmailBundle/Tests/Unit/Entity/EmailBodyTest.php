@@ -5,7 +5,7 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Entity;
 use Oro\Bundle\EmailBundle\Entity\EmailBody;
 use Oro\Bundle\EmailBundle\Tests\Unit\ReflectionUtil;
 
-class EmailBodyTest extends \PHPUnit_Framework_TestCase
+class EmailBodyTest extends \PHPUnit\Framework\TestCase
 {
     public function testIdGetter()
     {
@@ -44,7 +44,7 @@ class EmailBodyTest extends \PHPUnit_Framework_TestCase
 
     public function testAttachmentGetterAndSetter()
     {
-        $attachment = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailAttachment');
+        $attachment = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailAttachment');
 
         $entity = new EmailBody();
         $entity->addAttachment($attachment);
@@ -58,14 +58,21 @@ class EmailBodyTest extends \PHPUnit_Framework_TestCase
 
     public function testBeforeSave()
     {
+        $createdAt = new \DateTime('now', new \DateTimeZone('UTC'));
         $entity = new EmailBody();
         $entity->beforeSave();
-
-        $createdAt = new \DateTime('now', new \DateTimeZone('UTC'));
 
         $this->assertEquals(false, $entity->getBodyIsText());
         $this->assertEquals(false, $entity->getHasAttachments());
         $this->assertEquals(false, $entity->getPersistent());
         $this->assertGreaterThanOrEqual($createdAt, $entity->getCreated());
+    }
+
+    public function testTextBodyGetterAndSetter()
+    {
+        $entity = new EmailBody();
+        self::assertNull($entity->getTextBody());
+        $entity->setTextBody('some text');
+        self::assertEquals('some text', $entity->getTextBody());
     }
 }

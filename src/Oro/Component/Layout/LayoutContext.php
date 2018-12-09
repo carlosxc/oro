@@ -2,8 +2,8 @@
 
 namespace Oro\Component\Layout;
 
-use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\OptionsResolver\Exception\ExceptionInterface as OptionsResolverException;
+use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class LayoutContext implements ContextInterface
@@ -20,12 +20,24 @@ class LayoutContext implements ContextInterface
     /** @var boolean */
     protected $resolved = false;
 
+    /** @var string */
+    protected $hash;
+
     /**
-     * Constructor
+     * @param array         $parameters Context items
+     * @param null|string[] $vars Array of allowed layout context variables
      */
-    public function __construct()
+    public function __construct(array $parameters = [], array $vars = [])
     {
         $this->dataCollection = new ContextDataCollection($this);
+
+        if (!empty($vars)) {
+            $this->getResolver()->setRequired($vars);
+        }
+
+        foreach ($parameters as $key => $value) {
+            $this->set($key, $value);
+        }
     }
 
     /**
@@ -67,6 +79,7 @@ class LayoutContext implements ContextInterface
             }
 
             $this->resolved = true;
+            $this->hash = $this->generateHash();
         } catch (OptionsResolverException $e) {
             throw new Exception\LogicException(
                 sprintf('Failed to resolve the context variables. Reason: %s', $e->getMessage()),
@@ -192,5 +205,32 @@ class LayoutContext implements ContextInterface
     protected function createResolver()
     {
         return new OptionsResolver();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getHash()
+    {
+        if (!$this->isResolved()) {
+            throw new Exception\LogicException('The context is not resolved.');
+        }
+
+        return $this->hash;
+    }
+
+    /**
+     * @return string
+     */
+    protected function generateHash()
+    {
+        $items = $this->items;
+        foreach ($items as &$item) {
+            if ($item instanceof ContextItemInterface) {
+                $item = $item->getHash();
+            }
+        }
+
+        return md5(serialize($items));
     }
 }

@@ -2,37 +2,36 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Type;
 
-use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\MappingException;
 use Doctrine\ORM\QueryBuilder;
-use Doctrine\ORM\AbstractQuery;
-
 use Oro\Bundle\FormBundle\Form\DataTransformer\EntitiesToIdsTransformer;
 
-class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
+class EntitiesToIdsTransformerTest extends \PHPUnit\Framework\TestCase
 {
 
     /**
-     * @var EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     private $entityManager;
 
     /**
-     * @var ClassMetadata|\PHPUnit_Framework_MockObject_MockObject
+     * @var ClassMetadata|\PHPUnit\Framework\MockObject\MockObject
      */
     private $classMetadata;
     /**
-     * @var EntityRepository|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityRepository|\PHPUnit\Framework\MockObject\MockObject
      */
     private $repository;
     /**
-     * @var QueryBuilder|\PHPUnit_Framework_MockObject_MockObject
+     * @var QueryBuilder|\PHPUnit\Framework\MockObject\MockObject
      */
     private $queryBuilder;
     /**
-     * @var AbstractQuery|\PHPUnit_Framework_MockObject_MockObject
+     * @var AbstractQuery|\PHPUnit\Framework\MockObject\MockObject
      */
     private $query;
 
@@ -268,7 +267,8 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
             $queryBuilderCallback
         );
 
-        $this->setExpectedException($expectedException, $expectedExceptionMessage);
+        $this->expectException($expectedException);
+        $this->expectExceptionMessage($expectedExceptionMessage);
         $transformer->reverseTransform($value);
     }
 
@@ -369,7 +369,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @param \PHPUnit_Framework_MockObject_MockObject|string $mock
+     * @param \PHPUnit\Framework\MockObject\MockObject|string $mock
      * @param array $expectedCalls
      */
     private function addMockExpectedCalls($mock, array $expectedCalls)
@@ -401,7 +401,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
      *
      * @param string $property
      * @param array $values
-     * @return \PHPUnit_Framework_MockObject_MockObject[]
+     * @return \PHPUnit\Framework\MockObject\MockObject[]
      */
     private function createMockEntityList($property, array $values)
     {
@@ -418,19 +418,19 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
      *
      * @param string $property
      * @param mixed $value
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     private function createMockEntity($property, $value)
     {
         $getter = 'get' . ucfirst($property);
-        $result = $this->getMock('MockEntity', array($getter));
+        $result = $this->createPartialMock(\ArrayObject::class, array($getter));
         $result->expects($this->any())->method($getter)->will($this->returnValue($value));
 
         return $result;
     }
 
     /**
-     * @return EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @return EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockEntityManager()
     {
@@ -445,7 +445,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return ClassMetadata|\PHPUnit_Framework_MockObject_MockObject
+     * @return ClassMetadata|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockClassMetadata()
     {
@@ -460,7 +460,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return EntityRepository|\PHPUnit_Framework_MockObject_MockObject
+     * @return EntityRepository|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockRepository()
     {
@@ -475,7 +475,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return QueryBuilder|\PHPUnit_Framework_MockObject_MockObject
+     * @return QueryBuilder|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockQueryBuilder()
     {
@@ -490,7 +490,7 @@ class EntitiesToIdsTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return AbstractQuery|\PHPUnit_Framework_MockObject_MockObject
+     * @return AbstractQuery|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockQuery()
     {

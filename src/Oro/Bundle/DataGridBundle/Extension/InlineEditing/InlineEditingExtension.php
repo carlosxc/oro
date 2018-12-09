@@ -2,48 +2,46 @@
 
 namespace Oro\Bundle\DataGridBundle\Extension\InlineEditing;
 
+use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
+use Oro\Bundle\DataGridBundle\Extension\AbstractExtension;
+use Oro\Bundle\DataGridBundle\Extension\Formatter\Configuration as FormatterConfiguration;
+use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
+use Oro\Bundle\DataGridBundle\Provider\DatagridModeProvider;
+use Oro\Bundle\EntityBundle\Tools\EntityClassNameHelper;
 use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
 use Symfony\Component\Security\Acl\Voter\FieldVote;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-
-use Oro\Bundle\DataGridBundle\Extension\AbstractExtension;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
-use Oro\Bundle\DataGridBundle\Extension\Formatter\Configuration as FormatterConfiguration;
-use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
-use Oro\Bundle\EntityBundle\Tools\EntityClassNameHelper;
 
 class InlineEditingExtension extends AbstractExtension
 {
     /** @var InlineEditColumnOptionsGuesser */
     protected $guesser;
 
-    /** @var SecurityFacade */
-    protected $securityFacade;
-
     /** @var EntityClassNameHelper */
     protected $entityClassNameHelper;
 
     /** @var AuthorizationCheckerInterface */
-    protected $authChecker;
+    protected $authorizationChecker;
+
+    /** {@inheritdoc} */
+    protected $excludedModes = [
+        DatagridModeProvider::DATAGRID_IMPORTEXPORT_MODE
+    ];
 
     /**
      * @param InlineEditColumnOptionsGuesser $inlineEditColumnOptionsGuesser
-     * @param SecurityFacade $securityFacade
-     * @param EntityClassNameHelper $entityClassNameHelper
-     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param EntityClassNameHelper          $entityClassNameHelper
+     * @param AuthorizationCheckerInterface  $authorizationChecker
      */
     public function __construct(
         InlineEditColumnOptionsGuesser $inlineEditColumnOptionsGuesser,
-        SecurityFacade $securityFacade,
         EntityClassNameHelper $entityClassNameHelper,
         AuthorizationCheckerInterface $authorizationChecker
     ) {
-        $this->securityFacade = $securityFacade;
         $this->guesser = $inlineEditColumnOptionsGuesser;
         $this->entityClassNameHelper = $entityClassNameHelper;
-        $this->authChecker = $authorizationChecker;
+        $this->authorizationChecker = $authorizationChecker;
     }
 
     /**
@@ -51,7 +49,9 @@ class InlineEditingExtension extends AbstractExtension
      */
     public function isApplicable(DatagridConfiguration $config)
     {
-        return $config->offsetGetByPath(Configuration::ENABLED_CONFIG_PATH);
+        return
+            parent::isApplicable($config)
+            && $config->offsetGetByPath(Configuration::ENABLED_CONFIG_PATH);
     }
 
     /**
@@ -61,13 +61,10 @@ class InlineEditingExtension extends AbstractExtension
      */
     public function processConfigs(DatagridConfiguration $config)
     {
-        $configItems   = $config->offsetGetOr(Configuration::BASE_CONFIG_KEY, []);
+        $configItems = $config->offsetGetOr(Configuration::BASE_CONFIG_KEY, []);
 
         if (empty($configItems[Configuration::CONFIG_ENTITY_KEY])) {
-            $configItems[Configuration::CONFIG_ENTITY_KEY] = $config->offsetGetOr(
-                Configuration::CONFIG_EXTENDED_ENTITY_KEY,
-                null
-            );
+            $configItems[Configuration::CONFIG_ENTITY_KEY] = $config->getExtendedEntityClassName();
         }
 
         $configuration = new Configuration(Configuration::BASE_CONFIG_KEY);
@@ -76,9 +73,8 @@ class InlineEditingExtension extends AbstractExtension
             [Configuration::BASE_CONFIG_KEY => $configItems]
         );
 
-        $isGranted = $this->securityFacade->isGranted('EDIT', 'entity:' . $configItems['entity_name']);
         //according to ACL disable inline editing for the whole grid
-        if (!$isGranted) {
+        if (!$this->isGranted($configItems)) {
             $normalizedConfigItems[Configuration::CONFIG_ENABLE_KEY] = false;
         }
 
@@ -98,19 +94,6 @@ class InlineEditingExtension extends AbstractExtension
 
         foreach ($columns as $columnName => &$column) {
             if (!in_array($columnName, $blackList, true)) {
-                // Check access to edit field in Class level.
-                // If access not granted - skip inline editing for such field.
-                $dadaFieldName = $this->getColummFieldName($columnName, $column);
-                if (!$this->authChecker->isGranted(
-                    'EDIT',
-                    new FieldVote($objectIdentity, $dadaFieldName)
-                )
-                ) {
-                    if (array_key_exists(Configuration::BASE_CONFIG_KEY, $column)) {
-                        $column[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY] = false;
-                    }
-                    continue;
-                }
                 $newColumn = $this->guesser->getColumnOptions(
                     $columnName,
                     $configItems['entity_name'],
@@ -118,15 +101,23 @@ class InlineEditingExtension extends AbstractExtension
                     $behaviour
                 );
 
-                // frontend type key must not be replaced with default value
-                $frontendTypeKey = PropertyInterface::FRONTEND_TYPE_KEY;
-                if (!empty($newColumn[$frontendTypeKey])) {
-                    $column[$frontendTypeKey] = $newColumn[$frontendTypeKey];
+                // Check access to edit field in Class level.
+                // If access not granted - skip inline editing for such field.
+                if (!$this->isFieldEditable($newColumn, $objectIdentity, $columnName, $column)) {
+                    $column = $this->disableColumnEdit($column);
+                    continue;
                 }
-                // type key must not be replaced with default value
-                $typeKey = PropertyInterface::TYPE_KEY;
-                if (!empty($newColumn[$typeKey])) {
-                    $column[$typeKey] = $newColumn[$typeKey];
+
+                // frontend type, type, data_name keys must not be replaced with default value
+                $keys = [
+                    PropertyInterface::FRONTEND_TYPE_KEY,
+                    PropertyInterface::TYPE_KEY,
+                    PropertyInterface::DATA_NAME_KEY,
+                ];
+                foreach ($keys as $key) {
+                    if (!empty($newColumn[$key])) {
+                        $column[$key] = $newColumn[$key];
+                    }
                 }
 
                 $column = array_replace_recursive($newColumn, $column);
@@ -134,6 +125,19 @@ class InlineEditingExtension extends AbstractExtension
         }
 
         $config->offsetSet(FormatterConfiguration::COLUMNS_KEY, $columns);
+    }
+
+    /**
+     * @param array $configItems
+     * @return bool
+     */
+    protected function isGranted(array $configItems)
+    {
+        $acl = !empty($configItems[Configuration::CONFIG_ACL_KEY]) ?
+            $configItems[Configuration::CONFIG_ACL_KEY] :
+            'EDIT;entity:' . $configItems[Configuration::CONFIG_ENTITY_KEY];
+
+        return $this->authorizationChecker->isGranted($acl);
     }
 
     /**
@@ -155,7 +159,7 @@ class InlineEditingExtension extends AbstractExtension
      *
      * @return string
      */
-    protected function getColummFieldName($columnName, $column)
+    protected function getColumnFieldName($columnName, $column)
     {
         $dadaFieldName = $columnName;
         if (array_key_exists(Configuration::BASE_CONFIG_KEY, $column)
@@ -173,5 +177,57 @@ class InlineEditingExtension extends AbstractExtension
         }
 
         return $dadaFieldName;
+    }
+
+    /**
+     * @param array $newColumn
+     * @param array $column
+     *
+     * @return bool
+     */
+    protected function isEnabledEdit($newColumn, $column)
+    {
+        if (array_key_exists(Configuration::BASE_CONFIG_KEY, $newColumn)
+            && isset($newColumn[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY])) {
+            return $newColumn[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY];
+        }
+        if (array_key_exists(Configuration::BASE_CONFIG_KEY, $column)
+            && isset($column[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY])) {
+            return $column[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY];
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array $column
+     *
+     * @return mixed
+     */
+    protected function disableColumnEdit($column)
+    {
+        if (array_key_exists(Configuration::BASE_CONFIG_KEY, $column)) {
+            $column[Configuration::BASE_CONFIG_KEY][Configuration::CONFIG_ENABLE_KEY] = false;
+        }
+
+        return $column;
+    }
+
+    /**
+     * @param array $newColumn
+     * @param $objectIdentity
+     * @param string $columnName
+     * @param array $column
+     *
+     * @return bool
+     */
+    protected function isFieldEditable($newColumn, $objectIdentity, $columnName, $column)
+    {
+        return
+            $this->isEnabledEdit($newColumn, $column)
+            && $this->authorizationChecker->isGranted(
+                'EDIT',
+                new FieldVote($objectIdentity, $this->getColumnFieldName($columnName, $column))
+            );
     }
 }

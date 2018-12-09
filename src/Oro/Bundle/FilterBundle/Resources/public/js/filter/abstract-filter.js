@@ -41,6 +41,13 @@ define([
         enabled: false,
 
         /**
+         * Is filter visible in UI
+         *
+         * @property {Boolean}
+         */
+        visible: true,
+
+        /**
          * Is filter enabled by default
          *
          * @property {Boolean}
@@ -94,7 +101,28 @@ define([
          *
          * @property {Array.<string|jQuery|HTMLElement>}
          */
-        dropdownFitContainers: ['.ui-dialog-content', '#container', 'body'],
+        dropdownFitContainers: ['.ui-dialog-content>*:first-child', '#container', 'body'],
+
+        /**
+         * Allow clear selected value
+         *
+         * @property {Boolean}
+         */
+        allowClear: true,
+
+        /**
+         * Is used for states in template
+         * @property {String} 'dropdown-mode' | 'toggle-mode'
+         * @default ''
+         */
+        renderMode: '',
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function AbstractFilter() {
+            AbstractFilter.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * Initialize.
@@ -103,8 +131,8 @@ define([
          * @param {Boolean} [options.enabled]
          */
         initialize: function(options) {
-            var opts = _.pick(options || {}, 'enabled', 'canDisable', 'placeholder', 'showLabel', 'label',
-                'templateSelector', 'templateTheme');
+            var opts = _.pick(options || {}, 'enabled', 'visible', 'canDisable', 'placeholder', 'showLabel', 'label',
+                'templateSelector', 'templateTheme', 'template', 'renderMode');
             _.extend(this, opts);
 
             this._defineTemplate();
@@ -115,8 +143,10 @@ define([
             if (_.isUndefined(this.emptyValue)) {
                 this.emptyValue = {};
             }
-            // init raw value of filter
-            this.value = tools.deepClone(this.emptyValue);
+            // init raw value of filter if it was not initialized
+            if (_.isUndefined(this.value)) {
+                this.value = tools.deepClone(this.emptyValue);
+            }
 
             AbstractFilter.__super__.initialize.apply(this, arguments);
 
@@ -185,7 +215,9 @@ define([
          * @return {*}
          */
         show: function() {
-            this.$el.css('display', 'inline-block');
+            if (this.visible) {
+                this.$el.css('display', 'inline-block');
+            }
             return this;
         },
 
@@ -198,6 +230,8 @@ define([
             this.$el.hide();
             return this;
         },
+
+        close: function() {},
 
         /**
          * Reset filter elements
@@ -232,6 +266,16 @@ define([
                 this._onValueUpdated(this.value, oldValue);
             }
             return this;
+        },
+
+        /**
+         * Set renderMode to filter
+         * @param {String} value
+         */
+        setRenderMode: function(value) {
+            if (_.isString(value) && value.length) {
+                this.renderMode = value;
+            }
         },
 
         /**
@@ -298,6 +342,15 @@ define([
         },
 
         /**
+         * Triggers when filter value is changed
+         *
+         * @protected
+         */
+        _onValueChanged: function() {
+            this.trigger('change');
+        },
+
+        /**
          * Triggers update event
          *
          * @param {*} newValue
@@ -352,7 +405,6 @@ define([
                     break;
                 default:
                     result = $input.val();
-
             }
             return result;
         },
@@ -372,16 +424,15 @@ define([
                     $input.each(function() {
                         var $input = $(this);
                         if ($input.attr('value') === value) {
-                            $input.attr('checked', true);
+                            $input.prop('checked', true);
                             $input.click();
                         } else {
-                            $(this).removeAttr('checked');
+                            $input.prop('checked', false);
                         }
                     });
                     break;
                 default:
                     $input.val(value);
-
             }
             return this;
         },
@@ -426,8 +477,8 @@ define([
          */
         _writeDOMValue: function(value) {
             throw new Error('Method _writeDOMValue is abstract and must be implemented');
-            //this._setInputValue(inputValueSelector, value.value);
-            //return this
+            // this._setInputValue(inputValueSelector, value.value);
+            // return this
         },
 
         /**
@@ -438,7 +489,17 @@ define([
          */
         _readDOMValue: function() {
             throw new Error('Method _readDOMValue is abstract and must be implemented');
-            //return { value: this._getInputValue(this.inputValueSelector) }
+            // return { value: this._getInputValue(this.inputValueSelector) }
+        },
+
+        /**
+         * Return true if DOM Value of filter is changed
+         *
+         * @returns {boolean}
+         * @protected
+         */
+        _isDOMValueChanged: function() {
+            throw new Error('Method _isDOMValueChanged is abstract and must be implemented');
         },
 
         /**
@@ -476,6 +537,13 @@ define([
          */
         applyValue: function() {
             this.setValue(this._formatRawValue(this._readDOMValue()));
+        },
+
+        getState: function() {
+            return {
+                label: this.label,
+                hint: this._getCriteriaHint()
+            };
         }
     }));
 

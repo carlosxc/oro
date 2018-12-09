@@ -1,6 +1,10 @@
-define(['numeral', '../locale-settings', 'underscore'
-    ], function(numeral, localeSettings, _) {
+define(function(require) {
     'use strict';
+
+    var _ = require('underscore');
+    var numeral = require('numeral');
+    var localeSettings = require('../locale-settings');
+    var configuration = require('oroconfig/js/configuration');
 
     /**
      * Number Formatter
@@ -34,13 +38,13 @@ define(['numeral', '../locale-settings', 'underscore'
 
         var formatters = {
             numeralFormat: function(value, options) {
-                var originLanguage = numeral.language();
-                numeral.language(localeSettings.getLocale());
+                var originLocale = numeral.locale();
+                numeral.locale(localeSettings.getLocale());
                 var result = numeral(value).format(createFormat(options));
                 if (result === '0') {
                     result = options.zero_digit_symbol;
                 }
-                numeral.language(originLanguage);
+                numeral.locale(originLocale);
                 return result;
             },
             addPrefixSuffix: function(formattedNumber, options, originalNumber) {
@@ -49,7 +53,7 @@ define(['numeral', '../locale-settings', 'underscore'
                 if (originalNumber >= 0) {
                     prefix = options.positive_prefix;
                     suffix = options.positive_suffix;
-                } else if (originalNumber < 0)  {
+                } else if (originalNumber < 0) {
                     formattedNumber = formattedNumber.replace('-', '');
                     prefix = options.negative_prefix;
                     suffix = options.negative_suffix;
@@ -73,15 +77,24 @@ define(['numeral', '../locale-settings', 'underscore'
                 return formattedNumber.replace('%', '');
             },
             replaceCurrency: function(formattedNumber, options) {
-                return formattedNumber.replace(
-                    options.currency_symbol,
-                    localeSettings.getCurrencySymbol(options.currency_code)
-                );
+                var currencyLayout = configuration.get('currency-view-type') === 'symbol'
+                    ? localeSettings.getCurrencySymbol(options.currency_code) : options.currency_code;
+
+                var isPrepend = configuration.get('is-currency-symbol-prepend');
+
+                if (configuration.get('currency-view-type') !== 'symbol' && isPrepend) {
+                    currencyLayout += '\u00A0';
+                }
+
+                return formattedNumber.replace(options.currency_symbol, currencyLayout);
             }
         };
 
         var doFormat = function(value, options, formattersChain) {
             var result = value;
+            if (formattersChain.length) {
+                result = Number(result);
+            }
             for (var i = 0; i < formattersChain.length; ++i) {
                 var formatter = formattersChain[i];
                 result = formatter.call(this, result, options, value);
@@ -89,9 +102,39 @@ define(['numeral', '../locale-settings', 'underscore'
             return result;
         };
 
+        var allowedCustomOptions = [
+            'grouping_used',
+            'min_fraction_digits',
+            'max_fraction_digits'
+        ];
+
+        var prepareCustomOptions = function(opts) {
+            if (!_.isObject(opts)) {
+                return {};
+            }
+
+            return _.pick(opts, allowedCustomOptions);
+        };
+
         return {
-            formatDecimal: function(value) {
-                var options = localeSettings.getNumberFormats('decimal');
+            formatDecimal: function(value, opts) {
+                var customOptions = prepareCustomOptions(opts);
+                var formatOptions = this.formatOptions || {};
+                var decimalOptions = localeSettings.getNumberFormats('decimal');
+                var options = _.extend({}, decimalOptions, formatOptions, customOptions);
+                options.style = 'decimal';
+                var formattersChain = [
+                    formatters.numeralFormat,
+                    formatters.addPrefixSuffix
+                ];
+                return doFormat(value, options, formattersChain);
+            },
+            formatMonetary: function(value, opts) {
+                var customOptions = prepareCustomOptions(opts);
+                var decimalOptions = localeSettings.getNumberFormats('decimal');
+                var fractionDigitsOptions = _.pick(localeSettings.getNumberFormats('currency'),
+                    ['max_fraction_digits', 'min_fraction_digits']);
+                var options = _.extend({}, decimalOptions, fractionDigitsOptions, customOptions);
                 options.style = 'decimal';
                 var formattersChain = [
                     formatters.numeralFormat,
@@ -120,11 +163,13 @@ define(['numeral', '../locale-settings', 'underscore'
                 ];
                 return doFormat(value, options, formattersChain);
             },
-            formatCurrency: function(value, currency) {
-                var options = localeSettings.getNumberFormats('currency');
+            formatCurrency: function(value, currency, opts) {
+                var customOptions = prepareCustomOptions(opts);
+                var currencyOptions = localeSettings.getNumberFormats('currency');
                 if (!currency) {
                     currency = localeSettings.getCurrency();
                 }
+                var options = _.extend({}, currencyOptions, customOptions);
                 options.style = 'currency';
                 options.currency_code = currency;
                 var formattersChain = [
@@ -143,9 +188,9 @@ define(['numeral', '../locale-settings', 'underscore'
              */
             formatDuration: function(value) {
                 var result = [];
-                result.push(Math.floor(value / 3600));    // hours
+                result.push(Math.floor(value / 3600)); // hours
                 result.push(Math.floor(value / 60) % 60); // minutes
-                result.push(value % 60);                  // seconds
+                result.push(value % 60); // seconds
                 for (var i = 0; i < result.length; i++) {
                     result[i] = String(result[i]);
                     if (result[i].length < 2) {
@@ -164,8 +209,8 @@ define(['numeral', '../locale-settings', 'underscore'
             unformatDuration: function(value) {
                 var result = value.split(':');
                 result[0] = parseInt(result[0], 10) * 3600; // hours
-                result[1] = parseInt(result[1], 10) * 60;   // minutes
-                result[2] = parseInt(result[2], 10);        // seconds
+                result[1] = parseInt(result[1], 10) * 60; // minutes
+                result[2] = parseInt(result[2], 10); // seconds
                 result = _.reduce(result, function(res, item) {
                     return res + item;
                 });
@@ -173,12 +218,34 @@ define(['numeral', '../locale-settings', 'underscore'
             },
             unformat: function(value) {
                 var result = String(value);
-                var originLanguage = numeral.language();
-                numeral.language(localeSettings.getLocale());
-                result = numeral().unformat(result);
-                numeral.language(originLanguage);
+                var originLocale = numeral.locale();
+                numeral.locale(localeSettings.getLocale());
+                result = numeral(result).value();
+                numeral.locale(originLocale);
 
                 return result;
+            },
+            unformatStrict: function(value) {
+                var numberFormats = localeSettings.getNumberFormats('decimal');
+                var groupingSeparator = numberFormats.grouping_separator_symbol;
+                var decimalSeparator = numberFormats.decimal_separator_symbol;
+                var defaultDecimalSeparator = '.';
+                value = String(value);
+                if (/^\s+$/.test(groupingSeparator)) {
+                    // to avoid an error when grouping separator of current locale looks like space but has another code
+                    // e.g. no-break space on french locale
+                    value = value.replace(/\s/g, '');
+                } else {
+                    value = value.split(groupingSeparator).join('');
+                }
+                if (decimalSeparator !== defaultDecimalSeparator) {
+                    if (value.indexOf(defaultDecimalSeparator) !== -1) {
+                        // value should not contain default decimal separator if current locale has different one
+                        return NaN;
+                    }
+                    value = value.replace(decimalSeparator, defaultDecimalSeparator);
+                }
+                return Number(value);
             }
         };
     };

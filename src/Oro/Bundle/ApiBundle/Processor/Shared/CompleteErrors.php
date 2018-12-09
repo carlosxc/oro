@@ -2,13 +2,14 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
+use Oro\Bundle\ApiBundle\Metadata\EntityMetadata;
+use Oro\Bundle\ApiBundle\Processor\Context;
+use Oro\Bundle\ApiBundle\Request\ErrorCompleterRegistry;
 use Oro\Component\ChainProcessor\ContextInterface;
 use Oro\Component\ChainProcessor\ProcessorInterface;
-use Oro\Bundle\ApiBundle\Processor\Context;
-use Oro\Bundle\ApiBundle\Request\ErrorCompleterInterface;
 
 /**
- * Checks if there are any errors in the Context,
+ * Checks if there are any errors in the context,
  * and if so, completes missing properties of all Error objects.
  * E.g. if an error is created due to an exception occurs,
  * such error does not have "statusCode", "title", "details" and other properties,
@@ -16,15 +17,15 @@ use Oro\Bundle\ApiBundle\Request\ErrorCompleterInterface;
  */
 class CompleteErrors implements ProcessorInterface
 {
-    /** @var ErrorCompleterInterface */
-    protected $errorCompleter;
+    /** @var ErrorCompleterRegistry */
+    private $errorCompleterRegistry;
 
     /**
-     * @param ErrorCompleterInterface $errorCompleter
+     * @param ErrorCompleterRegistry $errorCompleterRegistry
      */
-    public function __construct(ErrorCompleterInterface $errorCompleter)
+    public function __construct(ErrorCompleterRegistry $errorCompleterRegistry)
     {
-        $this->errorCompleter = $errorCompleter;
+        $this->errorCompleterRegistry = $errorCompleterRegistry;
     }
 
     /**
@@ -39,10 +40,31 @@ class CompleteErrors implements ProcessorInterface
             return;
         }
 
+        $requestType = $context->getRequestType();
+        $errorCompleter = $this->errorCompleterRegistry->getErrorCompleter($requestType);
+        $metadata = $this->getMetadata($context);
         $errors = $context->getErrors();
-        $metadata = $context->getMetadata();
         foreach ($errors as $error) {
-            $this->errorCompleter->complete($error, $metadata);
+            $errorCompleter->complete($error, $requestType, $metadata);
+        }
+    }
+
+    /**
+     * @param Context $context
+     *
+     * @return EntityMetadata|null
+     */
+    private function getMetadata(Context $context)
+    {
+        $entityClass = $context->getClassName();
+        if (!$entityClass || false === strpos($entityClass, '\\')) {
+            return null;
+        }
+
+        try {
+            return $context->getMetadata();
+        } catch (\Exception $e) {
+            return null;
         }
     }
 }

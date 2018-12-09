@@ -2,22 +2,18 @@
 
 namespace Oro\Bundle\NoteBundle\Controller;
 
-use Symfony\Component\Security\Core\Util\ClassUtils;
-
 use FOS\RestBundle\Util\Codes;
-
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Symfony\Bundle\FrameworkBundle\Routing\Router;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Form\FormInterface;
-
+use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
+use Oro\Bundle\NoteBundle\Entity\Manager\NoteManager;
+use Oro\Bundle\NoteBundle\Entity\Note;
+use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
-
-use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
-use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
-use Oro\Bundle\NoteBundle\Entity\Note;
-use Oro\Bundle\NoteBundle\Entity\Manager\NoteManager;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Bundle\FrameworkBundle\Routing\Router;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @Route("/notes")
@@ -49,12 +45,16 @@ class NoteController extends Controller
      * )
      *
      * @AclAncestor("oro_note_view")
+     * @param Request $request
+     * @param string $entityClass
+     * @param int $entityId
+     * @return Response
      */
-    public function getAction($entityClass, $entityId)
+    public function getAction(Request $request, $entityClass, $entityId)
     {
         $entityClass = $this->getEntityRoutingHelper()->resolveEntityClass($entityClass);
 
-        $sorting = strtoupper($this->getRequest()->get('sorting', 'DESC'));
+        $sorting = strtoupper($request->get('sorting', 'DESC'));
 
         $manager = $this->getNoteManager();
 
@@ -66,36 +66,70 @@ class NoteController extends Controller
     }
 
     /**
-     * @Route("/widget/info/{id}", name="oro_note_widget_info", requirements={"id"="\d+"})
-     * @Template
+     * @Route(
+     *     "/widget/info/{id}/{renderContexts}",
+     *     name="oro_note_widget_info",
+     *     requirements={"id"="\d+", "renderContexts"="\d+"},
+     *     defaults={"renderContexts"=true}
+     * )
+     * @Template("OroNoteBundle:Note/widget:info.html.twig")
      * @AclAncestor("oro_note_view")
+     * @param Request $request
+     * @param Note $entity
+     * @param string $renderContexts
+     * @return array
      */
-    public function infoAction(Note $entity)
+    public function infoAction(Request $request, Note $entity, $renderContexts)
     {
         $attachmentProvider = $this->get('oro_attachment.provider.attachment');
         $attachment = $attachmentProvider->getAttachmentInfo($entity);
-        return ['entity' => $entity, 'attachment' => $attachment];
+
+        return [
+            'entity'         => $entity,
+            'target'         => $this->getTargetEntity($request),
+            'renderContexts' => (bool)$renderContexts,
+            'attachment'     => $attachment
+        ];
     }
 
     /**
-     * @Route("/create/{entityClass}/{entityId}", name="oro_note_create")
+     * Get target entity
+     *
+     * @param Request $request
+     * @return object|null
+     */
+    protected function getTargetEntity(Request $request)
+    {
+        $entityRoutingHelper = $this->getEntityRoutingHelper();
+        $targetEntityClass   = $entityRoutingHelper->getEntityClassName($request, 'targetActivityClass');
+        $targetEntityId      = $entityRoutingHelper->getEntityId($request, 'targetActivityId');
+        if (!$targetEntityClass || !$targetEntityId) {
+            return null;
+        }
+
+        return $entityRoutingHelper->getEntity($targetEntityClass, $targetEntityId);
+    }
+
+    /**
+     * @Route("/create", name="oro_note_create")
      *
      * @Template("OroNoteBundle:Note:update.html.twig")
      * @AclAncestor("oro_note_create")
+     * @param Request $request
+     * @return array
      */
-    public function createAction($entityClass, $entityId)
+    public function createAction(Request $request)
     {
         $entityRoutingHelper = $this->getEntityRoutingHelper();
 
-        $entity      = $entityRoutingHelper->getEntity($entityClass, $entityId);
-        $entityClass = ClassUtils::getRealClass($entity);
+        $entityClass = $entityRoutingHelper->getEntityClassName($request);
+        $entityId = $entityRoutingHelper->getEntityId($request);
 
         $noteEntity = new Note();
-        $noteEntity->setTarget($entity);
 
         $formAction = $entityRoutingHelper->generateUrlByRequest(
             'oro_note_create',
-            $this->getRequest(),
+            $request,
             $entityRoutingHelper->getRouteParameters($entityClass, $entityId)
         );
 

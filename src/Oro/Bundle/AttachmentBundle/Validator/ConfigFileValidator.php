@@ -2,16 +2,14 @@
 
 namespace Oro\Bundle\AttachmentBundle\Validator;
 
-use Symfony\Component\HttpFoundation\File\File as ComponentFile;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
-use Symfony\Component\Validator\Constraints\File as FileConstraint;
-
 use Oro\Bundle\ConfigBundle\Config\ConfigManager as Configuration;
-
-use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
+use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Symfony\Component\HttpFoundation\File\File as ComponentFile;
+use Symfony\Component\Validator\Constraints\File as FileConstraint;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class ConfigFileValidator
 {
@@ -43,7 +41,7 @@ class ConfigFileValidator
      *
      * @return \Symfony\Component\Validator\ConstraintViolationListInterface
      */
-    public function validate(ComponentFile $file, $dataClass, $fieldName = '')
+    public function validate($file, $dataClass, $fieldName = '')
     {
         /** @var Config $entityAttachmentConfig */
         if ($fieldName === '') {
@@ -57,14 +55,17 @@ class ConfigFileValidator
             }
         } else {
             $entityAttachmentConfig = $this->attachmentConfigProvider->getConfig($dataClass, $fieldName);
-            /** @var FieldConfigId $fieldConfigId */
-            $fieldConfigId = $entityAttachmentConfig->getId();
-            if ($fieldConfigId->getFieldType() === 'file') {
-                $configValue = 'upload_file_mime_types';
-            } else {
-                $configValue = 'upload_image_mime_types';
+            $mimeTypes = $this->getMimeArray($entityAttachmentConfig->get('mimetypes'));
+            if (!$mimeTypes) {
+                /** @var FieldConfigId $fieldConfigId */
+                $fieldConfigId = $entityAttachmentConfig->getId();
+                if ($fieldConfigId->getFieldType() === 'file') {
+                    $configValue = 'upload_file_mime_types';
+                } else {
+                    $configValue = 'upload_image_mime_types';
+                }
+                $mimeTypes = $this->getMimeArray($this->config->get('oro_attachment.' . $configValue));
             }
-            $mimeTypes = $this->getMimeArray($this->config->get('oro_attachment.' . $configValue));
         }
 
         $fileSize = $entityAttachmentConfig->get('maxsize') * 1024 * 1024;
@@ -94,7 +95,7 @@ class ConfigFileValidator
     {
         $mimeTypes = explode("\n", $mimeString);
         if (count($mimeTypes) === 1 && $mimeTypes[0] === '') {
-            return '';
+            return [];
         }
 
         return $mimeTypes;

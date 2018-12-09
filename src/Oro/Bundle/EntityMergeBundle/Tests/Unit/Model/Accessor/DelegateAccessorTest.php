@@ -4,7 +4,7 @@ namespace Oro\Bundle\EntityMergeBundle\Tests\Unit\Model\Accessor;
 
 use Oro\Bundle\EntityMergeBundle\Model\Accessor\DelegateAccessor;
 
-class DelegateAccessorTest extends \PHPUnit_Framework_TestCase
+class DelegateAccessorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var DelegateAccessor $merger
@@ -180,7 +180,7 @@ class DelegateAccessorTest extends \PHPUnit_Framework_TestCase
 
     protected function createAccessor($name)
     {
-        $result = $this->getMock('Oro\Bundle\EntityMergeBundle\Model\Accessor\AccessorInterface');
+        $result = $this->createMock('Oro\Bundle\EntityMergeBundle\Model\Accessor\AccessorInterface');
         $result->expects($this->any())
             ->method('getName')
             ->will($this->returnValue($name));

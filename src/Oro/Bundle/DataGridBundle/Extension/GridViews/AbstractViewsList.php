@@ -3,10 +3,8 @@
 namespace Oro\Bundle\DataGridBundle\Extension\GridViews;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Symfony\Component\Translation\TranslatorInterface;
-
 use Oro\Bundle\DataGridBundle\Exception\InvalidArgumentException;
+use Symfony\Component\Translation\TranslatorInterface;
 
 abstract class AbstractViewsList
 {
@@ -33,7 +31,8 @@ abstract class AbstractViewsList
 
     /**
      * Return all system views that defined in ViewList
-     * @return array
+     *
+     * @return View[]
      */
     public function getSystemViewsList()
     {

@@ -2,15 +2,13 @@
 
 namespace Oro\Bundle\EntityBundle\Tests\Unit\DependencyInjection;
 
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-
 use Oro\Bundle\EntityBundle\DependencyInjection\OroEntityExtension;
 use Oro\Bundle\EntityBundle\Tests\Unit\Fixtures\Bundles\TestBundle1\TestBundle1;
 use Oro\Bundle\EntityBundle\Tests\Unit\Fixtures\Bundles\TestBundle2\TestBundle2;
-
 use Oro\Component\Config\CumulativeResourceManager;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-class OroEntityExtensionTest extends \PHPUnit_Framework_TestCase
+class OroEntityExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
@@ -52,7 +50,8 @@ class OroEntityExtensionTest extends \PHPUnit_Framework_TestCase
                         'query' => [
                             'select' => [
                                 'expr'        => 'COALESCE(entity.regionText, region.name)',
-                                'return_type' => 'string'
+                                'return_type' => 'string',
+                                'translatable' => true
                             ],
                             'join'   => [
                                 'left' => [
@@ -70,10 +69,27 @@ class OroEntityExtensionTest extends \PHPUnit_Framework_TestCase
                                 'return_type'  => 'enum',
                                 'filter_by_id' => true,
                                 'label'        => 'test.product.groups.label',
+                                'translatable' => true,
                             ],
                             'join'   => [
                                 'left' => [
                                     ['join' => 'entity.groups', 'alias' => 'target']
+                                ]
+                            ]
+                        ]
+                    ],
+                    'category' => [
+                        'query' => [
+                            'select' => [
+                                'expr'         => 'target.name',
+                                'return_type'  => 'enum',
+                                'filter_by_id' => true,
+                                'label'        => 'test.product.category.label',
+                                'translatable' => true
+                            ],
+                            'join'   => [
+                                'left' => [
+                                    ['join' => 'entity.category', 'alias' => 'target']
                                 ]
                             ]
                         ]

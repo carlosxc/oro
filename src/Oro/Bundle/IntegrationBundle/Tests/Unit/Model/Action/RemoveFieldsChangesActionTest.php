@@ -2,15 +2,13 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Model\Action;
 
-use Symfony\Component\PropertyAccess\PropertyPath;
-
 use Oro\Bundle\IntegrationBundle\Manager\FieldsChangesManager;
 use Oro\Bundle\IntegrationBundle\Model\Action\RemoveFieldsChangesAction;
 use Oro\Bundle\WorkflowBundle\Model\ProcessData;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Component\Action\Model\ContextAccessor;
-
-class RemoveFieldsChangesActionTest extends \PHPUnit_Framework_TestCase
+class RemoveFieldsChangesActionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var RemoveFieldsChangesAction
@@ -36,10 +34,8 @@ class RemoveFieldsChangesActionTest extends \PHPUnit_Framework_TestCase
     public function testInitializeFailed(array $options, $message = null)
     {
         if ($message) {
-            $this->setExpectedException(
-                'Oro\Component\Action\Exception\InvalidParameterException',
-                $message
-            );
+            $this->expectException('Oro\Component\Action\Exception\InvalidParameterException');
+            $this->expectExceptionMessage($message);
         }
 
         $this->action->initialize($options);
@@ -70,7 +66,7 @@ class RemoveFieldsChangesActionTest extends \PHPUnit_Framework_TestCase
      */
     public function testExecuteAction(array $options, array $context)
     {
-        /** @var FieldsChangesManager|\PHPUnit_Framework_MockObject_MockObject $fieldsChangesManager */
+        /** @var FieldsChangesManager|\PHPUnit\Framework\MockObject\MockObject $fieldsChangesManager */
         $fieldsChangesManager = $this
             ->getMockBuilder('Oro\Bundle\IntegrationBundle\Manager\FieldsChangesManager')
             ->disableOriginalConstructor()

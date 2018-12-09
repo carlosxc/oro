@@ -3,7 +3,6 @@
 namespace Oro\Bundle\AddressBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-
 use Oro\Bundle\AddressBundle\Model\ExtendAddress;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 
@@ -15,7 +14,7 @@ use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
  * @Config(
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-map-marker"
+ *              "icon"="fa-map-marker"
  *          },
  *          "note"={
  *              "immutable"=true

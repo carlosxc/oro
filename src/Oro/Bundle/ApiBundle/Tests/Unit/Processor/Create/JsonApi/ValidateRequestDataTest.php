@@ -2,187 +2,128 @@
 
 namespace Oro\Bundle\ApiBundle\Tests\Unit\Processor\Create\JsonApi;
 
+use Oro\Bundle\ApiBundle\Metadata\EntityMetadata;
+use Oro\Bundle\ApiBundle\Model\Error;
+use Oro\Bundle\ApiBundle\Model\ErrorSource;
 use Oro\Bundle\ApiBundle\Processor\Create\JsonApi\ValidateRequestData;
-use Oro\Bundle\ApiBundle\Tests\Unit\Processor\FormProcessorTestCase;
+use Oro\Bundle\ApiBundle\Request\Constraint;
+use Oro\Bundle\ApiBundle\Request\ValueNormalizer;
+use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product;
+use Oro\Bundle\ApiBundle\Tests\Unit\Processor\Create\CreateProcessorTestCase;
 
-class ValidateRequestDataTest extends FormProcessorTestCase
+class ValidateRequestDataTest extends CreateProcessorTestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $valueNormalizer;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ValueNormalizer */
+    private $valueNormalizer;
 
     /** @var ValidateRequestData */
-    protected $processor;
+    private $processor;
 
     protected function setUp()
     {
         parent::setUp();
 
-        $this->valueNormalizer = $this->getMockBuilder('Oro\Bundle\ApiBundle\Request\ValueNormalizer')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->valueNormalizer = $this->createMock(ValueNormalizer::class);
 
         $this->processor = new ValidateRequestData($this->valueNormalizer);
     }
 
-    /**
-     * @dataProvider validRequestDataProvider
-     */
-    public function testProcessWithValidRequestData($requestData)
+    public function testProcessWhenRequestDataAlreadyValidated()
     {
-        $this->valueNormalizer->expects($this->once())
-            ->method('normalizeValue')
-            ->with('products')
-            ->willReturn('Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product');
-
-        $this->context->setClassName('Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product');
-        $this->context->setRequestData($requestData);
-
+        $this->context->setRequestData([]);
+        $this->context->setProcessed(ValidateRequestData::OPERATION_NAME);
         $this->processor->process($this->context);
-        $this->assertFalse($this->context->hasErrors());
+        self::assertFalse($this->context->hasErrors());
     }
 
-    public function validRequestDataProvider()
+    public function testProcessWithValidRequestDataForResourceWithoutIdentifier()
     {
-        return [
-            [
-                ['data' => ['type' => 'products', 'attributes' => ['test' => null]]]
-            ],
-            [
-                ['data' => ['id' => '23', 'type' => 'products', 'attributes' => ['test' => null]]]
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => ['test' => ['data' => null]]]]
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => ['test' => ['data' => []]]]],
-            ],
+        $requestData = [
+            'meta' => ['foo' => 'bar']
         ];
-    }
 
-    /**
-     * @dataProvider invalidRequestDataProvider
-     */
-    public function testProcessWithInvalidRequestData($requestData, $expectedErrorString, $pointer, $expectedCode = 400)
-    {
-        $this->context->setClassName('Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product');
+        $metadata = new EntityMetadata();
+
         $this->context->setRequestData($requestData);
-
-        $this->valueNormalizer->expects($this->any())
-            ->method('normalizeValue')
-            ->with('products')
-            ->willReturn('Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product');
-
+        $this->context->setMetadata($metadata);
         $this->processor->process($this->context);
 
-        $errors = $this->context->getErrors();
-        $this->assertCount(1, $errors);
-        $error = $errors[0];
-        $this->assertEquals($expectedCode, $error->getStatusCode());
-        $this->assertEquals('request data constraint', $error->getTitle());
-        $this->assertEquals($expectedErrorString, $error->getDetail());
-        $this->assertEquals($pointer, $error->getSource()->getPointer());
+        self::assertFalse($this->context->hasErrors());
+        self::assertTrue($this->context->isProcessed(ValidateRequestData::OPERATION_NAME));
     }
 
-    /**
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
-     */
-    public function invalidRequestDataProvider()
+    public function testProcessWithInvalidRequestDataForResourceWithoutIdentifier()
     {
-        return [
-            [[], 'The primary data object should exist', '/data'],
-            [['data' => null], 'The primary data object should not be empty', '/data'],
-            [['data' => []], 'The primary data object should not be empty', '/data'],
-            [['data' => ['attributes' => ['foo' => 'bar']]], 'The \'type\' property is required', '/data/type'],
-            [
-                ['data' => ['type' => 'test', 'attributes' => ['foo' => 'bar']]],
-                'The \'type\' property of the primary data object should match the requested resource',
-                '/data/type',
-            ],
-            [
-                ['data' => ['type' => 'products']],
-                'The primary data object should contain \'attributes\' or \'relationships\' block',
-                '/data',
-            ],
-            [
-                ['data' => ['type' => 'products']],
-                'The primary data object should contain \'attributes\' or \'relationships\' block',
-                '/data',
-            ],
-            [
-                ['data' => ['type' => 'products', 'attributes' => null]],
-                'The \'attributes\' property should be an array',
-                '/data/attributes',
-            ],
-            [
-                ['data' => ['type' => 'products', 'attributes' => []]],
-                'The \'attributes\' property should not be empty',
-                '/data/attributes',
-            ],
-            [
-                ['data' => ['type' => 'products', 'attributes' => [1, 2, 3]]],
-                'The \'attributes\' property should be an associative array',
-                '/data/attributes',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => null]],
-                'The \'relationships\' property should be an array',
-                '/data/relationships',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => []]],
-                'The \'relationships\' property should not be empty',
-                '/data/relationships',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => [1, 2, 3]]],
-                'The \'relationships\' property should be an associative array',
-                '/data/relationships',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => ['test' => null]]],
-                'The relationship should have \'data\' property',
-                '/data/relationships/test',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => ['test' => []]]],
-                'The relationship should have \'data\' property',
-                '/data/relationships/test',
-            ],
-            [
-                ['data' => ['type' => 'products', 'relationships' => ['test' => ['data' => ['id' => '2']]]]],
-                'The \'type\' property is required',
-                '/data/relationships/test/data/type',
-            ],
-            [
-                [
-                    'data' => [
-                        'type'          => 'products',
-                        'relationships' => ['test' => ['data' => ['type' => 'products']]]
-                    ]
-                ],
-                'The \'id\' property is required',
-                '/data/relationships/test/data/id',
-            ],
-            [
-                [
-                    'data' => [
-                        'type'          => 'products',
-                        'relationships' => ['test' => ['data' => [['id' => '2']]]]
-                    ]
-                ],
-                'The \'type\' property is required',
-                '/data/relationships/test/data/0/type',
-            ],
-            [
-                [
-                    'data' => [
-                        'type'          => 'products',
-                        'relationships' => ['test' => ['data' => [['type' => 'products']]]]
-                    ]
-                ],
-                'The \'id\' property is required',
-                '/data/relationships/test/data/0/id',
-            ]
+        $requestData = [];
+
+        $metadata = new EntityMetadata();
+
+        $this->context->setRequestData($requestData);
+        $this->context->setMetadata($metadata);
+        $this->processor->process($this->context);
+
+        $error = Error::createValidationError(
+            Constraint::REQUEST_DATA,
+            'The primary meta object should exist'
+        );
+        $error->setSource(ErrorSource::createByPointer('/meta'));
+        self::assertEquals(
+            [$error],
+            $this->context->getErrors()
+        );
+        self::assertTrue($this->context->isProcessed(ValidateRequestData::OPERATION_NAME));
+    }
+
+    public function testProcessWithValidRequestData()
+    {
+        $requestData = [
+            'data' => ['type' => 'products', 'attributes' => ['foo' => 'bar']]
         ];
+
+        $metadata = new EntityMetadata();
+        $metadata->setIdentifierFieldNames(['id']);
+
+        $this->valueNormalizer->expects(self::any())
+            ->method('normalizeValue')
+            ->with('products')
+            ->willReturn(Product::class);
+
+        $this->context->setClassName(Product::class);
+        $this->context->setMetadata($metadata);
+        $this->context->setRequestData($requestData);
+        $this->processor->process($this->context);
+
+        self::assertFalse($this->context->hasErrors());
+        self::assertTrue($this->context->isProcessed(ValidateRequestData::OPERATION_NAME));
+    }
+
+    public function testProcessWithInvalidRequestData()
+    {
+        $requestData = [
+            'data' => ['type' => 'test', 'attributes' => ['foo' => 'bar']]
+        ];
+
+        $metadata = new EntityMetadata();
+        $metadata->setIdentifierFieldNames(['id']);
+
+        $this->valueNormalizer->expects(self::any())
+            ->method('normalizeValue')
+            ->with('products')
+            ->willReturn(Product::class);
+
+        $this->context->setClassName(Product::class);
+        $this->context->setMetadata($metadata);
+        $this->context->setRequestData($requestData);
+        $this->processor->process($this->context);
+
+        $error = Error::createConflictValidationError(
+            'The \'type\' property of the primary data object should match the requested resource'
+        );
+        $error->setSource(ErrorSource::createByPointer('/data/type'));
+        self::assertEquals(
+            [$error],
+            $this->context->getErrors()
+        );
+        self::assertTrue($this->context->isProcessed(ValidateRequestData::OPERATION_NAME));
     }
 }

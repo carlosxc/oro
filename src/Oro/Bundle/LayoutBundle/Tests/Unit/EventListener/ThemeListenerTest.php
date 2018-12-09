@@ -2,14 +2,13 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Unit\EventListener;
 
+use Oro\Bundle\LayoutBundle\EventListener\ThemeListener;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-use Oro\Bundle\LayoutBundle\EventListener\ThemeListener;
-
-class ThemeListenerTest extends \PHPUnit_Framework_TestCase
+class ThemeListenerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ThemeListener */
     protected $listener;
@@ -91,7 +90,7 @@ class ThemeListenerTest extends \PHPUnit_Framework_TestCase
     protected function createMasterRequestEvent(array $query = [], array $attributes = [])
     {
         return new GetResponseEvent(
-            $this->getMock('Symfony\Component\HttpKernel\HttpKernelInterface'),
+            $this->createMock('Symfony\Component\HttpKernel\HttpKernelInterface'),
             new Request($query, [], $attributes),
             HttpKernelInterface::MASTER_REQUEST
         );
@@ -105,7 +104,7 @@ class ThemeListenerTest extends \PHPUnit_Framework_TestCase
     protected function createSubRequestEvent(array $attributes = [])
     {
         return new GetResponseEvent(
-            $this->getMock('Symfony\Component\HttpKernel\HttpKernelInterface'),
+            $this->createMock('Symfony\Component\HttpKernel\HttpKernelInterface'),
             new Request([], [], $attributes),
             HttpKernelInterface::SUB_REQUEST
         );

@@ -3,24 +3,24 @@
 namespace Oro\Bundle\AttachmentBundle\Api\Processor;
 
 use Gaufrette\Exception\FileNotFound;
-
-use Psr\Log\LoggerInterface;
-
+use Oro\Bundle\ApiBundle\Processor\CustomizeLoadedData\CustomizeLoadedDataContext;
+use Oro\Bundle\AttachmentBundle\Manager\FileManager;
 use Oro\Component\ChainProcessor\ContextInterface;
 use Oro\Component\ChainProcessor\ProcessorInterface;
-use Oro\Bundle\ApiBundle\Processor\CustomizeLoadedDataContext;
-use Oro\Bundle\AttachmentBundle\Manager\FileManager;
+use Psr\Log\LoggerInterface;
 
 /**
  * Computes a value of "content" field for File entity.
  */
 class ComputeFileContent implements ProcessorInterface
 {
+    private const CONTENT_FIELD_NAME = 'content';
+
     /** @var FileManager */
-    protected $fileManager;
+    private $fileManager;
 
     /** @var LoggerInterface */
-    protected $logger;
+    private $logger;
 
     /**
      * @param FileManager     $fileManager
@@ -44,19 +44,18 @@ class ComputeFileContent implements ProcessorInterface
             return;
         }
 
-        $config = $context->getConfig();
-        $contentField = $config->getField('content');
-        if (!$contentField || $contentField->isExcluded()) {
+        if (!$context->isFieldRequested(self::CONTENT_FIELD_NAME, $data)) {
             return;
         }
 
-        if (empty($data['filename'])) {
+        $fileNameFieldName = $context->getResultFieldName('filename');
+        if (!$fileNameFieldName || empty($data[$fileNameFieldName])) {
             return;
         }
 
-        $content = $this->getFileContent($data['filename']);
+        $content = $this->getFileContent($data[$fileNameFieldName]);
         if (null !== $content) {
-            $data[$contentField->getPropertyPath()] = $content;
+            $data[self::CONTENT_FIELD_NAME] = $content;
             $context->setResult($data);
         }
     }
@@ -66,7 +65,7 @@ class ComputeFileContent implements ProcessorInterface
      *
      * @return string|null
      */
-    protected function getFileContent($fileName)
+    private function getFileContent(string $fileName): ?string
     {
         $content = null;
         try {

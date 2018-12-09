@@ -3,12 +3,12 @@
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain;
 
 use Oro\Bundle\SecurityBundle\Acl\Domain\ObjectIdentityFactory;
+use Oro\Bundle\SecurityBundle\Annotation\Acl as AclAnnotation;
 use Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain\Fixtures\Entity\TestEntity;
 use Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain\Fixtures\Entity\TestEntityImplementsDomainObjectInterface;
 use Oro\Bundle\SecurityBundle\Tests\Unit\TestHelper;
-use Oro\Bundle\SecurityBundle\Annotation\Acl as AclAnnotation;
 
-class ObjectIdentityFactoryTest extends \PHPUnit_Framework_TestCase
+class ObjectIdentityFactoryTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ObjectIdentityFactory
@@ -28,8 +28,8 @@ class ObjectIdentityFactoryTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('entity', $id->getIdentifier());
         $this->assertEquals(ObjectIdentityFactory::ROOT_IDENTITY_TYPE, $id->getType());
 
-        $id = $this->factory->root('Entity');
-        $this->assertEquals('entity', $id->getIdentifier());
+        $id = $this->factory->root(\stdClass::class);
+        $this->assertEquals('stdclass', $id->getIdentifier());
         $this->assertEquals(ObjectIdentityFactory::ROOT_IDENTITY_TYPE, $id->getType());
 
         $id = $this->factory->root($this->factory->get('Entity: Test:TestEntity'));

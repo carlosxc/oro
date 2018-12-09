@@ -2,16 +2,20 @@
 
 namespace Oro\Bundle\SecurityBundle\Metadata;
 
-use Symfony\Bridge\Doctrine\ManagerRegistry;
-
 use Doctrine\Common\Cache\CacheProvider;
 use Doctrine\ORM\Mapping\ClassMetadata;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
 use Oro\Bundle\EntityConfigBundle\Tools\ConfigHelper;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
+use Oro\Bundle\SecurityBundle\Event\LoadFieldsMetadata;
+use Symfony\Bridge\Doctrine\ManagerRegistry;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Translation\TranslatorInterface;
 
+/**
+ * Class that provides possibility to collect and receive metadata for classes and their fields by security type
+ */
 class EntitySecurityMetadataProvider
 {
     const ACL_SECURITY_TYPE = 'ACL';
@@ -30,6 +34,9 @@ class EntitySecurityMetadataProvider
     /** @var ManagerRegistry */
     protected $doctrine;
 
+    /** @var TranslatorInterface */
+    protected $translator;
+
     /**  @var CacheProvider */
     protected $cache;
 
@@ -40,26 +47,36 @@ class EntitySecurityMetadataProvider
      *         key = class name
      *         value = EntitySecurityMetadata
      */
-    protected $localCache = array();
+    protected $localCache = [];
+
+    /** @var EventDispatcherInterface */
+    protected $eventDispatcher;
 
     /**
-     * @param ConfigProvider     $securityConfigProvider
-     * @param ConfigProvider     $entityConfigProvider
-     * @param ConfigProvider     $extendConfigProvider
-     * @param CacheProvider|null $cache
+     * @param ConfigProvider      $securityConfigProvider
+     * @param ConfigProvider      $entityConfigProvider
+     * @param ConfigProvider      $extendConfigProvider
+     * @param ManagerRegistry     $doctrine
+     * @param TranslatorInterface $translator
+     * @param CacheProvider|null  $cache
+     * @param EventDispatcherInterface $eventDispatcher
      */
     public function __construct(
         ConfigProvider $securityConfigProvider,
         ConfigProvider $entityConfigProvider,
         ConfigProvider $extendConfigProvider,
         ManagerRegistry $doctrine,
-        CacheProvider  $cache = null
+        TranslatorInterface $translator,
+        CacheProvider  $cache = null,
+        EventDispatcherInterface $eventDispatcher
     ) {
         $this->securityConfigProvider = $securityConfigProvider;
-        $this->entityConfigProvider   = $entityConfigProvider;
-        $this->extendConfigProvider   = $extendConfigProvider;
-        $this->doctrine               = $doctrine;
-        $this->cache                  = $cache;
+        $this->entityConfigProvider = $entityConfigProvider;
+        $this->extendConfigProvider = $extendConfigProvider;
+        $this->doctrine = $doctrine;
+        $this->translator = $translator;
+        $this->cache = $cache;
+        $this->eventDispatcher = $eventDispatcher;
     }
 
     /**
@@ -87,6 +104,7 @@ class EntitySecurityMetadataProvider
     public function getEntities($securityType = self::ACL_SECURITY_TYPE)
     {
         $this->ensureMetadataLoaded($securityType);
+        $this->translateMetadata($this->localCache[$securityType]);
 
         return array_values($this->localCache[$securityType]);
     }
@@ -96,7 +114,7 @@ class EntitySecurityMetadataProvider
      */
     public function warmUpCache()
     {
-        $securityTypes = array();
+        $securityTypes = [];
         foreach ($this->securityConfigProvider->getConfigs() as $securityConfig) {
             $securityType = $securityConfig->get('type');
             if ($securityType && !in_array($securityType, $securityTypes, true)) {
@@ -127,7 +145,7 @@ class EntitySecurityMetadataProvider
         if ($securityType !== null) {
             unset($this->localCache[$securityType]);
         } else {
-            $this->localCache = array();
+            $this->localCache = [];
         }
     }
 
@@ -147,6 +165,7 @@ class EntitySecurityMetadataProvider
         if ($result === true) {
             return new EntitySecurityMetadata();
         }
+        $this->translateMetadata([$result]);
 
         return $result;
     }
@@ -180,7 +199,7 @@ class EntitySecurityMetadataProvider
     {
         $data = [];
 
-        $securityConfigs = $this->securityConfigProvider->getConfigs();
+        $securityConfigs = $this->securityConfigProvider->getConfigs(null, true);
 
         foreach ($securityConfigs as $securityConfig) {
             $className = $securityConfig->getId()->getClassName();
@@ -191,15 +210,8 @@ class EntitySecurityMetadataProvider
                     [ExtendScope::STATE_ACTIVE, ExtendScope::STATE_UPDATE]
                 )
             ) {
-                $label = '';
-
-                if ($this->entityConfigProvider->hasConfig($className)) {
-                    $label = $this->entityConfigProvider
-                        ->getConfig($className)
-                        ->get('label');
-                }
-
-                $description = $securityConfig->get('description', false, '');
+                $label = $this->entityConfigProvider->getConfig($className)->get('label');
+                $description = $securityConfig->get('description');
                 $permissions = $this->getPermissionsList($securityConfig);
 
                 $data[$className] = new EntitySecurityMetadata(
@@ -254,6 +266,10 @@ class EntitySecurityMetadataProvider
                     $permissions
                 );
             }
+
+            $event = new LoadFieldsMetadata($className, $fields);
+            $this->eventDispatcher->dispatch(LoadFieldsMetadata::NAME, $event);
+            $fields = $event->getFields();
         }
 
         return $fields;
@@ -302,5 +318,42 @@ class EntitySecurityMetadataProvider
         }
 
         return $permissions;
+    }
+
+    /**
+     * @param array|EntitySecurityMetadata[] $classMetadataArray
+     */
+    protected function translateMetadata(array $classMetadataArray)
+    {
+        foreach ($classMetadataArray as $classMetadata) {
+            if ($classMetadata->isTranslated()) {
+                continue;
+            }
+
+            if ($classMetadata->getLabel()) {
+                $classMetadata->setLabel($this->translator->trans($classMetadata->getLabel()));
+            }
+            if ($classMetadata->getDescription()) {
+                $classMetadata->setDescription($this->translator->trans($classMetadata->getDescription()));
+            }
+
+            $fieldMetadataArray = $classMetadata->getFields();
+            if (!$fieldMetadataArray) {
+                continue;
+            }
+
+            foreach ($fieldMetadataArray as $fieldMetadata) {
+                if (!$fieldMetadata->getLabel()) {
+                    continue;
+                }
+                $fieldMetadata->setLabel($this->translator->trans($fieldMetadata->getLabel()));
+            }
+
+            uasort($fieldMetadataArray, function (FieldSecurityMetadata $a, FieldSecurityMetadata $b) {
+                return strcmp($a->getLabel(), $b->getLabel());
+            });
+            $classMetadata->setFields($fieldMetadataArray);
+            $classMetadata->setTranslated(true);
+        }
     }
 }

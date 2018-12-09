@@ -5,6 +5,7 @@ define(function(require) {
     var $ = require('jquery');
     var _ = require('underscore');
     var BaseView = require('oroui/js/app/views/base/view');
+    var tinyMCE = require('tinymce/tinymce');
 
     /**
      * @export orolocale/js/app/views/fallback-view
@@ -12,6 +13,10 @@ define(function(require) {
      * @class orolocale.app.views.FallbackView
      */
     FallbackView = BaseView.extend({
+        autoRender: true,
+
+        initSubviews: true,
+
         /**
          * @property {Object}
          */
@@ -29,6 +34,7 @@ define(function(require) {
             expanded: false,
             hideDefaultLabel: true,
             fallbackWidth: 180,
+            statusActiveClass: 'active',
             selectors: {
                 status: '.fallback-status',
                 item: '.fallback-item',
@@ -40,16 +46,16 @@ define(function(require) {
                 itemFallback: '.fallback-item-fallback'
             },
             icons: {
-                new: {
-                    html: '<i class="icon-folder-close-alt"></i>',
+                'new': {
+                    html: '<span class="fa-language"></span>',
                     event: 'expandChildItems'
                 },
-                edited: {
-                    html: '<i class="icon-folder-close"></i>',
+                'edited': {
+                    html: '<span class="fa-language"></span>',
                     event: 'expandChildItems'
                 },
-                save: {
-                    html: '<i class="icon-folder-open"></i>',
+                'save': {
+                    html: '<span class="fa-language"></span>',
                     event: 'collapseChildItems'
                 }
             }
@@ -58,13 +64,40 @@ define(function(require) {
         /**
          * @inheritDoc
          */
+        constructor: function FallbackView() {
+            FallbackView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             this.options = _.defaults(options || {}, this.options);
+            FallbackView.__super__.initialize.call(this, options);
+        },
 
-            var self = this;
+        /**
+         * @inheritDoc
+         */
+        render: function() {
+            this.$(this.options.selectors.childItem).attr('data-layout', 'separate');
+
+            this._deferredRender();
             this.initLayout().done(function() {
-                self.handleLayoutInit();
-            });
+                this.handleLayoutInit();
+                this._resolveDeferredRender();
+            }.bind(this));
+
+            return this;
+        },
+
+        renderSubviews: function() {
+            this.initSubviews = false;
+            this.$(this.options.selectors.childItem).removeAttr('data-layout');
+
+            this.initLayout().done(function() {
+                this.bindEvents();
+            }.bind(this));
         },
 
         /**
@@ -82,13 +115,10 @@ define(function(require) {
             this.mapItemToChildren();
 
             this.getValueEl(this.$el).each(function() {
-                self.cloneValueToChildren(self.getItemEl(this));
+                // self.cloneValueToChildren(self.getItemEl(this)); uncomment on merging master
             });
 
-            this.fixFallbackWidth();
             this.setStatusIcon();
-
-            this.bindEvents();
         },
 
         /**
@@ -102,7 +132,7 @@ define(function(require) {
                 .keyup(_.bind(this.cloneValueToChildrenEvent, this));
 
             this.$el.find(this.options.selectors.itemValue).find('.mce-tinymce').each(function() {
-                self.getValueEl(self.getItemEl(this)).tinymce()
+                tinyMCE.get(self.getValueEl(self.getItemEl(this)).attr('id'))
                     .on('change', function() {
                         $(this.targetElm).change();
                     })
@@ -116,7 +146,6 @@ define(function(require) {
 
             this.getFallbackEl(this.$el)
                 .change(_.bind(this.switchFallbackTypeEvent, this));
-
         },
 
         /**
@@ -186,7 +215,6 @@ define(function(require) {
          * @param {Event} e
          */
         switchFallbackTypeEvent: function(e) {
-
             var $item = this.getItemEl(e.currentTarget);
 
             this.mapItemToChildren();
@@ -205,6 +233,10 @@ define(function(require) {
          * Show child items
          */
         expandChildItems: function() {
+            if (this.initSubviews) {
+                this.renderSubviews();
+            }
+
             this.options.expanded = true;
             this.setStatusIcon();
         },
@@ -241,7 +273,7 @@ define(function(require) {
         switchUseFallback: function($item) {
             var $useFallback = this.getUseFallbackEl($item);
             if ($useFallback.length === 0) {
-                return ;
+                return;
             }
 
             var checked = $useFallback.get(0).checked;
@@ -261,7 +293,7 @@ define(function(require) {
 
             var editor;
             if ($valueContainer.find('.mce-tinymce').length > 0) {
-                editor = $valueContainer.find('textarea').tinymce();
+                editor = tinyMCE.get($valueContainer.find('textarea').attr('id'));
             }
 
             if (enable) {
@@ -290,7 +322,7 @@ define(function(require) {
          * @param {Boolean} enable
          */
         enableDisableFallback: function($fallback, enable) {
-            var $fallbackContainer = $fallback.inputWidget('container');
+            var $fallbackContainer = $fallback.inputWidget('getContainer');
 
             if (enable) {
                 $fallback.removeAttr('disabled');
@@ -316,17 +348,24 @@ define(function(require) {
          * @param {jQuery} $toValue
          */
         cloneValue: function($fromValue, $toValue) {
+            var isChanged = false;
             $fromValue.each(function(i) {
                 var toValue = $toValue.get(i);
-
                 if ($(this).is(':checkbox') || $(this).is(':radio')) {
-                    toValue.checked = this.checked;
+                    if (toValue.checked !== this.checked) {
+                        isChanged = true;
+                        toValue.checked = this.checked;
+                    }
                 } else {
-                    $(toValue).val($(this).val());
+                    if ($(toValue).val() !== $(this).val()) {
+                        isChanged = true;
+                        $(toValue).val($(this).val());
+                    }
                 }
             });
-
-            $toValue.filter(':first').change();
+            if (isChanged) {
+                $toValue.filter(':first').change();
+            }
         },
 
         /**
@@ -442,14 +481,6 @@ define(function(require) {
         },
 
         /**
-         * Set fallback selector width depending of their content
-         */
-        fixFallbackWidth: function() {
-            var $fallback = this.$el.find(this.options.selectors.itemFallback).find('select');
-            $fallback.inputWidget('width', this.options.fallbackWidth);
-        },
-
-        /**
          * Change status icon depending on expanded flag and child custom values
          */
         setStatusIcon: function() {
@@ -467,7 +498,8 @@ define(function(require) {
 
             this.$el.find(this.options.selectors.status)
                 .html(icon.html)
-                .find('i').click(_.bind(this[icon.event], this));
+                .one('click' + this.eventNamespace(), _.bind(this[icon.event], this))
+                .toggleClass(this.options.statusActiveClass, this.options.expanded);
 
             var $defaultLabel = this.$el.find(this.options.selectors.defaultItem)
                 .find(this.options.selectors.itemLabel);

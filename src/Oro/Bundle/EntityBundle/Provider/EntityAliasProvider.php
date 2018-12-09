@@ -3,7 +3,6 @@
 namespace Oro\Bundle\EntityBundle\Provider;
 
 use Doctrine\Common\Inflector\Inflector;
-
 use Oro\Bundle\EntityBundle\Model\EntityAlias;
 
 class EntityAliasProvider implements EntityAliasProviderInterface, EntityClassProviderInterface
@@ -114,7 +113,6 @@ class EntityAliasProvider implements EntityAliasProviderInterface, EntityClassPr
                 if (!$this->startsWith($parts[$partCount - 1], $bundleName)) {
                     $name = $bundleName . $parts[$partCount - 1];
                 }
-
             }
         }
         if (!$name) {

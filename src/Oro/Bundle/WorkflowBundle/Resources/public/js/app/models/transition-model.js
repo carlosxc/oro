@@ -9,21 +9,35 @@ define(function(require) {
         defaults: {
             name: null,
             label: null,
+            button_label: null,
+            button_title: null,
             display_type: 'dialog',
+            destination_page: '',
             step_to: null,
             is_start: false,
             form_options: null,
             message: null,
             is_unavailable_hidden: true,
             transition_definition: null,
-            _is_clone: false
+            _is_clone: false,
+            translateLinks: []
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function TransitionModel() {
+            TransitionModel.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function() {
             this.workflow = null;
 
             if (_.isEmpty(this.get('form_options'))) {
-                this.set('form_options', {'attribute_fields': {}});
+                this.set('form_options', {attribute_fields: {}});
             }
 
             if (_.isEmpty(this.get('form_options').attribute_fields)) {

@@ -1,15 +1,23 @@
-define([
-    'chaplin',
-    'oroui/js/mediator',
-    './ready-state-tracker'
-], function(Chaplin, mediator, readyStateTracker) {
+define(function(require) {
     'use strict';
 
     var Application;
+    var _ = require('underscore');
+    var Chaplin = require('chaplin');
+    var mediator = require('oroui/js/mediator');
+    var tools = require('oroui/js/tools');
+    var BaseController = require('oroui/js/app/controllers/base/controller');
+    var PageLayoutView = require('oroui/js/app/views/page-layout-view');
+    var readyStateTracker = require('oroui/js/app/ready-state-tracker');
 
     Application = Chaplin.Application.extend({
         initialize: function(options) {
             this.options = options || {};
+
+            if (this.options.debug !== undefined) {
+                tools.debug = this.options.debug;
+            }
+
             mediator.setHandler('retrieveOption', this.retrieveOption, this);
             mediator.setHandler('retrievePath', this.retrievePath, this);
             mediator.setHandler('combineFullUrl', this.combineFullUrl, this);
@@ -20,6 +28,7 @@ define([
             mediator.setHandler('hideLoading', function() {});
             mediator.setHandler('redirectTo', function() {});
             mediator.setHandler('refreshPage', function() {});
+            mediator.setHandler('updateDebugToolbar', function() {});
 
             Application.__super__.initialize.apply(this, arguments);
 
@@ -85,6 +94,23 @@ define([
             var url = this.combineRouteUrl(path, query);
             var fullUrl = url[0] === '\/' ? root + url.slice(1) : root + url;
             return fullUrl;
+        },
+
+        /**
+         * @inheritDoc
+         * Standard Chaplin.Layout replaced with custom page layout view
+         */
+        initLayout: function(options) {
+            options = _.defaults({}, options);
+            if (!options.title) {
+                options.title = this.title;
+            }
+            options.autoRender = true;
+
+            this.layout = new PageLayoutView(options);
+            BaseController.addBeforeActionPromise(this.layout.getDeferredRenderPromise());
+
+            return this.layout;
         }
     });
 

@@ -5,28 +5,33 @@ define(function(require) {
     var mediator = require('oroui/js/mediator');
     var ActionPermissionsReadonlyFieldView = require('./action-permissions-readonly-field-view');
     var PermissionView = require('orouser/js/datagrid/permission/permission-view');
-    var AccessLevelsCollection = require('orouser/js/models/role/access-levels-collection');
 
     ActionPermissionsFieldView = ActionPermissionsReadonlyFieldView.extend({
         autoRender: false,
+
         animationDuration: 0,
-        className: 'field-permission-container clearfix',
+
+        className: 'field-permission-container',
+
         template: require('tpl!orouser/templates/datagrid/action-permissions-field-view.html'),
+
         permissionView: PermissionView,
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActionPermissionsFieldView() {
+            ActionPermissionsFieldView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             ActionPermissionsFieldView.__super__.initialize.call(this, options);
-            var permissionCollection = this.model.get('permissions');
-            permissionCollection.each(function(model) {
-                model.accessLevels = new AccessLevelsCollection([], {
-                    routeParameters: {
-                        oid: model.get('identity').replace(/\\/g, '_'),
-                        permission: model.get('name')
-                    }
-                });
-            });
-            this.listenTo(permissionCollection, 'change', this.onAccessLevelChange);
+            this.listenTo(this.model.get('permissions'), 'change', this.onAccessLevelChange);
         },
+
         onAccessLevelChange: function(model) {
             mediator.trigger('securityAccessLevelsComponent:link:click', {
                 accessLevel: model.get('access_level'),

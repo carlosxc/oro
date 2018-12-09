@@ -3,22 +3,21 @@
 namespace Oro\Bundle\UserBundle\Datagrid;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Bundle\UserBundle\Provider\RolePrivilegeAbstractProvider;
-use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface;
 use Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecord;
-use Oro\Bundle\SecurityBundle\Entity\Permission;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\SecurityBundle\Acl\AccessLevel;
-use Oro\Bundle\SecurityBundle\Form\Type\AclAccessLevelSelectorType;
 use Oro\Bundle\SecurityBundle\Acl\Permission\PermissionManager;
+use Oro\Bundle\SecurityBundle\Entity\Permission;
+use Oro\Bundle\SecurityBundle\Form\Type\AclAccessLevelSelectorType;
 use Oro\Bundle\SecurityBundle\Model\AclPermission;
 use Oro\Bundle\SecurityBundle\Model\AclPrivilege;
-use Oro\Bundle\UserBundle\Provider\RolePrivilegeCategoryProvider;
-use Oro\Bundle\UserBundle\Form\Handler\AclRoleHandler;
 use Oro\Bundle\UserBundle\Entity\AbstractRole;
+use Oro\Bundle\UserBundle\Form\Handler\AclRoleHandler;
+use Oro\Bundle\UserBundle\Provider\RolePrivilegeAbstractProvider;
+use Oro\Bundle\UserBundle\Provider\RolePrivilegeCategoryProvider;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class RolePermissionDatasource extends RolePrivilegeAbstractProvider implements DatasourceInterface
 {
@@ -72,7 +71,7 @@ class RolePermissionDatasource extends RolePrivilegeAbstractProvider implements 
             /** @var AclPrivilege $privilege */
             $item = [
                 'identity' => $privilege->getIdentity()->getId(),
-                'entity' => $this->translator->trans($privilege->getIdentity()->getName()),
+                'label' => $privilege->getIdentity()->getName(),
                 'group' => $this->getPrivilegeCategory($privilege, $categories),
                 'permissions' => []
             ];
@@ -99,8 +98,7 @@ class RolePermissionDatasource extends RolePrivilegeAbstractProvider implements 
             /** @var AclPrivilege $privilege */
             $item =  [
                 'identity' => $privilege->getIdentity()->getId(),
-                'name' => $privilege->getIdentity()->getName(),
-                'label' => $this->translator->trans($privilege->getIdentity()->getName()),
+                'label' => $privilege->getIdentity()->getName(),
                 'permissions' => []
             ];
             $result[] = $this->preparePermissions($privilege, $item);

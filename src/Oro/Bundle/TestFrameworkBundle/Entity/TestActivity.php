@@ -3,10 +3,9 @@
 namespace Oro\Bundle\TestFrameworkBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\TestFrameworkBundle\Model\ExtendTestActivity;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\UserBundle\Entity\User;
 
 /**
@@ -22,7 +21,9 @@ use Oro\Bundle\UserBundle\Entity\User;
  *          },
  *          "security"={
  *              "type"="ACL",
- *              "group_name"=""
+ *              "group_name"="",
+ *              "field_acl_supported"="true",
+ *              "field_acl_enabled"="true"
  *          },
  *          "ownership"={
  *              "owner_type"="USER",

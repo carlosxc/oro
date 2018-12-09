@@ -23,19 +23,16 @@ class ChangeSetBuilder
                 && !$this->inArray($package, $previousInstalled, [$this, 'equalsByName'])
             ) {
                 $justInstalled[] = $package;
-
             } elseif (!$this->inArray($package, $currentlyInstalled, [$this, 'equalsByName'])
                 && $this->inArray($package, $previousInstalled, [$this, 'equalsByName'])
             ) {
                 $justUninstalled[] = $package;
-
             } elseif ($this->inArray($package, $currentlyInstalled, [$this, 'equalsByName'])
                 && $this->inArray($package, $previousInstalled, [$this, 'equalsByName'])
                 && $this->inArray($package, $currentlyInstalled, [$this, 'equalsBySourceReference'])
                 && !$this->inArray($package, $previousInstalled, [$this, 'equalsBySourceReference'])
             ) {
                 $justUpdated[] = $package;
-
             }
         }
 
@@ -68,7 +65,6 @@ class ChangeSetBuilder
      */
     protected function equalsByName(PackageInterface $package1, PackageInterface $package2)
     {
-
         return $package1->getName() == $package2->getName();
     }
 
@@ -80,7 +76,6 @@ class ChangeSetBuilder
      */
     protected function equalsBySourceReference(PackageInterface $package1, PackageInterface $package2)
     {
-
         return $package1->getSourceReference() == $package2->getSourceReference();
     }
 }

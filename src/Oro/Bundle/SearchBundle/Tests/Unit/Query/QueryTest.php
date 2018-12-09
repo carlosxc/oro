@@ -3,9 +3,10 @@
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Query;
 
 use Oro\Bundle\SearchBundle\Query\Criteria\Comparison;
+use Oro\Bundle\SearchBundle\Query\Criteria\Criteria;
 use Oro\Bundle\SearchBundle\Query\Query;
 
-class QueryTest extends \PHPUnit_Framework_TestCase
+class QueryTest extends \PHPUnit\Framework\TestCase
 {
     private $config = array(
         'Oro\Bundle\DataBundle\Entity\Product' => array(
@@ -76,6 +77,28 @@ class QueryTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('test', $whereExpression->getValue()->getValue());
     }
 
+    public function testWhereLike()
+    {
+        $query = new Query();
+        $query->setMappingConfig($this->config);
+        $query->from('Oro\Bundle\DataBundle\Entity\Product');
+        $query->andWhere('all_data', Query::OPERATOR_LIKE, 'test', 'string');
+
+        $whereExpression = $query->getCriteria()->getWhereExpression();
+        $this->assertEquals(Comparison::LIKE, $whereExpression->getOperator());
+    }
+
+    public function testWhereNotLike()
+    {
+        $query = new Query();
+        $query->setMappingConfig($this->config);
+        $query->from('Oro\Bundle\DataBundle\Entity\Product');
+        $query->andWhere('all_data', Query::OPERATOR_NOT_LIKE, 'test', 'string');
+
+        $whereExpression = $query->getCriteria()->getWhereExpression();
+        $this->assertEquals(Comparison::NOT_LIKE, $whereExpression->getOperator());
+    }
+
     public function testGetMaxResults()
     {
         $query = new Query();
@@ -121,7 +144,7 @@ class QueryTest extends \PHPUnit_Framework_TestCase
 
     public function testStringCleanup()
     {
-        $testString = 'Re: FW: Test Sample - One äöü ßü abc 3 – Testing again';
+        $testString = 'Re: FW: Test Sample - One äöü ßü abc 3 – Testing again RE FW Re';
 
         $clearedValue     = Query::clearString($testString);
         $textAllDataField = sprintf('%s %s', $testString, $clearedValue);
@@ -137,6 +160,29 @@ class QueryTest extends \PHPUnit_Framework_TestCase
         );
 
         $this->assertEquals($testString, $result);
+    }
+
+    /**
+     * @dataProvider dataProviderForClearString
+     *
+     * @param string $textToClear
+     * @param string $expected
+     */
+    public function testClearString($textToClear, $expected)
+    {
+        $this->assertEquals($expected, Query::clearString($textToClear));
+    }
+
+    /**
+     * @return array
+     */
+    public function dataProviderForClearString()
+    {
+        return [
+            ['Re: FW: Test - One äöü ßü abc 3 – again', 'Re FW Test One äöü ßü abc 3 again'],
+            ['text with ___ \' special chars \/ "', 'text with special chars'],
+            ['at @ * . test', 'at test'],
+        ];
     }
 
     public function testAddingSelect()
@@ -158,6 +204,32 @@ class QueryTest extends \PHPUnit_Framework_TestCase
             ],
             $query->getSelect()
         );
+
+        $query->addSelect('');
+        $this->assertCount(4, $query->getSelect());
+    }
+
+    public function testAddSelectArray()
+    {
+        $query = new Query();
+        $query->addSelect([
+            'name',
+            'name', // testing handing doubles
+            'integer.number', // type guessing by prefix
+            'sku', // default type should be `text`
+        ]);
+
+        $this->assertEquals(
+            [
+                'text.name',
+                'integer.number',
+                'text.sku'
+            ],
+            $query->getSelect()
+        );
+
+        $query->addSelect('');
+        $this->assertCount(3, $query->getSelect());
     }
 
     public function testStringQueryWithSelect()
@@ -170,5 +242,102 @@ class QueryTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('select text.language from *', $query->getStringQuery());
         $query->addSelect('organization', 'integer');
         $this->assertEquals('select (text.language, integer.organization) from *', $query->getStringQuery());
+    }
+
+    public function testSelectingWithAliases()
+    {
+        $query = new Query();
+        $query->addSelect('text.foo as bar');
+        $query->addSelect('text.fooNoAlias');
+        $query->addSelect('text.foo bar as  ');
+        $query->addSelect('  as bar');
+
+        $reflectionObject = new \ReflectionObject($query);
+
+        $selectFieldsProperty = $reflectionObject->getProperty('select');
+        $selectFieldsProperty->setAccessible(true);
+
+        $aliasesProperty = $reflectionObject->getProperty('selectAliases');
+        $aliasesProperty->setAccessible(true);
+
+        $fields = $selectFieldsProperty->getValue($query);
+        $aliases = $aliasesProperty->getValue($query);
+
+        $this->assertContains('text.foo', $fields);
+        $this->assertContains('text.fooNoAlias', $fields);
+        $this->assertContains('bar', $aliases);
+
+        $this->assertTrue(count($aliases) < 2);
+
+        foreach ($selectFieldsProperty as $field) {
+            $this->assertNotTrue(strpos($field, ' ') > 0);
+        }
+
+        $query->select('newField');
+        $this->assertEmpty($query->getSelectAliases());
+    }
+
+    public function testGetSelectWithAliases()
+    {
+        $query = new Query();
+        $query->addSelect('text.foo as bar');
+        $query->addSelect('text.faa as bor');
+
+        $select = $query->getSelect();
+
+        $this->assertSame(['text.foo', 'text.faa'], $select);
+    }
+
+    public function testGetAliases()
+    {
+        $query = new Query();
+        $query->addSelect('text.foo as bar');
+        $query->addSelect('faa as bor');
+        $query->addSelect('text.bar');
+
+        $aliases = $query->getSelectAliases();
+
+        $this->assertSame(['text.foo' => 'bar', 'text.faa' => 'bor'], $aliases);
+    }
+
+    public function testGetSelectDataFields()
+    {
+        $query = new Query();
+        $this->assertSame([], $query->getSelectDataFields());
+
+        $query->addSelect('text.notes');
+        $this->assertSame(['text.notes' => 'notes'], $query->getSelectDataFields());
+
+        $query->addSelect('text.foo as name');
+        $query->addSelect('text.faa as surname');
+
+        $fields = $query->getSelectDataFields();
+
+        $this->assertSame(['text.notes' => 'notes', 'text.foo' => 'name', 'text.faa' => 'surname'], $fields);
+    }
+
+    public function testAggregateAccessors()
+    {
+        $query = new Query();
+
+        $this->assertEquals([], $query->getAggregations());
+
+        $query->addAggregate('test_name', 'test_field', 'test_function');
+
+        $this->assertEquals(
+            ['test_name' => ['field' => 'test_field', 'function' => 'test_function']],
+            $query->getAggregations()
+        );
+    }
+
+    public function testClone()
+    {
+        $criteria = new Criteria();
+        $query = new Query();
+        $query->setCriteria($criteria);
+
+        $cloneQuery = clone $query;
+
+        self::assertNotSame($criteria, $cloneQuery->getCriteria());
     }
 }

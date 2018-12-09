@@ -4,7 +4,7 @@ namespace Oro\Bundle\ActionBundle\Tests\Unit\Helper;
 
 use Oro\Bundle\ActionBundle\Helper\ArraySubstitution;
 
-class ArraySubstitutionTest extends \PHPUnit_Framework_TestCase
+class ArraySubstitutionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @param array $map
@@ -130,7 +130,7 @@ class ArraySubstitutionTest extends \PHPUnit_Framework_TestCase
             'b' => 'e'
         ]);
 
-        $this->setExpectedException('Oro\Bundle\ActionBundle\Exception\CircularReferenceException');
+        $this->expectException('Oro\Bundle\ActionBundle\Exception\CircularReferenceException');
 
         $things = [
             'a' => ['a body'],

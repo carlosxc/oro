@@ -4,10 +4,9 @@ namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Tools\GeneratorExtensions;
 
 use CG\Core\DefaultGeneratorStrategy;
 use CG\Generator\PhpClass;
-
 use Oro\Bundle\EntityExtendBundle\Tools\GeneratorExtensions\ExtendEntityGeneratorExtension;
 
-class ExtendEntityGeneratorExtensionTest extends \PHPUnit_Framework_TestCase
+class ExtendEntityGeneratorExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ExtendEntityGeneratorExtension */
     protected $extension;
@@ -145,6 +144,24 @@ class ExtendEntityGeneratorExtensionTest extends \PHPUnit_Framework_TestCase
             ]
         ];
         $this->assertGeneration('collections.txt', $schema);
+    }
+
+    public function testCollectionsWithPluralNames()
+    {
+        $schema = [
+            'type'      => 'Extend',
+            'property'  => [],
+            'relation'  => [],
+            'default'   => [],
+            'addremove' => [
+                'owners'  => [
+                    'self'                => 'owners',
+                    'is_target_addremove' => true,
+                    'target'              => 'targets',
+                ],
+            ]
+        ];
+        $this->assertGeneration('collections_with_plural_names.txt', $schema);
     }
 
     public function testRelations()

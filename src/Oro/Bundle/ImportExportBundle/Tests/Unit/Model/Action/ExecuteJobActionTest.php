@@ -1,15 +1,13 @@
 <?php
 namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Model\Action;
 
+use Oro\Bundle\ImportExportBundle\Job\JobExecutor;
+use Oro\Bundle\ImportExportBundle\Model\Action\ExecuteJobAction;
+use Oro\Component\ConfigExpression\ContextAccessor;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Bundle\ImportExportBundle\Job\JobExecutor;
-use Oro\Bundle\ImportExportBundle\Model\Action\ExecuteJobAction;
-
-use Oro\Component\Action\Model\ContextAccessor;
-
-class ExecuteJobActionTest extends \PHPUnit_Framework_TestCase
+class ExecuteJobActionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ContextAccessor
@@ -17,7 +15,7 @@ class ExecuteJobActionTest extends \PHPUnit_Framework_TestCase
     protected $contextAccessor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|JobExecutor
+     * @var \PHPUnit\Framework\MockObject\MockObject|JobExecutor
      */
     protected $jobExecutor;
 
@@ -35,7 +33,7 @@ class ExecuteJobActionTest extends \PHPUnit_Framework_TestCase
 
         $this->action = new ExecuteJobAction($this->contextAccessor, $this->jobExecutor);
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject|EventDispatcher $dispatcher */
+        /** @var \PHPUnit\Framework\MockObject\MockObject|EventDispatcher $dispatcher */
         $dispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcher')
             ->disableOriginalConstructor()
             ->getMock();
@@ -54,10 +52,8 @@ class ExecuteJobActionTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeErrors(array $options, $expectedExceptionMessage)
     {
-        $this->setExpectedException(
-            'Oro\Component\Action\Exception\InvalidParameterException',
-            $expectedExceptionMessage
-        );
+        $this->expectException('Oro\Component\Action\Exception\InvalidParameterException');
+        $this->expectExceptionMessage($expectedExceptionMessage);
         $this->action->initialize($options);
     }
 
@@ -112,10 +108,8 @@ class ExecuteJobActionTest extends \PHPUnit_Framework_TestCase
      */
     public function testExecuteExceptions(array $options, $context, $expectedExceptionMessage)
     {
-        $this->setExpectedException(
-            'Oro\Component\Action\Exception\InvalidParameterException',
-            $expectedExceptionMessage
-        );
+        $this->expectException('Oro\Component\Action\Exception\InvalidParameterException');
+        $this->expectExceptionMessage($expectedExceptionMessage);
         $this->action->initialize($options);
         $this->action->execute($context);
     }

@@ -1,10 +1,9 @@
 <?php
 
-namespace Oro\Bundle\ApiBundle\Tests\Unit\Form;
-
-use Symfony\Component\Form\Test\TypeTestCase;
+namespace Oro\Bundle\ApiBundle\Tests\Unit\Form\Type;
 
 use Oro\Bundle\ApiBundle\Form\Type\BooleanType;
+use Symfony\Component\Form\Test\TypeTestCase;
 
 class BooleanTypeTest extends TypeTestCase
 {
@@ -13,10 +12,10 @@ class BooleanTypeTest extends TypeTestCase
      */
     public function testWithValidValue($value, $expected)
     {
-        $form = $this->factory->create(new BooleanType());
+        $form = $this->factory->create(BooleanType::class);
         $form->submit($value);
-        $this->assertTrue($form->isSynchronized());
-        $this->assertEquals($expected, $form->getData());
+        self::assertTrue($form->isSynchronized());
+        self::assertSame($expected, $form->getData());
     }
 
     public function validValuesDataProvider()
@@ -30,23 +29,27 @@ class BooleanTypeTest extends TypeTestCase
             ['false', false],
             ['no', false],
             ['0', false],
-            [false, false],
+            [false, null], // Symfony Form treats false as NULL due to checkboxes
             [0, false],
             ['', null],
-            [null, null],
+            [null, null]
         ];
     }
 
-    public function testWithInvalidValue()
+    /**
+     * @dataProvider invalidValuesDataProvider
+     */
+    public function testWithInvalidValue($value)
     {
-        $form = $this->factory->create(new BooleanType());
-        $form->submit('test');
-        $this->assertFalse($form->isSynchronized());
+        $form = $this->factory->create(BooleanType::class);
+        $form->submit($value);
+        self::assertFalse($form->isSynchronized());
     }
 
-    public function testGetName()
+    public function invalidValuesDataProvider()
     {
-        $type = new BooleanType();
-        $this->assertEquals('oro_api_boolean', $type->getName());
+        return [
+            ['test']
+        ];
     }
 }

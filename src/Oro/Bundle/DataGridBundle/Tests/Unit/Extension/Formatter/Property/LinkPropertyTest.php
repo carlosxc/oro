@@ -6,7 +6,7 @@ use Oro\Bundle\DataGridBundle\Datasource\ResultRecord;
 use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\LinkProperty;
 use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyConfiguration;
 
-class LinkPropertyTest extends \PHPUnit_Framework_TestCase
+class LinkPropertyTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var LinkProperty
@@ -14,19 +14,19 @@ class LinkPropertyTest extends \PHPUnit_Framework_TestCase
     protected $property;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $twig;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $router;
 
     protected function setUp()
     {
-        $this->router = $this->getMock('Symfony\Component\Routing\RouterInterface');
-        $this->twig = $this->getMock('Oro\Bundle\UIBundle\Twig\Environment');
+        $this->router = $this->createMock('Symfony\Component\Routing\RouterInterface');
+        $this->twig = $this->createMock('Oro\Bundle\UIBundle\Twig\Environment');
 
         $this->property = new LinkProperty($this->router, $this->twig);
     }
@@ -44,7 +44,7 @@ class LinkPropertyTest extends \PHPUnit_Framework_TestCase
 
         $record = new ResultRecord($data);
 
-        $template = $this->getMock('Twig_TemplateInterface');
+        $template = $this->createMock('Twig_TemplateInterface');
 
         $this->twig
             ->expects($this->once())

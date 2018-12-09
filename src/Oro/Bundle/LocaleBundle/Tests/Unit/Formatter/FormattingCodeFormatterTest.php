@@ -2,22 +2,22 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Formatter;
 
-use Symfony\Component\Intl\Util\IntlTestHelper;
-use Symfony\Component\Translation\TranslatorInterface;
-
 use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\LocaleBundle\Formatter\FormattingCodeFormatter;
 use Oro\Bundle\LocaleBundle\Formatter\LanguageCodeFormatter;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Intl\Util\IntlTestHelper;
+use Symfony\Component\Translation\TranslatorInterface;
 
-class FormattingCodeFormatterTest extends \PHPUnit_Framework_TestCase
+class FormattingCodeFormatterTest extends TestCase
 {
     /** @var LanguageCodeFormatter */
     protected $formatter;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|TranslatorInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|TranslatorInterface */
     protected $translator;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ConfigManager */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ConfigManager */
     protected $configManager;
 
     /**
@@ -27,7 +27,7 @@ class FormattingCodeFormatterTest extends \PHPUnit_Framework_TestCase
     {
         IntlTestHelper::requireIntl($this);
 
-        $this->translator   = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator   = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->configManager = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
             ->disableOriginalConstructor()->getMock();
 

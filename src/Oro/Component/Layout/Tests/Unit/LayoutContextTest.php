@@ -2,9 +2,10 @@
 
 namespace Oro\Component\Layout\Tests\Unit;
 
+use Oro\Component\Layout\ContextItemInterface;
 use Oro\Component\Layout\LayoutContext;
 
-class LayoutContextTest extends \PHPUnit_Framework_TestCase
+class LayoutContextTest extends \PHPUnit\Framework\TestCase
 {
     /** @var LayoutContext */
     protected $context;
@@ -91,7 +92,7 @@ class LayoutContextTest extends \PHPUnit_Framework_TestCase
     // @codingStandardsIgnoreEnd
     public function testResolveShouldThrowExceptionIfInvalidObjectTypeAdded()
     {
-        $this->context->getResolver()->setOptional(['test']);
+        $this->context->getResolver()->setDefined(['test']);
         $this->context->set('test', new \stdClass());
         $this->context->resolve();
     }
@@ -123,14 +124,14 @@ class LayoutContextTest extends \PHPUnit_Framework_TestCase
         $this->context->set('test', 'val');
 
         $this->context->getResolver()
-            ->setOptional(['test'])
-            ->setNormalizers(
-                [
-                    'test' => function ($options, $val) {
-                        return $val . '_normalized';
-                    }
-                ]
+            ->setDefined(['test'])
+            ->setNormalizer(
+                'test',
+                function ($options, $val) {
+                    return $val . '_normalized';
+                }
             );
+
         $this->context->resolve();
 
         $this->assertEquals('val_normalized', $this->context['test']);
@@ -197,7 +198,7 @@ class LayoutContextTest extends \PHPUnit_Framework_TestCase
      */
     public function testRemoveExistingValueThrowsExceptionWhenDataAlreadyResolved()
     {
-        $this->context->getResolver()->setOptional(['test']);
+        $this->context->getResolver()->setDefined(['test']);
         $this->context->set('test', 'val');
         $this->context->resolve();
 
@@ -210,5 +211,34 @@ class LayoutContextTest extends \PHPUnit_Framework_TestCase
             'Oro\Component\Layout\ContextDataCollection',
             $this->context->data()
         );
+    }
+
+    public function testGetHash()
+    {
+        $this->context->resolve();
+        $hash = $this->context->getHash();
+
+        $this->assertEquals(md5(serialize([])), $hash);
+    }
+
+    public function testGetHashWithContextItemInterfaceDescendantItems()
+    {
+        $item = $this->createMock(ContextItemInterface::class);
+        $item->expects($this->once())->method('getHash')->willReturn('value');
+
+        $this->context->getResolver()->setDefined(['item']);
+        $this->context->set('item', $item);
+        $this->context->resolve();
+
+        $this->assertEquals(md5(serialize(['item' => 'value'])), $this->context->getHash());
+    }
+
+    /**
+     * @expectedException \Oro\Component\Layout\Exception\LogicException
+     * @expectedExceptionMessage The context is not resolved.
+     */
+    public function testGetHashThrowAnException()
+    {
+        $this->context->getHash();
     }
 }

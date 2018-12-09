@@ -2,19 +2,18 @@
 
 namespace Oro\Bundle\WorkflowBundle\Controller\Api\Rest;
 
-use Symfony\Component\HttpFoundation\Response;
-
-use FOS\RestBundle\Util\Codes;
-use FOS\RestBundle\Controller\FOSRestController;
 use FOS\RestBundle\Controller\Annotations as Rest;
-
+use FOS\RestBundle\Controller\FOSRestController;
+use FOS\RestBundle\Util\Codes;
 use Nelmio\ApiDocBundle\Annotation\ApiDoc;
-
 use Oro\Bundle\SecurityBundle\Annotation\Acl;
 use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
 use Oro\Bundle\WorkflowBundle\Configuration\WorkflowDefinitionHandleBuilder;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Handler\WorkflowDefinitionHandler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Translation\TranslatorInterface;
 
 /**
  * @Rest\NamePrefix("oro_api_workflow_definition_")
@@ -50,7 +49,8 @@ class WorkflowDefinitionController extends FOSRestController
      * - HTTP_BAD_REQUEST (400)
      *
      * @param WorkflowDefinition $workflowDefinition
-     *
+     * @param Request $request
+     * @return Response
      * @Rest\Put(
      *      "/api/rest/{version}/workflowdefinition/{workflowDefinition}",
      *      defaults={"version"="latest", "_format"="json"}
@@ -60,19 +60,26 @@ class WorkflowDefinitionController extends FOSRestController
      *      resource=true
      * )
      * @AclAncestor("oro_workflow_definition_update")
-     * @return Response
      */
-    public function putAction(WorkflowDefinition $workflowDefinition)
+    public function putAction(WorkflowDefinition $workflowDefinition, Request $request)
     {
         try {
+            $configuration = $this->getConfiguration($request);
+            if (!$this->isConfigurationValid($configuration)) {
+                throw new \InvalidArgumentException(
+                    $this->getTranslator()->trans('oro.workflow.notification.workflow.could_not_be_saved')
+                );
+            }
+
             /** @var WorkflowDefinitionHandleBuilder $definitionBuilder */
             $definitionBuilder = $this->get('oro_workflow.configuration.builder.workflow_definition.handle');
-            $builtDefinition = $definitionBuilder->buildFromRawConfiguration($this->getConfiguration());
+            $builtDefinition = $definitionBuilder->buildFromRawConfiguration($configuration);
+
             $this->getHandler()->updateWorkflowDefinition($workflowDefinition, $builtDefinition);
         } catch (\Exception $exception) {
             return $this->handleView(
                 $this->view(
-                    array('error' => $exception->getMessage()),
+                    ['error' => $exception->getMessage()],
                     Codes::HTTP_BAD_REQUEST
                 )
             );
@@ -84,8 +91,9 @@ class WorkflowDefinitionController extends FOSRestController
     /**
      * Create new workflow definition
      *
+     * @param Request $request
      * @param WorkflowDefinition $workflowDefinition
-     *
+     * @return Response
      * @Rest\Post(
      *      "/api/rest/{version}/workflowdefinition/{workflowDefinition}",
      *      defaults={"version"="latest", "_format"="json", "workflowDefinition"=null}
@@ -95,15 +103,36 @@ class WorkflowDefinitionController extends FOSRestController
      *      resource=true
      * )
      * @AclAncestor("oro_workflow_definition_create")
-     * @return Response
      */
-    public function postAction(WorkflowDefinition $workflowDefinition = null)
+    public function postAction(Request $request, WorkflowDefinition $workflowDefinition = null)
     {
-        if (!$workflowDefinition) {
-            $workflowDefinition = new WorkflowDefinition();
+        try {
+            $configuration = $this->getConfiguration($request);
+            if (!$this->isConfigurationValid($configuration)) {
+                throw new \InvalidArgumentException(
+                    $this->getTranslator()->trans('oro.workflow.notification.workflow.could_not_be_saved')
+                );
+            }
+
+            /** @var WorkflowDefinitionHandleBuilder $definitionBuilder */
+            $definitionBuilder = $this->get('oro_workflow.configuration.builder.workflow_definition.handle');
+            $builtDefinition = $definitionBuilder->buildFromRawConfiguration($configuration);
+
+            if (!$workflowDefinition) {
+                $this->getHandler()->createWorkflowDefinition($builtDefinition);
+            } else {
+                $this->getHandler()->updateWorkflowDefinition($workflowDefinition, $builtDefinition);
+            }
+        } catch (\Exception $exception) {
+            return $this->handleView(
+                $this->view(
+                    ['error' => $exception->getMessage()],
+                    Codes::HTTP_BAD_REQUEST
+                )
+            );
         }
 
-        return $this->putAction($workflowDefinition);
+        return $this->handleView($this->view($builtDefinition->getName(), Codes::HTTP_OK));
     }
 
     /**
@@ -140,11 +169,12 @@ class WorkflowDefinitionController extends FOSRestController
     }
 
     /**
+     * @param Request $request
      * @return array
      */
-    protected function getConfiguration()
+    protected function getConfiguration(Request $request)
     {
-        return $this->getRequest()->request->all();
+        return $request->request->all();
     }
 
     /**
@@ -153,5 +183,24 @@ class WorkflowDefinitionController extends FOSRestController
     protected function getHandler()
     {
         return $this->get('oro_workflow.handler.workflow_definition');
+    }
+
+    /**
+     * @param array $configuration
+     * @return bool
+     */
+    protected function isConfigurationValid(array $configuration)
+    {
+        $checker = $this->get('oro_workflow.configuration.checker');
+
+        return $checker->isClean($configuration);
+    }
+
+    /**
+     * @return TranslatorInterface
+     */
+    protected function getTranslator()
+    {
+        return $this->get('translator');
     }
 }

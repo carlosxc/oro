@@ -2,9 +2,8 @@
 
 namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Grid\DatagridConfigurationBuilder;
 
-use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\QueryDesignerModel;
-
 use Doctrine\ORM\Query;
+use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\QueryDesignerModel;
 
 class VirtualFieldUnidirectionalJoinTest extends DatagridConfigurationBuilderTestCase
 {
@@ -42,7 +41,7 @@ class VirtualFieldUnidirectionalJoinTest extends DatagridConfigurationBuilderTes
                         'join'   => [
                             'left' => [
                                 [
-                                    'join'  => 'OroCRM\Bundle\ChannelBundle\Entity\LifetimeValueHistory',
+                                    'join'  => 'Oro\Bundle\ChannelBundle\Entity\LifetimeValueHistory',
                                     'alias' => 'h'
                                 ]
                             ]
@@ -106,7 +105,7 @@ class VirtualFieldUnidirectionalJoinTest extends DatagridConfigurationBuilderTes
                     'join'   => [
                         'left' => [
                             [
-                                'join'  => 'OroCRM\Bundle\ChannelBundle\Entity\LifetimeValueHistory',
+                                'join'  => 'Oro\Bundle\ChannelBundle\Entity\LifetimeValueHistory',
                                 'alias' => 't2'
                             ],
                             [
@@ -119,7 +118,7 @@ class VirtualFieldUnidirectionalJoinTest extends DatagridConfigurationBuilderTes
                 'query_config' => [
                     'table_aliases'  => [
                         '' => 't1',
-                        'OroCRM\Bundle\ChannelBundle\Entity\LifetimeValueHistory|left' => 't2',
+                        'Oro\Bundle\ChannelBundle\Entity\LifetimeValueHistory|left' => 't2',
                         't1.country|left' => 't3'
                     ],
                     'column_aliases' => [
@@ -131,11 +130,16 @@ class VirtualFieldUnidirectionalJoinTest extends DatagridConfigurationBuilderTes
                 'hints'        => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't2.amount'],
+                    'c2' => ['data_name' => 't3.iso2Code']
+                ]
             ]
-
         ];
 
         $this->assertEquals($expected, $result);

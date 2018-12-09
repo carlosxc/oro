@@ -28,6 +28,16 @@ define(function(require) {
             'change:canShowMessage': 'render'
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function GoogleSyncCheckboxView() {
+            GoogleSyncCheckboxView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             this.$errorMessage = this.$el.find(options.errorMessage);
             this.$successMessage = this.$el.find(options.successMessage);
@@ -145,7 +155,7 @@ define(function(require) {
          * Remove check status for checkbox
          */
         unCheck: function() {
-            this.$el.find('input').removeAttr('checked');
+            this.$el.find('input').prop('checked', false);
         }
     });
 

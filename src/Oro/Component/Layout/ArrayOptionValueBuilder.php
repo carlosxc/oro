@@ -2,8 +2,8 @@
 
 namespace Oro\Component\Layout;
 
-use Oro\Component\Layout\Exception\UnexpectedTypeException;
 use Oro\Component\Layout\Exception\InvalidArgumentException;
+use Oro\Component\Layout\Exception\UnexpectedTypeException;
 
 class ArrayOptionValueBuilder implements OptionValueBuilderInterface
 {
@@ -29,7 +29,7 @@ class ArrayOptionValueBuilder implements OptionValueBuilderInterface
     protected function prepareValueType($value)
     {
         if (is_array($value)) {
-            return array_values($value);
+            return $value;
         }
 
         if ($this->allowScalarValues) {

@@ -2,27 +2,28 @@
 
 namespace Oro\Bundle\WorkflowBundle\Form\Type;
 
-use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Exception\InvalidConfigurationException;
-use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
-use Symfony\Component\OptionsResolver\Options;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\PropertyAccess\PropertyPath;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-
 use Oro\Bundle\ActionBundle\Model\Attribute;
 use Oro\Bundle\ActionBundle\Model\AttributeGuesser;
 use Oro\Bundle\SecurityBundle\Util\PropertyPathSecurityHelper;
+use Oro\Bundle\WorkflowBundle\Event\TransitionsAttributeEvent;
 use Oro\Bundle\WorkflowBundle\Form\EventListener\DefaultValuesListener;
 use Oro\Bundle\WorkflowBundle\Form\EventListener\FormInitListener;
 use Oro\Bundle\WorkflowBundle\Form\EventListener\RequiredAttributesListener;
+use Oro\Bundle\WorkflowBundle\Helper\WorkflowTranslationHelper;
 use Oro\Bundle\WorkflowBundle\Model\Workflow;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowData;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowRegistry;
-use Oro\Bundle\WorkflowBundle\Event\TransitionsAttributeEvent;
-
-use Oro\Component\Action\Model\ContextAccessor;
+use Oro\Bundle\WorkflowBundle\Translation\KeyTemplate\WorkflowTemplate;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Oro\Component\PropertyAccess\PropertyAccessor;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Exception\InvalidConfigurationException;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\Options;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\PropertyAccess\PropertyPath;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class WorkflowAttributesType extends AbstractType
 {
@@ -69,6 +70,16 @@ class WorkflowAttributesType extends AbstractType
     protected $propertyPathSecurityHelper;
 
     /**
+     * @var TranslatorInterface
+     */
+    protected $translator;
+
+    /**
+     * @var PropertyAccessor
+     */
+    protected $propertyAccessor;
+
+    /**
      * @param WorkflowRegistry $workflowRegistry
      * @param AttributeGuesser $attributeGuesser ,
      * @param DefaultValuesListener $defaultValuesListener
@@ -76,7 +87,8 @@ class WorkflowAttributesType extends AbstractType
      * @param RequiredAttributesListener $requiredAttributesListener
      * @param ContextAccessor $contextAccessor
      * @param EventDispatcherInterface $dispatcher
-     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param PropertyPathSecurityHelper $propertyPathSecurityHelper
+     * @param TranslatorInterface $translator
      */
     public function __construct(
         WorkflowRegistry $workflowRegistry,
@@ -86,7 +98,8 @@ class WorkflowAttributesType extends AbstractType
         RequiredAttributesListener $requiredAttributesListener,
         ContextAccessor $contextAccessor,
         EventDispatcherInterface $dispatcher,
-        PropertyPathSecurityHelper $propertyPathSecurityHelper
+        PropertyPathSecurityHelper $propertyPathSecurityHelper,
+        TranslatorInterface $translator
     ) {
         $this->workflowRegistry = $workflowRegistry;
         $this->attributeGuesser = $attributeGuesser;
@@ -96,6 +109,7 @@ class WorkflowAttributesType extends AbstractType
         $this->contextAccessor = $contextAccessor;
         $this->dispatcher = $dispatcher;
         $this->propertyPathSecurityHelper = $propertyPathSecurityHelper;
+        $this->translator = $translator;
     }
 
     /**
@@ -172,7 +186,7 @@ class WorkflowAttributesType extends AbstractType
                 );
             }
             if (null === $attributeOptions) {
-                $attributeOptions = array();
+                $attributeOptions = [];
             }
             $fieldName = $attribute->getName();
             if (isset($attributes[$fieldName])) {
@@ -202,6 +216,11 @@ class WorkflowAttributesType extends AbstractType
         if ($propertyPath->getLength() >= 2) {
             array_shift($pathElements);
             $fieldName = implode('.', $pathElements);
+        }
+
+        // checking virtual attributes
+        if (!$this->getPropertyAccessor()->isWritable($entity, $fieldName)) {
+            return true;
         }
 
         return $this->propertyPathSecurityHelper->isGrantedByPropertyPath(
@@ -250,7 +269,7 @@ class WorkflowAttributesType extends AbstractType
 
         // set default form options
         if (!isset($attributeOptions['options'])) {
-            $attributeOptions['options'] = array();
+            $attributeOptions['options'] = [];
         }
 
         // try to guess form type and form options
@@ -268,9 +287,7 @@ class WorkflowAttributesType extends AbstractType
         }
 
         // update form label
-        $attributeOptions['options']['label'] = isset($attributeOptions['label'])
-            ? $attributeOptions['label']
-            : $attribute->getLabel();
+        $attributeOptions = $this->resolveLabel($attribute, $attributeOptions);
 
         // update required option
         if (!array_key_exists('required', $attributeOptions['options'])) {
@@ -283,6 +300,42 @@ class WorkflowAttributesType extends AbstractType
         }
 
         return $this->resolveContextValue($options['workflow_item'], $attributeOptions);
+    }
+
+    /**
+     * @param Attribute $attribute
+     * @param array $attributeOptions
+     * @return array
+     */
+    protected function resolveLabel(Attribute $attribute, array $attributeOptions)
+    {
+        if (isset($attributeOptions['options']['translation_domain'])) {
+            $domain = $attributeOptions['options']['translation_domain'];
+        } else {
+            $domain = WorkflowTranslationHelper::TRANSLATION_DOMAIN;
+        }
+
+        if (isset($attributeOptions['label'])) {
+            $attributeOptions['options']['label'] = $attributeOptions['label'];
+        } elseif (isset($attributeOptions['options']['label'])) {
+            if (is_array($attributeOptions['options']['label'])) {
+                $attributeOptions['options']['label'] = array_shift($attributeOptions['options']['label']);
+            }
+
+
+            $label = $attributeOptions['options']['label'];
+            if ($this->translator->trans($label, [], $domain) === $label) {
+                $attributeOptions['options']['label'] = $attribute->getLabel();
+            }
+        } else {
+            $attributeOptions['options']['label'] = $attribute->getLabel();
+        }
+
+        if (strpos($attributeOptions['options']['label'], WorkflowTemplate::KEY_PREFIX) === 0) {
+            $attributeOptions['options']['translation_domain'] = $domain;
+        }
+
+        return $attributeOptions;
     }
 
     /**
@@ -311,50 +364,46 @@ class WorkflowAttributesType extends AbstractType
      * - "workflow"                 - optional, instance of Workflow
      * - "disable_attribute_fields" - optional, a flag to disable all attributes fields
      *
-     * @param OptionsResolverInterface $resolver
+     * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
-        $resolver->setRequired(array('workflow_item'));
+        $resolver->setRequired(['workflow_item']);
 
         $resolver->setDefaults(
-            array(
+            [
                 'workflow' => function (Options $options, $workflow) {
                     if (!$workflow) {
                         $workflowName = $options['workflow_item']->getWorkflowName();
                         $workflow = $this->workflowRegistry->getWorkflow($workflowName);
                     }
+
                     return $workflow;
                 }
-            )
+            ]
         );
-        $resolver->setOptional(
-            array(
+        $resolver->setDefined(
+            [
                 'attribute_fields',
                 'attribute_default_values',
                 'form_init',
                 'workflow'
-            )
+            ]
         );
 
         $resolver->setDefaults(
-            array(
+            [
                 'data_class' => 'Oro\Bundle\WorkflowBundle\Model\WorkflowData',
                 'disable_attribute_fields' => false,
-                'attribute_fields' => array(),
-                'attribute_default_values' => array()
-            )
+                'attribute_fields' => [],
+                'attribute_default_values' => []
+            ]
         );
 
-        $resolver->setAllowedTypes(
-            array(
-                'workflow_item' => 'Oro\Bundle\WorkflowBundle\Entity\WorkflowItem',
-                'workflow' => 'Oro\Bundle\WorkflowBundle\Model\Workflow',
-                'attribute_fields' => 'array',
-                'attribute_default_values' => 'array',
-                'form_init' => 'Oro\Component\Action\Action\ActionInterface',
-            )
-        );
+        $resolver->setAllowedTypes('workflow_item', 'Oro\Bundle\WorkflowBundle\Entity\WorkflowItem');
+        $resolver->setAllowedTypes('attribute_fields', 'array');
+        $resolver->setAllowedTypes('attribute_default_values', 'array');
+        $resolver->setAllowedTypes('form_init', 'Oro\Component\Action\Action\ActionInterface');
     }
 
     /**
@@ -379,6 +428,18 @@ class WorkflowAttributesType extends AbstractType
         $attributeOptions['options'] = array_merge_recursive($attributeOptions['options'], $typeGuess->getOptions());
 
         return $attributeOptions;
+    }
+
+    /**
+     * @return PropertyAccessor
+     */
+    protected function getPropertyAccessor()
+    {
+        if ($this->propertyAccessor === null) {
+            $this->propertyAccessor = new PropertyAccessor();
+        }
+
+        return $this->propertyAccessor;
     }
 
     /**

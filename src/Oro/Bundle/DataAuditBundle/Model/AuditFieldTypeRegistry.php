@@ -3,7 +3,6 @@
 namespace Oro\Bundle\DataAuditBundle\Model;
 
 use LogicException;
-
 use Oro\Bundle\DataAuditBundle\Exception\UnsupportedDataTypeException;
 
 class AuditFieldTypeRegistry
@@ -13,6 +12,7 @@ class AuditFieldTypeRegistry
         'boolean'    => 'boolean',
         'text'       => 'text',
         'string'     => 'text',
+        'currency'   => 'text',
         'guid'       => 'text',
         'manyToOne'  => 'text',
         'enum'       => 'text',
@@ -25,6 +25,7 @@ class AuditFieldTypeRegistry
         'decimal'    => 'float',
         'float'      => 'float',
         'money'      => 'float',
+        'money_value'=> 'float',
         'percent'    => 'float',
         'date'       => 'date',
         'time'       => 'time',
@@ -34,11 +35,13 @@ class AuditFieldTypeRegistry
         'array'      => 'array',
         'simple_array' => 'simplearray',
         'json_array'   => 'jsonarray',
+        'collection' => 'text',
+        'html_escaped' => 'text',
     ];
 
     /**
-     * @param type $doctrineType
-     * @param type $auditType
+     * @param string $doctrineType
+     * @param string $auditType
      *
      * @throws LogicException
      */

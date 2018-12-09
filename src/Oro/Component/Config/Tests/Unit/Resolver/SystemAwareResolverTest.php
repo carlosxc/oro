@@ -2,12 +2,12 @@
 
 namespace Oro\Component\Config\Tests\Unit\Resolver;
 
-use Symfony\Component\DependencyInjection\ContainerInterface;
-
 use Oro\Component\Config\Resolver\SystemAwareResolver;
 use Oro\Component\Config\Tests\Unit\Fixtures\TestService;
+use Oro\Component\Routing\Tests\Unit\Resolver\TestResource;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class SystemAwareResolverTest extends \PHPUnit_Framework_TestCase
+class SystemAwareResolverTest extends \PHPUnit\Framework\TestCase
 {
     const STATIC_CLASS = 'Oro\Component\Config\Tests\Unit\Resolver\SystemAwareResolverTest';
     const CONST1 = 'const1';
@@ -21,15 +21,12 @@ class SystemAwareResolverTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $this->resolver = new SystemAwareResolver();
         $this->resolver->setContainer($container);
 
         $service1 = new TestService();
-        $service2 = $this->getMock('Symfony\Component\Config\Resource\ResourceInterface');
-        $service2->expects($this->any())
-            ->method('getResource')
-            ->will($this->returnValue(['service', 2]));
+        $service2 = new TestResource('service2');
 
         $container->expects($this->any())
             ->method('getParameter')
@@ -146,7 +143,7 @@ class SystemAwareResolverTest extends \PHPUnit_Framework_TestCase
             ],
             'service method call (array)' => [
                 ['root' => ['node' => '@test.other_service->getResource']],
-                ['root' => ['node' => ['service', 2]]],
+                ['root' => ['node' => 'service2']],
             ],
             'service method call (with one parameter)' => [
                 ['root' => ['node' => '@test.service1->func2($testVar$)']],

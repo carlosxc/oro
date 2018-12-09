@@ -3,25 +3,30 @@
 namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Writer;
 
 use Akeneo\Bundle\BatchBundle\Entity\StepExecution;
-
+use Doctrine\DBAL\Driver\AbstractDriverException;
+use Oro\Bundle\EntityBundle\ORM\DatabaseExceptionHelper;
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\ImportExportBundle\Context\ContextInterface;
 use Oro\Bundle\ImportExportBundle\Context\ContextRegistry;
 use Oro\Bundle\ImportExportBundle\Writer\EntityDetachFixer;
 use Oro\Bundle\ImportExportBundle\Writer\EntityWriter;
 
-class EntityWriterTest extends \PHPUnit_Framework_TestCase
+class EntityWriterTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $entityManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|DoctrineHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|DoctrineHelper */
     protected $doctrineHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|EntityDetachFixer */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EntityDetachFixer */
     protected $detachFixer;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|ContextRegistry */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|ContextRegistry */
     protected $contextRegistry;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject|DatabaseExceptionHelper */
+    protected $databaseExceptionHelper;
 
     /** @var EntityWriter */
     protected $writer;
@@ -44,9 +49,16 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->contextRegistry = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextRegistry');
+        $this->databaseExceptionHelper = $this->createMock(DatabaseExceptionHelper::class);
 
-        $this->writer = new EntityWriter($this->doctrineHelper, $this->detachFixer, $this->contextRegistry);
+        $this->contextRegistry = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextRegistry');
+
+        $this->writer = new EntityWriter(
+            $this->doctrineHelper,
+            $this->detachFixer,
+            $this->contextRegistry,
+            $this->databaseExceptionHelper
+        );
     }
 
     /**
@@ -56,8 +68,8 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWrite($configuration)
     {
-        $fooItem = $this->getMock('FooItem');
-        $barItem = $this->getMock('BarItem');
+        $fooItem = $this->createMock(\stdClass::class);
+        $barItem = $this->createMock(\ArrayObject::class);
 
         $this->detachFixer->expects($this->at(0))
             ->method('fixEntityAssociationFields')
@@ -83,7 +95,7 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
         $context->expects($this->once())
             ->method('getConfiguration')
             ->will($this->returnValue($configuration));
@@ -102,6 +114,147 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
         $this->writer->write([$fooItem, $barItem]);
     }
 
+    public function testWriteException()
+    {
+        $item = $this->createMock(\stdClass::class);
+
+        $this->detachFixer->expects($this->once())
+            ->method('fixEntityAssociationFields')
+            ->with($item, 1);
+
+        $this->entityManager->expects($this->once())
+            ->method('persist')
+            ->with($item);
+
+        $this->entityManager->expects($this->once())
+            ->method('flush')
+            ->willThrowException(new \Exception());
+
+        /** @var StepExecution $stepExecution */
+        $stepExecution = $this->getMockBuilder('Akeneo\Bundle\BatchBundle\Entity\StepExecution')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $context = $this->createMock(ContextInterface::class);
+        $context->expects($this->any())
+            ->method('getConfiguration')
+            ->willReturn(['entityName' => \stdClass::class]);
+
+        $this->contextRegistry->expects($this->once())
+            ->method('getByStepExecution')
+            ->with($stepExecution)
+            ->will($this->returnValue($context));
+
+        $this->writer->setStepExecution($stepExecution);
+
+        $this->databaseExceptionHelper->expects($this->once())
+            ->method('getDriverException');
+
+        $this->expectException(\Exception::class);
+
+        $this->writer->write([$item]);
+    }
+
+    public function testWriteDatabaseExceptionNotDeadlock()
+    {
+        $exception = new \Exception();
+        $item = $this->createMock(\stdClass::class);
+
+        $this->detachFixer->expects($this->once())
+            ->method('fixEntityAssociationFields')
+            ->with($item, 1);
+
+        $this->entityManager->expects($this->once())
+            ->method('persist')
+            ->with($item);
+
+        $this->entityManager->expects($this->once())
+            ->method('flush')
+            ->willThrowException($exception);
+
+        /** @var StepExecution $stepExecution */
+        $stepExecution = $this->getMockBuilder('Akeneo\Bundle\BatchBundle\Entity\StepExecution')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $context = $this->createMock(ContextInterface::class);
+        $context->expects($this->any())
+            ->method('getConfiguration')
+            ->willReturn(['entityName' => \stdClass::class]);
+
+        $this->contextRegistry->expects($this->once())
+            ->method('getByStepExecution')
+            ->with($stepExecution)
+            ->will($this->returnValue($context));
+
+        $this->writer->setStepExecution($stepExecution);
+
+        $driverException = $this->createMock(AbstractDriverException::class);
+        $this->databaseExceptionHelper->expects($this->once())
+            ->method('getDriverException')
+            ->with($exception)
+            ->willReturn($driverException);
+
+        $this->databaseExceptionHelper->expects($this->once())
+            ->method('isDeadlock')
+            ->willReturn(false);
+
+        $this->expectException(\Exception::class);
+
+        $this->writer->write([$item]);
+    }
+
+    public function testWriteDatabaseExceptionDeadlock()
+    {
+        $exception = new \Exception();
+        $item = $this->createMock(\stdClass::class);
+
+        $this->detachFixer->expects($this->once())
+            ->method('fixEntityAssociationFields')
+            ->with($item, 1);
+
+        $this->entityManager->expects($this->once())
+            ->method('persist')
+            ->with($item);
+
+        $this->entityManager->expects($this->once())
+            ->method('flush')
+            ->willThrowException($exception);
+
+        /** @var StepExecution $stepExecution */
+        $stepExecution = $this->getMockBuilder('Akeneo\Bundle\BatchBundle\Entity\StepExecution')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $context = $this->createMock(ContextInterface::class);
+        $context->expects($this->any())
+            ->method('getConfiguration')
+            ->willReturn(['entityName' => \stdClass::class]);
+
+        $this->contextRegistry->expects($this->any())
+            ->method('getByStepExecution')
+            ->with($stepExecution)
+            ->will($this->returnValue($context));
+
+        $this->writer->setStepExecution($stepExecution);
+
+        $driverException = $this->createMock(AbstractDriverException::class);
+        $this->databaseExceptionHelper->expects($this->once())
+            ->method('getDriverException')
+            ->with($exception)
+            ->willReturn($driverException);
+
+        $this->databaseExceptionHelper->expects($this->once())
+            ->method('isDeadlock')
+            ->willReturn(true);
+
+        $context->expects($this->once())
+            ->method('setValue')
+            ->with('deadlockDetected', true);
+
+        $this->writer->write([$item]);
+    }
+
     /**
      * @expectedException \RuntimeException
      * @expectedExceptionMessage entityName not resolved
@@ -113,7 +266,7 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
         $context->expects($this->once())
             ->method('getConfiguration')
             ->will($this->returnValue([]));
@@ -134,7 +287,7 @@ class EntityWriterTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
         $context->expects($this->once())
             ->method('getConfiguration')
             ->will($this->returnValue(['entityName' => '\stdClass']));

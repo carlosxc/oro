@@ -2,6 +2,11 @@
 
 namespace Oro\Bundle\ActionBundle\Form\Type;
 
+use Oro\Bundle\ActionBundle\Form\EventListener\RequiredAttributesListener;
+use Oro\Bundle\ActionBundle\Model\ActionData;
+use Oro\Bundle\ActionBundle\Model\Attribute;
+use Oro\Bundle\ActionBundle\Model\Operation;
+use Oro\Component\ConfigExpression\ContextAccessor;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Exception\InvalidConfigurationException;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -9,20 +14,9 @@ use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-use Oro\Bundle\ActionBundle\Form\EventListener\RequiredAttributesListener;
-use Oro\Bundle\ActionBundle\Model\ActionData;
-use Oro\Bundle\ActionBundle\Model\Attribute;
-use Oro\Bundle\ActionBundle\Model\Operation;
-use Oro\Bundle\ActionBundle\Model\OperationManager;
-
-use Oro\Component\Action\Model\ContextAccessor;
-
 class OperationType extends AbstractType
 {
     const NAME = 'oro_action_operation';
-
-    /** @var OperationManager */
-    protected $operationManager;
 
     /** @var RequiredAttributesListener */
     protected $requiredAttributesListener;
@@ -31,16 +25,13 @@ class OperationType extends AbstractType
     protected $contextAccessor;
 
     /**
-     * @param OperationManager $operationManager
      * @param RequiredAttributesListener $requiredAttributesListener
      * @param ContextAccessor $contextAccessor
      */
     public function __construct(
-        OperationManager $operationManager,
         RequiredAttributesListener $requiredAttributesListener,
         ContextAccessor $contextAccessor
     ) {
-        $this->operationManager = $operationManager;
         $this->requiredAttributesListener = $requiredAttributesListener;
         $this->contextAccessor = $contextAccessor;
     }
@@ -83,13 +74,9 @@ class OperationType extends AbstractType
             ]
         );
 
-        $resolver->setAllowedTypes(
-            [
-                'operation' => 'Oro\Bundle\ActionBundle\Model\Operation',
-                'attribute_fields' => 'array',
-                'attribute_default_values' => 'array'
-            ]
-        );
+        $resolver->setAllowedTypes('operation', 'Oro\Bundle\ActionBundle\Model\Operation');
+        $resolver->setAllowedTypes('attribute_fields', 'array');
+        $resolver->setAllowedTypes('attribute_default_values', 'array');
     }
 
     /**
@@ -206,6 +193,10 @@ class OperationType extends AbstractType
 
         if (!array_key_exists('options', $attributeOptions) || !is_array($attributeOptions['options'])) {
             $attributeOptions['options'] = [];
+        }
+
+        if ($attribute->getPropertyPath() && !isset($attributeOptions['options']['property_path'])) {
+            $attributeOptions['options']['property_path'] = $attribute->getPropertyPath();
         }
 
         $attributeOptions['options']['label'] = isset($attributeOptions['label'])

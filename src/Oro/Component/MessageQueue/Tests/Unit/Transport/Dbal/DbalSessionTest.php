@@ -3,17 +3,17 @@ namespace Oro\Component\MessageQueue\Tests\Unit\Transport\Dbal;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
-use Doctrine\DBAL\Schema\Table;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalConnection;
-use Oro\Component\MessageQueue\Transport\Dbal\DbalMessage;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalDestination;
+use Oro\Component\MessageQueue\Transport\Dbal\DbalMessage;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalMessageConsumer;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalMessageProducer;
+use Oro\Component\MessageQueue\Transport\Dbal\DbalSchema;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalSession;
 use Oro\Component\MessageQueue\Transport\Exception\InvalidDestinationException;
 use Oro\Component\MessageQueue\Transport\Null\NullQueue;
 
-class DbalSessionTest extends \PHPUnit_Framework_TestCase
+class DbalSessionTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -84,8 +84,8 @@ class DbalSessionTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowIfDestinationIsInvalidInstanceType()
     {
-        $this->setExpectedException(
-            InvalidDestinationException::class,
+        $this->expectException(InvalidDestinationException::class);
+        $this->expectExceptionMessage(
             'The destination must be an instance of '.
             'Oro\Component\MessageQueue\Transport\Dbal\DbalDestination but it is '.
             'Oro\Component\MessageQueue\Transport\Null\NullQueue.'
@@ -103,177 +103,11 @@ class DbalSessionTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf(DbalConnection::class, $session->getConnection());
     }
 
-    public function testShouldDeclareQueue()
-    {
-        $sm = $this->createSchemaManager();
-        $sm
-            ->expects($this->once())
-            ->method('tablesExist')
-            ->with(['tableName'])
-            ->will($this->returnValue(false))
-        ;
-        $sm
-            ->expects($this->once())
-            ->method('createTable')
-            ->with($this->isInstanceOf(Table::class))
-        ;
-
-        $dbalConnection = $this->createDBALConnectionMock();
-        $dbalConnection
-            ->expects($this->once())
-            ->method('getSchemaManager')
-            ->will($this->returnValue($sm))
-        ;
-
-        $connection = $this->createConnectionMock();
-        $connection
-            ->expects($this->once())
-            ->method('getDBALConnection')
-            ->will($this->returnValue($dbalConnection))
-        ;
-        $connection
-            ->expects($this->any())
-            ->method('getTableName')
-            ->will($this->returnValue('tableName'))
-        ;
-
-        $session = new DbalSession($connection);
-        $session->declareQueue(new DbalDestination(''));
-    }
-
-    public function testShouldDeclareTopic()
-    {
-        $sm = $this->createSchemaManager();
-        $sm
-            ->expects($this->once())
-            ->method('tablesExist')
-            ->with(['tableName'])
-            ->will($this->returnValue(false))
-        ;
-        $sm
-            ->expects($this->once())
-            ->method('createTable')
-            ->with($this->isInstanceOf(Table::class))
-        ;
-
-        $dbalConnection = $this->createDBALConnectionMock();
-        $dbalConnection
-            ->expects($this->once())
-            ->method('getSchemaManager')
-            ->will($this->returnValue($sm))
-        ;
-
-        $connection = $this->createConnectionMock();
-        $connection
-            ->expects($this->once())
-            ->method('getDBALConnection')
-            ->will($this->returnValue($dbalConnection))
-        ;
-        $connection
-            ->expects($this->any())
-            ->method('getTableName')
-            ->will($this->returnValue('tableName'))
-        ;
-
-        $session = new DbalSession($connection);
-        $session->declareTopic(new DbalDestination(''));
-    }
-
-    public function testDeclareTopicShouldNotCreateTableIfExists()
-    {
-        $sm = $this->createSchemaManager();
-        $sm
-            ->expects($this->once())
-            ->method('tablesExist')
-            ->with(['tableName'])
-            ->will($this->returnValue(true))
-        ;
-        $sm
-            ->expects($this->never())
-            ->method('createTable')
-        ;
-
-        $dbalConnection = $this->createDBALConnectionMock();
-        $dbalConnection
-            ->expects($this->once())
-            ->method('getSchemaManager')
-            ->will($this->returnValue($sm))
-        ;
-
-        $connection = $this->createConnectionMock();
-        $connection
-            ->expects($this->once())
-            ->method('getDBALConnection')
-            ->will($this->returnValue($dbalConnection))
-        ;
-        $connection
-            ->expects($this->any())
-            ->method('getTableName')
-            ->will($this->returnValue('tableName'))
-        ;
-
-        $session = new DbalSession($connection);
-        $session->declareTopic(new DbalDestination(''));
-    }
-
-    public function testDeclareQueueShouldNotCreateTableIfExists()
-    {
-        $sm = $this->createSchemaManager();
-        $sm
-            ->expects($this->once())
-            ->method('tablesExist')
-            ->with(['tableName'])
-            ->will($this->returnValue(true))
-        ;
-        $sm
-            ->expects($this->never())
-            ->method('createTable')
-        ;
-
-        $dbalConnection = $this->createDBALConnectionMock();
-        $dbalConnection
-            ->expects($this->once())
-            ->method('getSchemaManager')
-            ->will($this->returnValue($sm))
-        ;
-
-        $connection = $this->createConnectionMock();
-        $connection
-            ->expects($this->once())
-            ->method('getDBALConnection')
-            ->will($this->returnValue($dbalConnection))
-        ;
-        $connection
-            ->expects($this->any())
-            ->method('getTableName')
-            ->will($this->returnValue('tableName'))
-        ;
-
-        $session = new DbalSession($connection);
-        $session->declareQueue(new DbalDestination(''));
-    }
-
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DbalConnection
+     * @return \PHPUnit\Framework\MockObject\MockObject|DbalConnection
      */
     private function createConnectionMock()
     {
-        return $this->getMock(DbalConnection::class, [], [], '', false);
-    }
-
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Connection
-     */
-    private function createDBALConnectionMock()
-    {
-        return $this->getMock(Connection::class, [], [], '', false);
-    }
-
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|AbstractSchemaManager
-     */
-    private function createSchemaManager()
-    {
-        return $this->getMock(AbstractSchemaManager::class, [], [], '', false);
+        return $this->createMock(DbalConnection::class);
     }
 }

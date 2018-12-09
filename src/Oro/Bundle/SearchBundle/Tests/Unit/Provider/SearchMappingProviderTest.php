@@ -2,51 +2,68 @@
 
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Provider;
 
+use Doctrine\Common\Cache\Cache;
+use Oro\Bundle\SearchBundle\Event\SearchMappingCollectEvent;
 use Oro\Bundle\SearchBundle\Provider\SearchMappingProvider;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-class SearchMappingProviderTest extends \PHPUnit_Framework_TestCase
+/**
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
+ */
+class SearchMappingProviderTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var SearchMappingProvider */
-    protected $provider;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $eventDispatcher;
-
     /** @var array */
     protected $testMapping = [
         'Oro\TestBundle\Entity\TestEntity' => [
             'alias'  => 'test_entity',
             'fields' => [
-                'name'           => 'firstname',
-                'target_type'    => 'text',
-                'target_columns' => ['firstname']
+                [
+                    'name' => 'firstname',
+                    'target_type' => 'text',
+                    'target_columns' => ['firstname']
+                ],
+                [
+                    'name' => 'qty',
+                    'target_type' => 'integer',
+                    'target_columns' => ['qty']
+                ]
             ]
         ]
     ];
 
-    public function setUp()
+    /**
+     * @var SearchMappingProvider
+     */
+    protected $provider;
+
+    /**
+     * @var Cache|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $cache;
+
+    /**
+     * @var EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected $eventDispatcher;
+
+    protected function setUp()
     {
-        $this->eventDispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcher')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->eventDispatcher->expects($this->any())
-            ->method('dispatch');
-
-        $this->provider = new SearchMappingProvider($this->eventDispatcher);
-        $this->provider->setMappingConfig($this->testMapping);
+        $this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+        $this->cache = $this->createMock(Cache::class);
+        parent::setUp();
     }
 
-    public function testGetMappingConfig()
+    protected function tearDown()
     {
-        $this->assertEquals($this->testMapping, $this->provider->getMappingConfig());
+        parent::tearDown();
+        unset($this->cache, $this->eventDispatcher);
     }
 
     public function testGetEntitiesListAliases()
     {
         $this->assertEquals(
             ['Oro\TestBundle\Entity\TestEntity' => 'test_entity'],
-            $this->provider->getEntitiesListAliases()
+            $this->getProvider()->getEntitiesListAliases()
         );
     }
 
@@ -54,7 +71,7 @@ class SearchMappingProviderTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(
             ['Oro\TestBundle\Entity\TestEntity' => 'test_entity'],
-            $this->provider->getEntityAliases(['Oro\TestBundle\Entity\TestEntity'])
+            $this->getProvider()->getEntityAliases(['Oro\TestBundle\Entity\TestEntity'])
         );
     }
 
@@ -64,8 +81,16 @@ class SearchMappingProviderTest extends \PHPUnit_Framework_TestCase
      */
     public function testGetEntityAliasesForUnknownEntity()
     {
-        $this->provider->getEntityAliases(
+        $this->getProvider()->getEntityAliases(
             ['Oro\TestBundle\Entity\TestEntity', 'Oro\TestBundle\Entity\UnknownEntity']
+        );
+    }
+
+    public function testGetEntityAliasesForEmptyClassNames()
+    {
+        $this->assertEquals(
+            ['Oro\TestBundle\Entity\TestEntity' => 'test_entity'],
+            $this->getProvider()->getEntityAliases()
         );
     }
 
@@ -73,14 +98,14 @@ class SearchMappingProviderTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(
             'test_entity',
-            $this->provider->getEntityAlias('Oro\TestBundle\Entity\TestEntity')
+            $this->getProvider()->getEntityAlias('Oro\TestBundle\Entity\TestEntity')
         );
     }
 
     public function testGetEntityAliasForUnknownEntity()
     {
         $this->assertNull(
-            $this->provider->getEntityAlias('Oro\TestBundle\Entity\UnknownEntity')
+            $this->getProvider()->getEntityAlias('Oro\TestBundle\Entity\UnknownEntity')
         );
     }
 
@@ -88,30 +113,120 @@ class SearchMappingProviderTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(
             ['Oro\TestBundle\Entity\TestEntity'],
-            $this->provider->getEntityClasses()
+            $this->getProvider()->getEntityClasses()
         );
     }
 
     public function testIsClassSupported()
     {
-        $this->assertTrue($this->provider->isClassSupported('Oro\TestBundle\Entity\TestEntity'));
-        $this->assertFalse($this->provider->isClassSupported('Oro\TestBundle\Entity\BadEntity'));
+        $provider = $this->getProvider();
+
+        $this->assertTrue($provider->isClassSupported('Oro\TestBundle\Entity\TestEntity'));
+        $this->assertFalse($provider->isClassSupported('Oro\TestBundle\Entity\BadEntity'));
     }
 
-    public function testIsFieldsMappingExists()
+    public function testHasFieldsMapping()
     {
-        $this->assertTrue($this->provider->isFieldsMappingExists('Oro\TestBundle\Entity\TestEntity'));
-        $this->assertFalse($this->provider->isFieldsMappingExists('Oro\TestBundle\Entity\BadEntity'));
+        $provider = $this->getProvider();
+
+        $this->assertTrue($provider->hasFieldsMapping('Oro\TestBundle\Entity\TestEntity'));
+        $this->assertFalse($provider->hasFieldsMapping('Oro\TestBundle\Entity\BadEntity'));
     }
 
     public function testGetEntityMapParameter()
     {
+        $provider = $this->getProvider();
+
         $this->assertEquals(
             'test_entity',
-            $this->provider->getEntityMapParameter('Oro\TestBundle\Entity\TestEntity', 'alias')
+            $provider->getEntityMapParameter('Oro\TestBundle\Entity\TestEntity', 'alias')
         );
         $this->assertFalse(
-            $this->provider->getEntityMapParameter('Oro\TestBundle\Entity\TestEntity', 'badParameter', false)
+            $provider->getEntityMapParameter('Oro\TestBundle\Entity\TestEntity', 'badParameter', false)
         );
+    }
+
+    public function testGetEntityClass()
+    {
+        $this->assertEquals(
+            'Oro\TestBundle\Entity\TestEntity',
+            $this->getProvider()->getEntityClass('test_entity')
+        );
+    }
+
+    public function testGetEntityClassForUnknownAlias()
+    {
+        $this->assertNull(
+            $this->getProvider()->getEntityClass('unknown_entity')
+        );
+    }
+
+    public function testGetMappingConfigCached()
+    {
+        $this->eventDispatcher
+            ->expects($this->never())
+            ->method('dispatch');
+
+        $this->assertEquals($this->testMapping, $this->getProvider()->getMappingConfig());
+    }
+
+    public function testGetMappingConfig()
+    {
+        $this->cache
+            ->expects($this->once())
+            ->method('fetch')
+            ->with(SearchMappingProvider::CACHE_KEY)
+            ->willReturn(false);
+
+        $this->eventDispatcher
+            ->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(function ($eventName, SearchMappingCollectEvent $event) {
+                $this->assertEquals(SearchMappingCollectEvent::EVENT_NAME, $eventName);
+                $this->assertEquals($this->testMapping, $event->getMappingConfig());
+
+                $event->setMappingConfig([]);
+            });
+
+        $this->cache
+            ->expects($this->once())
+            ->method('save')
+            ->with(SearchMappingProvider::CACHE_KEY, []);
+
+        $this->assertEquals([], $this->getProvider(false)->getMappingConfig());
+        $this->assertEquals([], $this->getProvider(false)->getMappingConfig());
+    }
+
+    public function testClearMappingCache()
+    {
+        $this->cache
+            ->expects($this->once())
+            ->method('delete')
+            ->with(SearchMappingProvider::CACHE_KEY);
+
+        $this->getProvider(false)->clearCache();
+    }
+
+    /**
+     * @param bool $mockFetch
+     *
+     * @return SearchMappingProvider
+     */
+    protected function getProvider($mockFetch = true)
+    {
+        if (!$this->provider) {
+            $this->provider = new SearchMappingProvider($this->eventDispatcher, $this->cache);
+            $this->provider->setMappingConfig($this->testMapping);
+
+            if ($mockFetch) {
+                $this->cache
+                    ->expects($this->once())
+                    ->method('fetch')
+                    ->with(SearchMappingProvider::CACHE_KEY)
+                    ->willReturn($this->testMapping);
+            }
+        }
+
+        return $this->provider;
     }
 }

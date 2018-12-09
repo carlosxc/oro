@@ -3,6 +3,7 @@
 namespace Oro\Bundle\TranslationBundle\Provider;
 
 use Doctrine\Common\Cache\Cache;
+use Psr\Log\LoggerInterface;
 
 class TranslationStatisticProvider
 {
@@ -18,11 +19,19 @@ class TranslationStatisticProvider
     /** @var PackagesProvider */
     protected $pm;
 
-    public function __construct(Cache $cache, OroTranslationAdapter $adapter, PackagesProvider $pm)
-    {
+    /** @var LoggerInterface */
+    protected $logger;
+
+    public function __construct(
+        Cache $cache,
+        OroTranslationAdapter $adapter,
+        PackagesProvider $pm,
+        LoggerInterface $logger
+    ) {
         $this->cache   = $cache;
         $this->adapter = $adapter;
         $this->pm      = $pm;
+        $this->logger  = $logger;
     }
 
     /**
@@ -64,6 +73,7 @@ class TranslationStatisticProvider
                 $this->pm->getInstalledPackages()
             );
         } catch (\Exception $e) {
+            $this->logger->error('Translation statistics fetch failed', ['exception' => $e]);
             $data = [];
         }
 

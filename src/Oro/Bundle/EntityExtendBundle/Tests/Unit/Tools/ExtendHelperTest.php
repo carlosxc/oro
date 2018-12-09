@@ -4,7 +4,7 @@ namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Tools;
 
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 
-class ExtendHelperTest extends \PHPUnit_Framework_TestCase
+class ExtendHelperTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider getReverseRelationTypeProvider
@@ -82,12 +82,86 @@ class ExtendHelperTest extends \PHPUnit_Framework_TestCase
         );
     }
 
+    public function testToggleRelationKeyWhenOwningAndTargetEntitiesAreNotEqual()
+    {
+        $this->assertEquals(
+            'manyToOne|Test\Entity|Test\TargetEntity|testField',
+            ExtendHelper::toggleRelationKey('manyToOne|Test\Entity|Test\TargetEntity|testField')
+        );
+    }
+
+    public function testToggleRelationKeyWhenOwningAndTargetEntitiesAreNotEqualAndGivenKeyHasInverseSuffix()
+    {
+        $this->assertEquals(
+            'manyToOne|Test\Entity|Test\TargetEntity|testField|inverse',
+            ExtendHelper::toggleRelationKey('manyToOne|Test\Entity|Test\TargetEntity|testField|inverse')
+        );
+    }
+
+    public function testToggleRelationKeyWhenOwningAndTargetEntitiesAreEqualAndGivenKeyIsOwningSideKey()
+    {
+        $this->assertEquals(
+            'manyToOne|Test\Entity|Test\Entity|testField|inverse',
+            ExtendHelper::toggleRelationKey('manyToOne|Test\Entity|Test\Entity|testField')
+        );
+    }
+
+    public function testToggleRelationKeyWhenOwningAndTargetEntitiesAreEqualAndGivenKeyIsInverseSideKey()
+    {
+        $this->assertEquals(
+            'manyToOne|Test\Entity|Test\Entity|testField',
+            ExtendHelper::toggleRelationKey('manyToOne|Test\Entity|Test\Entity|testField|inverse')
+        );
+    }
+
+    public function testToggleRelationKeyWhenOwningAndTargetEntitiesAreEqualButKeyIsNotSupported()
+    {
+        $this->assertEquals(
+            'manyToOne|Test\Entity|Test\Entity|testField|other',
+            ExtendHelper::toggleRelationKey('manyToOne|Test\Entity|Test\Entity|testField|other')
+        );
+    }
+
+    public function testToggleRelationKeyWhenGivenKeyIsInvalid()
+    {
+        $this->assertEquals(
+            'someInvalidValue',
+            ExtendHelper::toggleRelationKey('someInvalidValue')
+        );
+    }
+
     public function testGetRelationType()
     {
         $this->assertEquals(
             'manyToOne',
             ExtendHelper::getRelationType('manyToOne|Test\Entity|Test\TargetEntity|testField')
         );
+    }
+
+    public function testGetRelationTypeForInverseRelationKey()
+    {
+        $this->assertEquals(
+            'manyToOne',
+            ExtendHelper::getRelationType('manyToOne|Test\Entity|Test\Entity|testField|inverse')
+        );
+    }
+
+    /**
+     * @dataProvider invalidRelationKeysForGetRelationType
+     */
+    public function testGetRelationTypeForInvalidRelationKey($relationKey)
+    {
+        $this->assertNull(ExtendHelper::getRelationType($relationKey));
+    }
+
+    public function invalidRelationKeysForGetRelationType()
+    {
+        return [
+            [null],
+            ['manyToOne'],
+            ['manyToOne|Test\Entity|Test\Entity'],
+            ['manyToOne|Test\Entity|Test\Entity|testField|inverse|other'],
+        ];
     }
 
     /**
@@ -115,7 +189,7 @@ class ExtendHelperTest extends \PHPUnit_Framework_TestCase
             ['test---123', 'test_123'],
             ['test---___123', 'test_123'],
             ['test- - - _ _ _ 123', 'test_123'],
-            ['test \/()[]~!@#$%^&*_+`', 'test_'],
+            ['test \/()[]~!@#$%^&*_+,.`', 'test_'],
         ];
     }
 
@@ -231,6 +305,7 @@ class ExtendHelperTest extends \PHPUnit_Framework_TestCase
             ['01234567890123456789012345678901', '01234567890123456789012345678901'],
             ['012345678901234567890123456789012', '012345678901234567890123_226f1a9'],
             ['sed do eiusmod tempor incididunt ut labore et dolore magna aliqua', 'sed_do_eiusmod_tempor_i_a5e72088'],
+            ['broken_value_nameºss', '5eff4cfd']
         ];
     }
 

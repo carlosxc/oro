@@ -2,14 +2,18 @@
 
 namespace Oro\Bundle\FilterBundle\Filter;
 
-use LogicException;
-
-use Oro\Bundle\FilterBundle\Form\Type\Filter\DictionaryFilterType;
 use Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface;
 use Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter;
+use Oro\Bundle\FilterBundle\Form\Type\Filter\DictionaryFilterType;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
 
+/**
+ * A filter that can be used on any grid to get entities by any related entity to original one.
+ */
 class DictionaryFilter extends BaseMultiChoiceFilter
 {
+    const FILTER_TYPE_NAME = 'dictionary';
+
     /**
      * {@inheritdoc}
      */
@@ -24,6 +28,7 @@ class DictionaryFilter extends BaseMultiChoiceFilter
             $params[FilterUtility::FORM_OPTIONS_KEY]['dictionary_code'] = $params['dictionary_code'];
             unset($params['dictionary_code']);
         }
+
         parent::init($name, $params);
     }
 
@@ -50,7 +55,7 @@ class DictionaryFilter extends BaseMultiChoiceFilter
      */
     protected function getFormType()
     {
-        return DictionaryFilterType::NAME;
+        return DictionaryFilterType::class;
     }
 
     /**
@@ -69,12 +74,12 @@ class DictionaryFilter extends BaseMultiChoiceFilter
      *
      * @return string
      *
-     * @throws LogicException
+     * @throws \LogicException
      */
     protected function getFilteredFieldName(FilterDatasourceAdapterInterface $ds)
     {
         if (!$ds instanceof OrmFilterDatasourceAdapter) {
-            throw new LogicException(
+            throw new \LogicException(
                 sprintf(
                     '"Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter" expected but "%s" given.',
                     get_class($ds)
@@ -85,13 +90,21 @@ class DictionaryFilter extends BaseMultiChoiceFilter
         try {
             $fieldName = $this->get(FilterUtility::DATA_NAME_KEY);
             list($joinAlias) = explode('.', $fieldName);
+
+            $join = QueryBuilderUtil::findJoinByAlias($ds->getQueryBuilder(), $joinAlias);
+            if ($join && $this->isToOne($ds)) {
+                return $join->getJoin();
+            }
+
             $qb = $ds->getQueryBuilder();
             $em = $qb->getEntityManager();
             $class = $this->get('options')['class'];
             $metadata = $em->getClassMetadata($class);
             $fieldNames = $metadata->getIdentifierFieldNames();
-            if ($count = count($fieldNames) !== 1) {
-                throw new LogicException('Class needs to have exactly 1 identifier, but it has "%d"', $count);
+
+            $count = count($fieldNames);
+            if ($count !== 1) {
+                throw new \LogicException('Class needs to have exactly 1 identifier, but it has "%d"', $count);
             }
             $field = sprintf('%s.%s', $joinAlias, $fieldNames[0]);
         } catch (\Exception $e) {

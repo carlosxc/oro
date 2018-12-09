@@ -52,13 +52,8 @@ class DefaultDataConverter implements DataConverterInterface
                     $compositeKey = $key . $this->convertDelimiter . $tmpKey;
                     $plainData[$compositeKey] = $tmpValue;
                 }
-            } elseif ($value === true || $value === false) {
-                if ($value) {
-                    $plainData[$key] = 1;
-                } else {
-                    $plainData[$key] = 0;
-                }
             } elseif ($value !== null || !$skipNullValues) {
+                $value = is_bool($value) ? (int)$value : $value;
                 $plainData[$key] = (string)$value;
             }
         }

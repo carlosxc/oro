@@ -1,7 +1,6 @@
-OroUIBundle
-===========
+# OroUIBundle
 
-User interface layouts and controls.
+OroUIBundle defines the architecture of the front-end part of Oro application and provides tools that ensure the coordinated work of the architecture parts.
 
 ## Table of Contents
 
@@ -12,6 +11,9 @@ User interface layouts and controls.
 - [TWIG Filters](./Resources/doc/reference/twig-filters.md)
 - [JavaScript Widgets](./Resources/doc/reference/widgets.md)
 - [Layout Subtree View](./Resources/doc/reference/client-side/layout-subtree-view.md)
+- [Highlight Text View](./Resources/doc/reference/client-side/highlight-text-view.md)
+- [Viewport Manager](./Resources/doc/reference/client-side/viewport-manager.md)
+- [Ui tool](./Resources/doc/reference/client-side/tool.md)
 - [Items Manager](./Resources/doc/reference/items-manager.md)
 - [Content providers](./Resources/doc/reference/content-providers.md)
 - [Loading Mask View](./Resources/doc/reference/client-side/loading-mask-view.md)
@@ -19,6 +21,9 @@ User interface layouts and controls.
 - [formatters](./Resources/doc/reference/formatters.md)
 - [Dynamic Assets](./Resources/doc/dynamic-assets.md)
 - [Input Widgets](./Resources/doc/reference/input-widgets.md)
+- [Component Shorcuts](./Resources/doc/reference/component-shortcuts.md)
+- [Error Handler](./Resources/doc/reference/error-handler.md)
+- [Objects Registry](./Resources/doc/reference/client-side/registry.md)
 
 ## Configuration Settings
 
@@ -32,28 +37,30 @@ In order to improve layouts and make them more flexible a new twig token `placeh
 
 ### Placeholder declaration in YAML
 
-Placeholders can be defined in any bundle under `/SomeBundleName/Resource/placeholders.yml`
+Placeholders can be defined in any bundle under `/SomeBundleName/Resource/oro/placeholders.yml`
 
 ```yaml
-items:                             # items to use in placeholders (templates or actions)
- <item_name>:                      # any unique identifier
-    template: <template>           # path to custom template for renderer
- <another_item_name>:
-    action: <action>               # action name (e.g. OroSearchBundle:Search:searchBar)
-
 placeholders:
-  <placeholder_name>:
-    items:
-      <item_name>:
-        order: 100                 # sort order in placeholder
-      <another_item_name>:
-        order: 200
-      <one_more_item_name>: ~      # sort order will be set to 0
+    items:                             # items to use in placeholders (templates or actions)
+     <item_name>:                      # any unique identifier
+        template: <template>           # path to custom template for renderer
+     <another_item_name>:
+        action: <action>               # action name (e.g. OroSearchBundle:Search:searchBar)
+    
+    placeholders:
+      <placeholder_name>:
+        items:
+          <item_name>:
+            order: 100                 # sort order in placeholder
+          <another_item_name>:
+            order: 200
+          <one_more_item_name>: ~      # sort order will be set to 0
 ```
 
-Any configuration defined in bundle `placeholders.yml` file can be overridden in `app/config/config.yml` file.
+Any configuration defined in bundle `placeholders.yml` file can be overridden in `config/config.yml` file.
 
 ```yaml
+
 oro_ui:
     placeholders:
         <placeholder_name>:

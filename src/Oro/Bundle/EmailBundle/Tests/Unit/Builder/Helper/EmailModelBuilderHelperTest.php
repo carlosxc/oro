@@ -3,7 +3,6 @@
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Builder\Helper;
 
 use Doctrine\ORM\EntityManager;
-
 use Oro\Bundle\EmailBundle\Builder\Helper\EmailModelBuilderHelper;
 use Oro\Bundle\EmailBundle\Cache\EmailCacheManager;
 use Oro\Bundle\EmailBundle\Entity\Email;
@@ -13,12 +12,11 @@ use Oro\Bundle\EmailBundle\Tests\Unit\Fixtures\Entity\TestUser;
 use Oro\Bundle\EmailBundle\Tools\EmailAddressHelper;
 use Oro\Bundle\EntityBundle\Provider\EntityNameResolver;
 use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
 use Oro\Bundle\UserBundle\Entity\User;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
-
 use Symfony\Component\Templating\EngineInterface;
 
-class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
+class EmailModelBuilderHelperTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var EmailModelBuilderHelper
@@ -26,42 +24,42 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
     protected $helper;
 
     /**
-     * @var EntityRoutingHelper|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityRoutingHelper|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $entityRoutingHelper;
 
     /**
-     * @var EmailAddressHelper|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailAddressHelper|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailAddressHelper;
 
     /**
-     * @var EntityNameResolver|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityNameResolver|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $entityNameResolver;
 
     /**
-     * @var SecurityFacade|\PHPUnit_Framework_MockObject_MockObject
+     * @var TokenAccessorInterface|\PHPUnit\Framework\MockObject\MockObject
      */
-    protected $securityFacade;
+    protected $tokenAccessor;
 
     /**
-     * @var EmailAddressManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailAddressManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailAddressManager;
 
     /**
-     * @var EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $entityManager;
 
     /**
-     * @var EmailCacheManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EmailCacheManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $emailCacheManager;
 
     /**
-     * @var EngineInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var EngineInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $templating;
 
@@ -77,9 +75,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->securityFacade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->tokenAccessor = $this->createMock(TokenAccessorInterface::class);
 
         $this->emailAddressManager = $this->getMockBuilder('Oro\Bundle\EmailBundle\Entity\Manager\EmailAddressManager')
             ->disableOriginalConstructor()
@@ -93,7 +89,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->templating = $this->getMock('Symfony\Component\Templating\EngineInterface');
+        $this->templating = $this->createMock('Symfony\Component\Templating\EngineInterface');
 
         $mailboxManager = $this->getMockBuilder('Oro\Bundle\EmailBundle\Entity\Manager\MailboxManager')
             ->disableOriginalConstructor()
@@ -103,7 +99,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             $this->entityRoutingHelper,
             $this->emailAddressHelper,
             $this->entityNameResolver,
-            $this->securityFacade,
+            $this->tokenAccessor,
             $this->emailAddressManager,
             $this->entityManager,
             $this->emailCacheManager,
@@ -135,7 +131,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
 
         $ownerClass = 'Oro\Bundle\UserBundle\Entity\User';
         $ownerId    = 1;
-        $owner      = $this->getMock($ownerClass);
+        $owner      = $this->createMock($ownerClass);
         $ownerName  = 'Admin';
 
         $this->entityRoutingHelper->expects($this->once())
@@ -162,18 +158,15 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
 
         $ownerClass = 'Oro\Bundle\UserBundle\Entity\User';
         $ownerId    = 1;
-        $owner      = $this->getMock($ownerClass);
-        $ownerName  = 'Admin';
+        $owner      = $this->createMock($ownerClass);
 
         $this->entityRoutingHelper->expects($this->once())
             ->method('getEntity')
             ->with($ownerClass, $ownerId)
             ->willReturn($owner);
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
-
-        $this->securityFacade->expects($this->once())
-            ->method('getLoggedUser')
+        $this->tokenAccessor->expects($this->once())
+            ->method('getUser')
             ->willReturn($owner);
 
         $this->helper->preciseFullEmailAddress($emailAddress, $ownerClass, $ownerId, true);
@@ -193,9 +186,9 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $otherOwner = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $otherOwner = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
-        $emailAddressObj = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailAddress');
+        $emailAddressObj = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailAddress');
         $emailAddressObj->expects($this->any())
             ->method('getOwner')
             ->willReturn($otherOwner);
@@ -230,9 +223,9 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $otherOwner = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $otherOwner = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
-        $emailAddressObj = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailAddress');
+        $emailAddressObj = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailAddress');
         $emailAddressObj->expects($this->any())
             ->method('getOwner')
             ->willReturn($otherOwner);
@@ -246,10 +239,8 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
             ->with($this->entityManager)
             ->willReturn($repo);
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
-
-        $this->securityFacade->expects($this->once())
-            ->method('getLoggedUser')
+        $this->tokenAccessor->expects($this->once())
+            ->method('getUser')
             ->willReturn($otherOwner);
 
         $this->helper->preciseFullEmailAddress($emailAddress, $ownerClass, $ownerId, true);
@@ -361,8 +352,8 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
 
     public function testGetUserTokenIsNull()
     {
-        $this->securityFacade->expects($this->once())
-            ->method('getLoggedUser')
+        $this->tokenAccessor->expects($this->once())
+            ->method('getUser')
             ->willReturn(null);
 
         $result = $this->helper->getUser();
@@ -377,8 +368,8 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
      */
     public function testGetUser($user)
     {
-        $this->securityFacade->expects($this->once())
-            ->method('getLoggedUser')
+        $this->tokenAccessor->expects($this->once())
+            ->method('getUser')
             ->willReturn($user);
 
         $result = $this->helper->getUser();
@@ -407,7 +398,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
 
     public function testBuildFullEmailAddress()
     {
-        $user = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $user = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
         $email = 'email';
         $format = 'format';
         $expected = '"format" <email>';
@@ -427,7 +418,7 @@ class EmailModelBuilderHelperTest extends \PHPUnit_Framework_TestCase
 
     public function testGetEmailBodyWithException()
     {
-        $exception = $this->getMock('Oro\Bundle\EmailBundle\Exception\LoadEmailBodyException');
+        $exception = $this->createMock('Oro\Bundle\EmailBundle\Exception\LoadEmailBodyException');
         $emailEntity = new Email();
 
         $this->emailCacheManager->expects($this->once())

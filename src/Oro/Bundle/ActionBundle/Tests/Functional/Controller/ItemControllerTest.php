@@ -2,15 +2,11 @@
 
 namespace Oro\Bundle\ActionBundle\Tests\Functional\Controller;
 
-use Symfony\Component\DomCrawler\Crawler;
-
 use Oro\Bundle\TestFrameworkBundle\Entity\Item;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 use Oro\Bundle\TestFrameworkBundle\Tests\Functional\DataFixtures\LoadItems;
+use Symfony\Component\DomCrawler\Crawler;
 
-/**
- * @dbIsolation
- */
 class ItemControllerTest extends WebTestCase
 {
     /**
@@ -40,15 +36,16 @@ class ItemControllerTest extends WebTestCase
         // default datagrid UPDATE and DELETE operations and DELETE mass action, it's index page for 'items-grid'
         $data = $this->assertDataGrid($crawler, 'items-grid');
 
-        $this->assertCount(1, $data['data']);
+        $this->assertCount(3, $data['data']);
 
         $this->assertArrayHasKey('update', $data['data'][0]['action_configuration']);
         $this->assertArrayHasKey('delete', $data['data'][0]['action_configuration']);
         $this->assertInternalType('array', $data['data'][0]['action_configuration']['update']);
         $this->assertInternalType('array', $data['data'][0]['action_configuration']['delete']);
 
-        $this->assertArrayHasKey('delete', $data['metadata']['massActions']);
-        $this->assertInternalType('array', $data['metadata']['massActions']['delete']);
+        // the "metadata" section is returned only if datagrid data is requested by AJAX,
+        // during datagrid initialization the metadata is not returned together with data
+        $this->assertArrayNotHasKey('metadata', $data);
     }
 
     public function testViewPage()
@@ -76,7 +73,9 @@ class ItemControllerTest extends WebTestCase
             $data['data'][0]['action_configuration']
         );
 
-        $this->assertEquals([], $data['metadata']['massActions']);
+        // the "metadata" section is returned only if datagrid data is requested by AJAX,
+        // during datagrid initialization the metadata is not returned together with data
+        $this->assertArrayNotHasKey('metadata', $data);
     }
 
     public function testUpdatePage()
@@ -109,13 +108,17 @@ class ItemControllerTest extends WebTestCase
 
         $data = $this->getJsonResponseContent($this->client->getResponse(), 200);
 
-        $this->assertCount(1, $data['data']);
+        $this->assertCount(3, $data['data']);
 
         $this->assertArrayHasKey('update', $data['data'][0]['action_configuration']);
         $this->assertArrayHasKey('delete', $data['data'][0]['action_configuration']);
         $this->assertInternalType('array', $data['data'][0]['action_configuration']['update']);
         $this->assertInternalType('array', $data['data'][0]['action_configuration']['delete']);
 
+        // the "metadata" section should be returned together with data
+        // if datagrid data is requested by AJAX
+        $this->assertArrayHasKey('metadata', $data);
+        $this->assertArrayHasKey('massActions', $data['metadata']);
         $this->assertArrayHasKey('delete', $data['metadata']['massActions']);
         $this->assertInternalType('array', $data['metadata']['massActions']['delete']);
     }
@@ -148,7 +151,7 @@ class ItemControllerTest extends WebTestCase
      */
     protected function assertPageContainsOperations(Crawler $crawler, array $operations)
     {
-        $node = $crawler->filter('a.action-button');
+        $node = $crawler->filter('a.operation-button');
 
         $this->assertCount(count($operations), $node);
 

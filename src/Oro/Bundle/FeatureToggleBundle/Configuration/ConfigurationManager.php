@@ -42,7 +42,7 @@ class ConfigurationManager
         $configuration = $this->configurationProvider->getFeaturesConfiguration();
         
         foreach ($configuration as $featureName => $featureConfig) {
-            if ($featureConfig['toggle'] == $toggle) {
+            if (isset($featureConfig['toggle']) && $featureConfig['toggle'] == $toggle) {
                 return $featureName;
             }
         }
@@ -65,6 +65,18 @@ class ConfigurationManager
         }
 
         return [];
+    }
+
+    /**
+     * @param string $resourceType
+     *
+     * @return array
+     */
+    public function getResourcesByType($resourceType)
+    {
+        $configuration = $this->configurationProvider->getResourcesConfiguration();
+
+        return array_key_exists($resourceType, $configuration) ? $configuration[$resourceType] : [];
     }
 
     /**

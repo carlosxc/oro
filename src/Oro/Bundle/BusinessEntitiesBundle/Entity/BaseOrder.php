@@ -2,9 +2,8 @@
 
 namespace Oro\Bundle\BusinessEntitiesBundle\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\ORM\Mapping as ORM;
 use Oro\Bundle\AddressBundle\Entity\AbstractAddress;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 
@@ -159,6 +158,7 @@ class BaseOrder
     public function __construct()
     {
         $this->addresses = new ArrayCollection();
+        $this->items = new ArrayCollection();
     }
 
     /**
@@ -274,11 +274,11 @@ class BaseOrder
     }
 
     /**
-     * @param \DateTime $createdAt
+     * @param \DateTime|null $createdAt
      *
      * @return $this
      */
-    public function setCreatedAt(\DateTime $createdAt)
+    public function setCreatedAt(\DateTime $createdAt = null)
     {
         $this->createdAt = $createdAt;
 
@@ -294,11 +294,11 @@ class BaseOrder
     }
 
     /**
-     * @param \DateTime $updatedAt
+     * @param \DateTime|null $updatedAt
      *
      * @return $this
      */
-    public function setUpdatedAt(\DateTime $updatedAt)
+    public function setUpdatedAt(\DateTime $updatedAt = null)
     {
         $this->updatedAt = $updatedAt;
 
@@ -551,6 +551,35 @@ class BaseOrder
     public function getItems()
     {
         return $this->items;
+    }
+
+    /**
+     * @param BaseOrderItem $item
+     *
+     * @return $this
+     */
+    public function addItem(BaseOrderItem $item)
+    {
+        if (!$this->items->contains($item)) {
+            $this->items->add($item);
+            $item->setOrder($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param BaseOrderItem $item
+     *
+     * @return $this
+     */
+    public function removeItem(BaseOrderItem $item)
+    {
+        if ($this->items->contains($item)) {
+            $this->items->removeElement($item);
+        }
+
+        return $this;
     }
 
     /**

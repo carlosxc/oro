@@ -3,19 +3,19 @@
 namespace Oro\Bundle\LocaleBundle\EventListener;
 
 use Doctrine\DBAL\DBALException;
-
 use Gedmo\Translatable\TranslatableListener;
+use Oro\Bundle\LocaleBundle\Entity\Localization;
+use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
+use Oro\Bundle\LocaleBundle\Provider\CurrentLocalizationProvider;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Routing\RequestContextAwareInterface;
 use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 
 class LocaleListener implements EventSubscriberInterface
 {
@@ -33,6 +33,9 @@ class LocaleListener implements EventSubscriberInterface
 
     /** @var TranslatorInterface */
     private $translator = false;
+
+    /** @var Localization */
+    private $currentLocalization = false;
 
     /** @var ContainerInterface */
     private $container;
@@ -55,8 +58,13 @@ class LocaleListener implements EventSubscriberInterface
         }
 
         if ($this->getIsInstalled()) {
-            $language = $this->getLocaleSettings()->getLanguage();
-            $locale   = $this->getLocaleSettings()->getLocale();
+            $localization = $this->getCurrentLocalization();
+            if (null !== $localization) {
+                $language = $localization->getLanguageCode();
+            } else {
+                $language = $this->getLocaleSettings()->getLanguage();
+            }
+            $locale = $this->getLocaleSettings()->getLocale();
 
             if (!$request->attributes->get('_locale')) {
                 $request->setLocale($language);
@@ -184,5 +192,19 @@ class LocaleListener implements EventSubscriberInterface
         }
 
         return $this->translator;
+    }
+
+    /**
+     * @return Localization|null
+     */
+    protected function getCurrentLocalization()
+    {
+        if ($this->currentLocalization === false) {
+            /** @var $provider CurrentLocalizationProvider */
+            $provider = $this->container->get('oro_locale.provider.current_localization');
+            $this->currentLocalization = $provider->getCurrentLocalization();
+        }
+
+        return $this->currentLocalization;
     }
 }

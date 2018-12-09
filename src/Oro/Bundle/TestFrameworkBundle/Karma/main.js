@@ -1,6 +1,9 @@
-(function (files, callback) {
+(function(files, callback) {
     'use strict';
-    var file, match, tests = [], libs = {};
+    var file;
+    var match;
+    var tests = [];
+    var libs = {};
 
     for (file in files) {
         if (files.hasOwnProperty(file)) {
@@ -18,7 +21,7 @@
 
     requirejs.config({
         // Karma serves files from '/base'
-        baseUrl: '/base/web/bundles',
+        baseUrl: '/base/public/bundles',
 
         paths: libs,
 

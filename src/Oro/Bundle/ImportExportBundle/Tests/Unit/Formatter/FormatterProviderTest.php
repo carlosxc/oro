@@ -2,12 +2,11 @@
 
 namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Formatter;
 
+use Oro\Bundle\ImportExportBundle\Exception\InvalidArgumentException;
+use Oro\Bundle\ImportExportBundle\Formatter\FormatterProvider;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-use Oro\Bundle\ImportExportBundle\Formatter\FormatterProvider;
-use Oro\Bundle\ImportExportBundle\Exception\InvalidArgumentException;
-
-class FormatterProviderTest extends \PHPUnit_Framework_TestCase
+class FormatterProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var FormatterProvider
@@ -15,7 +14,7 @@ class FormatterProviderTest extends \PHPUnit_Framework_TestCase
     protected $formatter;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ContainerInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|ContainerInterface
      */
     protected $container;
 
@@ -27,7 +26,7 @@ class FormatterProviderTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $this->formatter = new FormatterProvider($this->container, $this->formatters, $this->typeFormatters);
     }
 

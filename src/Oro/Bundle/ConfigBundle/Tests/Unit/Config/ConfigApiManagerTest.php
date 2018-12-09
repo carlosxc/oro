@@ -9,12 +9,12 @@ use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\ConfigBundle\Exception\ItemNotFoundException;
 use Oro\Bundle\ConfigBundle\Provider\ProviderInterface;
 
-class ConfigApiManagerTest extends \PHPUnit_Framework_TestCase
+class ConfigApiManagerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var ProviderInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ProviderInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $configProvider;
 
-    /** @var ConfigManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $configManager;
 
     /** @var ConfigApiManager */
@@ -22,7 +22,7 @@ class ConfigApiManagerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->configProvider = $this->getMock(ProviderInterface::class);
+        $this->configProvider = $this->createMock(ProviderInterface::class);
         $this->configManager  = $this->getMockBuilder(ConfigManager::class)
             ->disableOriginalConstructor()
             ->getMock();
@@ -268,7 +268,7 @@ class ConfigApiManagerTest extends \PHPUnit_Framework_TestCase
         $datetime = new \DateTime('now', new \DateTimeZone('UTC'));
         $apiTree = new SectionDefinition($path);
         $apiTree->addVariable(new VariableDefinition($key, $dataType));
-        $dataTransformer = $this->getMock('Oro\Bundle\ConfigBundle\Config\DataTransformerInterface');
+        $dataTransformer = $this->createMock('Oro\Bundle\ConfigBundle\Config\DataTransformerInterface');
 
         $this->configProvider->expects($this->once())
             ->method('getApiTree')

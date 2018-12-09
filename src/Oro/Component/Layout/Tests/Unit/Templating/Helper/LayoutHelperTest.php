@@ -2,35 +2,34 @@
 
 namespace Oro\Component\Layout\Tests\Unit\Templating\Helper;
 
-use Oro\Component\Layout\Form\FormRendererInterface;
-
 use Oro\Component\Layout\BlockView;
+use Oro\Component\Layout\Form\FormRendererInterface;
 use Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface;
 use Oro\Component\Layout\Templating\Helper\LayoutHelper;
 use Oro\Component\Layout\Templating\TextHelper;
 
-class LayoutHelperTest extends \PHPUnit_Framework_TestCase
+class LayoutHelperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var FormRendererInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var FormRendererInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $renderer;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject|TextHelper */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|TextHelper */
     protected $textHelper;
 
     /** @var LayoutHelper */
     protected $helper;
 
-    /** @var FormRendererEngineInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var FormRendererEngineInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $formRenderer;
 
     protected function setUp()
     {
-        $this->renderer   = $this->getMock('Oro\Component\Layout\Form\FormRendererInterface');
+        $this->renderer   = $this->createMock('Oro\Component\Layout\Form\FormRendererInterface');
         $this->textHelper = $this->getMockBuilder('Oro\Component\Layout\Templating\TextHelper')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->formRenderer = $this->getMock('Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface');
+        $this->formRenderer = $this->createMock('Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface');
 
         $this->helper = new LayoutHelper($this->renderer, $this->textHelper, $this->formRenderer);
     }

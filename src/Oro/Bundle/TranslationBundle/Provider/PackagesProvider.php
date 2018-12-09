@@ -4,55 +4,38 @@ namespace Oro\Bundle\TranslationBundle\Provider;
 
 use Composer\Config;
 use Composer\Package\PackageInterface;
-
 use Oro\Bundle\DistributionBundle\Manager\PackageManager;
-use Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink;
 
-class PackagesProvider
+/**
+ * Provider that returns the list of installed packages collected from the bundles and inner package providers.
+ */
+class PackagesProvider implements PackageProviderInterface
 {
-    /** @var ServiceLink */
-    protected $pmLink;
-
     /** @var array */
     protected $bundles;
 
     /** @var  string */
-    protected $kernelRootDir;
+    protected $kernelProjectDir;
 
-    /** @var  string */
-    protected $composerCacheHome;
+    /** @var array|TranslationPackagesProviderExtensionInterface[] */
+    protected $extensions = [];
 
-    /**
-     * @param ServiceLink $pmLink
-     * @param array $bundles
-     * @param string $kernelRootDir
-     * @param string $composerCacheHome
-     */
-    public function __construct(ServiceLink $pmLink, array $bundles, $kernelRootDir, $composerCacheHome)
-    {
-        $this->pmLink            = $pmLink;
-        $this->bundles           = $bundles;
-        $this->kernelRootDir     = $kernelRootDir;
-        $this->composerCacheHome = $composerCacheHome;
-    }
+    /** @var PackageProviderInterface[] */
+    protected $packageProviders;
 
     /**
-     * Set up specific environment for package manager
-     *
-     * @return PackageManager
+     * @param array          $bundles
+     * @param string         $kernelProjectDir
+     * @param array          $packageProviders
      */
-    protected function getPackageManager()
-    {
-        // avoid exception in Composer\Factory for creation service oro_distribution.composer
-        if (!getenv('COMPOSER_HOME') && !getenv('HOME')) {
-            putenv(sprintf('COMPOSER_HOME=%s', $this->composerCacheHome));
-
-            // avoid change of current directory, just give correct vendor dir
-            $rootPath                            = realpath($this->kernelRootDir . '/../') . DIRECTORY_SEPARATOR;
-            Config::$defaultConfig['vendor-dir'] = $rootPath . Config::$defaultConfig['vendor-dir'];
-        }
-
-        return $this->pmLink->getService();
+    public function __construct(
+        array $bundles,
+        $kernelProjectDir,
+        array $packageProviders = []
+    ) {
+        $this->bundles = $bundles;
+        $this->kernelProjectDir = $kernelProjectDir;
+        $this->packageProviders = $packageProviders;
     }
 
     /**
@@ -63,18 +46,17 @@ class PackagesProvider
      */
     public function getInstalledPackages()
     {
-        $packages = $this->getPackageManager()->getInstalled();
-        $packages = array_map(
-            function (PackageInterface $package) {
-                return $package->getName();
-            },
-            $packages
-        );
+        $packages = [];
 
         // collect bundle namespaces
         foreach ($this->bundles as $bundle) {
             $namespaceParts = explode('\\', $bundle);
             $packages[]     = reset($namespaceParts);
+        }
+
+        // collect extra package names from different extensions
+        foreach ($this->packageProviders as $provider) {
+            $packages = array_merge($packages, $provider->getInstalledPackages());
         }
 
         return array_unique($packages);

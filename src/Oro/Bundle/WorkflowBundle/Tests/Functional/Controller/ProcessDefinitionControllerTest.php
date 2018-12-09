@@ -2,15 +2,10 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Functional\Controller;
 
+use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Oro\Bundle\WorkflowBundle\Tests\Functional\DataFixtures\LoadProcessEntities;
 use Symfony\Component\HttpFoundation\Response;
 
-use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
-
-use Oro\Bundle\WorkflowBundle\Tests\Functional\DataFixtures\LoadProcessEntities;
-
-/**
- * @dbIsolation
- */
 class ProcessDefinitionControllerTest extends WebTestCase
 {
     protected function setUp()
@@ -37,7 +32,7 @@ class ProcessDefinitionControllerTest extends WebTestCase
         $response = $this->client->requestGrid(
             [
                 'gridName' => 'process-definitions-grid',
-                'process-definitions-grid[_sort_by][id]' => 'DESC',
+                'process-definitions-grid[_pager][_per_page]' => '100',
             ]
         );
 

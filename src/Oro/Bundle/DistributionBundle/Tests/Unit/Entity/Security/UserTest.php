@@ -6,7 +6,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Oro\Bundle\DistributionBundle\Entity\Security\User;
 use Oro\Bundle\DistributionBundle\Test\PhpUnit\Helper\ReflectionHelperTrait;
 
-class UserTest extends \PHPUnit_Framework_TestCase
+class UserTest extends \PHPUnit\Framework\TestCase
 {
     use ReflectionHelperTrait;
 
@@ -188,11 +188,11 @@ class UserTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param array $roles
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function createGroupMock($roles)
     {
-        $group = $this->getMock('Oro\Bundle\DistributionBundle\Entity\Security\Group');
+        $group = $this->createMock('Oro\Bundle\DistributionBundle\Entity\Security\Group');
         $group->expects($this->any())
             ->method('getRoles')
             ->will($this->returnValue($roles));

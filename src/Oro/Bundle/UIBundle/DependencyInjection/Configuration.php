@@ -2,22 +2,24 @@
 
 namespace Oro\Bundle\UIBundle\DependencyInjection;
 
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\ConfigBundle\DependencyInjection\SettingsBuilder;
+use Oro\Component\PhpUtils\ArrayUtil;
 use Symfony\Component\Config\Definition\Builder\NodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
-use Oro\Component\PhpUtils\ArrayUtil;
-
-use Oro\Bundle\ConfigBundle\DependencyInjection\SettingsBuilder;
-
 /**
- * This is the class that validates and merges configuration from your app/config files
+ * This is the class that validates and merges configuration from your config files
  *
  * To learn more see
  * {@link http://symfony.com/doc/current/cookbook/bundles/extension.html#cookbook-bundles-extension-config-class}
  */
 class Configuration implements ConfigurationInterface
 {
+    const ORGANIZATION_NAME_KEY = 'organization_name';
+    const APPLICATION_URL_KEY = 'application_url';
+
     /**
      * {@inheritDoc}
      */
@@ -45,9 +47,9 @@ class Configuration implements ConfigurationInterface
         SettingsBuilder::append(
             $rootNode,
             [
-                'organization_name'  => ['value' => 'ORO'],
-                'application_url'   => ['value' => 'http://localhost/'],
-                'navbar_position'   => ['value' => 'top'],
+                self::ORGANIZATION_NAME_KEY  => ['value' => 'ORO'],
+                self::APPLICATION_URL_KEY   => ['value' => 'http://localhost'],
+                'navbar_position'   => ['value' => 'left'],
             ]
         );
 
@@ -205,5 +207,16 @@ class Configuration implements ConfigurationInterface
         ArrayUtil::sortBy($items, false, 'order');
 
         return array_keys($items);
+    }
+
+    /**
+     * Get full configuration key
+     *
+     * @param string $key
+     * @return string
+     */
+    public static function getFullConfigKey($key)
+    {
+        return OroUIExtension::ALIAS . ConfigManager::SECTION_MODEL_SEPARATOR . $key;
     }
 }

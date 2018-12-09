@@ -4,9 +4,9 @@ namespace Oro\Component\Layout\Tests\Unit\Templating;
 
 use Oro\Component\Layout\Templating\TextHelper;
 
-class TextHelperTest extends \PHPUnit_Framework_TestCase
+class TextHelperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
     /** @var TextHelper */
@@ -14,7 +14,7 @@ class TextHelperTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->translator->expects($this->any())
             ->method('trans')
             ->will(

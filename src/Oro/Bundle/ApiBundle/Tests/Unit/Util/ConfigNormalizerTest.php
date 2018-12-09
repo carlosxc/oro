@@ -3,8 +3,9 @@
 namespace Oro\Bundle\ApiBundle\Tests\Unit\Util;
 
 use Oro\Bundle\ApiBundle\Util\ConfigNormalizer;
+use Oro\Bundle\ApiBundle\Util\ConfigUtil;
 
-class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
+class ConfigNormalizerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider normalizeConfigProvider
@@ -15,7 +16,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
 
         $normalizedConfig = $normalizer->normalizeConfig($config);
 
-        $this->assertEquals($expectedConfig, $normalizedConfig);
+        self::assertEquals($expectedConfig, $normalizedConfig);
     }
 
     /**
@@ -24,7 +25,50 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
     public function normalizeConfigProvider()
     {
         return [
-            'field depends on another field'                   => [
+            'ignored fields'                                             => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'field1'       => [
+                            'property_path' => ConfigUtil::IGNORE_PROPERTY_PATH
+                        ],
+                        'field2'       => [
+                            'property_path' => 'realField2'
+                        ],
+                        'association1' => [
+                            'fields' => [
+                                'association11' => [
+                                    'fields' => [
+                                        'field111' => [
+                                            'property_path' => ConfigUtil::IGNORE_PROPERTY_PATH
+                                        ],
+                                        'field112' => null
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    '_renamed_fields'  => ['realField2' => 'field2'],
+                    'fields'           => [
+                        'field2'       => [
+                            'property_path' => 'realField2'
+                        ],
+                        'association1' => [
+                            'fields' => [
+                                'association11' => [
+                                    'fields' => [
+                                        'field112' => null
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on another field'                             => [
                 'config'         => [
                     'exclusion_policy' => 'all',
                     'fields'           => [
@@ -44,7 +88,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ]
             ],
-            'field depends on excluded field'                  => [
+            'field depends on excluded field'                            => [
                 'config'         => [
                     'exclusion_policy' => 'all',
                     'fields'           => [
@@ -58,6 +102,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                 ],
                 'expectedConfig' => [
                     'exclusion_policy' => 'all',
+                    '_excluded_fields' => ['field1'],
                     'fields'           => [
                         'field1' => [
                             'exclude' => false
@@ -68,7 +113,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ]
             ],
-            'excluded field depends on another excluded field' => [
+            'excluded field depends on another excluded field'           => [
                 'config'         => [
                     'exclusion_policy' => 'all',
                     'fields'           => [
@@ -83,9 +128,10 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                 ],
                 'expectedConfig' => [
                     'exclusion_policy' => 'all',
+                    '_excluded_fields' => ['field1', 'field2'],
                     'fields'           => [
                         'field1' => [
-                            'exclude' => true,
+                            'exclude' => true
                         ],
                         'field2' => [
                             'exclude'    => true,
@@ -94,7 +140,7 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ]
             ],
-            'field depends on excluded computed field'         => [
+            'field depends on excluded computed field'                   => [
                 'config'         => [
                     'exclusion_policy' => 'all',
                     'fields'           => [
@@ -112,9 +158,10 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                 ],
                 'expectedConfig' => [
                     'exclusion_policy' => 'all',
+                    '_excluded_fields' => ['field1', 'field2'],
                     'fields'           => [
                         'field1' => [
-                            'exclude' => false,
+                            'exclude' => false
                         ],
                         'field2' => [
                             'exclude'    => false,
@@ -126,14 +173,14 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ]
             ],
-            'nested field depends on another field'            => [
+            'nested field depends on another field'                      => [
                 'config'         => [
                     'exclusion_policy' => 'all',
                     'fields'           => [
                         'field' => [
                             'fields' => [
                                 'field1' => [
-                                    'exclude' => true,
+                                    'exclude' => true
                                 ],
                                 'field2' => [
                                     'depends_on' => ['field1']
@@ -146,9 +193,10 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     'exclusion_policy' => 'all',
                     'fields'           => [
                         'field' => [
-                            'fields' => [
+                            '_excluded_fields' => ['field1'],
+                            'fields'           => [
                                 'field1' => [
-                                    'exclude' => false,
+                                    'exclude' => false
                                 ],
                                 'field2' => [
                                     'depends_on' => ['field1']
@@ -158,6 +206,211 @@ class ConfigNormalizerTest extends \PHPUnit_Framework_TestCase
                     ]
                 ]
             ],
+            'field depends on association child field'                   => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field11' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field11' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on association undefined child field'         => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field12' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field11' => null,
+                                'field12' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on undefined association child field'         => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'field2' => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field11' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on association excluded child field'          => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'fields' => [
+                                'field11' => [
+                                    'exclude' => true
+                                ]
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            '_excluded_fields' => ['field11'],
+                            'fields'           => [
+                                'field11' => [
+                                    'exclude' => false
+                                ]
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on excluded association child field'          => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'exclude' => true,
+                            'fields'  => [
+                                'field11' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    '_excluded_fields' => ['association1'],
+                    'fields'           => [
+                        'association1' => [
+                            'exclude' => false,
+                            'fields'  => [
+                                'field11' => null
+                            ]
+                        ],
+                        'field2'       => [
+                            'depends_on' => ['association1.field11']
+                        ]
+                    ]
+                ]
+            ],
+            'field depends on excluded association and its child fields' => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'field2'       => [
+                            'depends_on' => ['association1.association11.field111']
+                        ],
+                        'association1' => [
+                            'exclude' => true,
+                            'fields'  => [
+                                'association11' => [
+                                    'exclude' => true,
+                                    'fields'  => [
+                                        'field111' => [
+                                            'exclude' => true
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    '_excluded_fields' => ['association1'],
+                    'fields'           => [
+                        'field2'       => [
+                            'depends_on' => ['association1.association11.field111']
+                        ],
+                        'association1' => [
+                            'exclude'          => false,
+                            '_excluded_fields' => ['association11'],
+                            'fields'           => [
+                                'association11' => [
+                                    'exclude'          => false,
+                                    '_excluded_fields' => ['field111'],
+                                    'fields'           => [
+                                        'field111' => [
+                                            'exclude' => false
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'extended association'                                       => [
+                'config'         => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => [
+                        'association1' => [
+                            'data_type' => 'association:manyToOne'
+                        ]
+                    ]
+                ],
+                'expectedConfig' => [
+                    'exclusion_policy' => 'all',
+                    'fields'           => []
+                ]
+            ]
         ];
     }
 }

@@ -2,12 +2,18 @@
 
 namespace Oro\Bundle\ImportExportBundle\Converter;
 
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\ImportExportBundle\Event\Events;
 use Oro\Bundle\ImportExportBundle\Event\FormatConversionEvent;
 use Oro\Bundle\ImportExportBundle\Exception\LogicException;
+use Oro\Bundle\ImportExportBundle\Utils\ArrayUtil;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
+/**
+ * Abstract data converter to export/import format.
+ * Converts exportedRecord to the format expected by its destination.
+ * Converts importedRecord to the format which is used to deserialize the entity from the array.
+ */
 abstract class AbstractTableDataConverter extends DefaultDataConverter
 {
     const BACKEND_TO_FRONTEND = 'backend_to_frontend';
@@ -24,6 +30,12 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
 
     /** @var array */
     protected $headerConversionRules;
+
+    /** @var ConfigManager */
+    protected $configManager;
+
+    /** @var bool */
+    protected $translateUsingLocale = true;
 
     /**
      * {@inheritDoc}
@@ -61,21 +73,22 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
 
         $plainDataWithFrontendHeader = $this->removeEmptyColumns($importedRecord, $skipNullValues);
 
-        $frontendHeader = array_keys($plainDataWithFrontendHeader);
-        $frontendToBackendHeader = $this->convertHeaderToBackend($frontendHeader);
-        $plainDataWithBackendHeader = $this->replaceKeys(
+        $frontendHeader               = array_keys($plainDataWithFrontendHeader);
+        $frontendToBackendHeader      = $this->convertHeaderToBackend($frontendHeader);
+        $plainDataWithBackendHeader   = $this->replaceKeys(
             $frontendToBackendHeader,
             $plainDataWithFrontendHeader
         );
         $complexDataWithBackendHeader = parent::convertToImportFormat($plainDataWithBackendHeader, $skipNullValues);
-        $filteredComplexDataWithBackendHeader = $this->filterEmptyArrays($complexDataWithBackendHeader);
+
+        $filteredComplexDataWithBackendHeader = ArrayUtil::filterEmptyArrays($complexDataWithBackendHeader);
 
         return $this->dispatchFormatConversionEvent(
             Events::AFTER_IMPORT_FORMAT_CONVERSION,
             $importedRecord,
             $filteredComplexDataWithBackendHeader
         )
-        ->getResult();
+            ->getResult();
     }
 
     /**
@@ -84,6 +97,32 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
     public function setDispatcher(EventDispatcherInterface $dispatcher)
     {
         $this->dispatcher = $dispatcher;
+    }
+
+    /**
+     * @param ConfigManager $configManager
+     *
+     * @return $this
+     */
+    public function setConfigManager(ConfigManager $configManager)
+    {
+        $this->configManager = $configManager;
+
+        return $this;
+    }
+
+    /**
+     * Set the variable to FALSE if you want to use default translation
+     *
+     * @param bool $translateUsingLocale
+     *
+     * @return $this
+     */
+    public function setTranslateUsingLocale($translateUsingLocale)
+    {
+        $this->translateUsingLocale = $translateUsingLocale;
+
+        return $this;
     }
 
     /**
@@ -106,18 +145,32 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
     /**
      * @param array $header
      * @param array $data
+     * @throws LogicException
+     */
+    protected function validateColumns(array $header, array $data)
+    {
+        $dataDiff = array_diff(array_keys($data), $header);
+        // if data contains keys that are not in header, refresh header and check again
+        if ($dataDiff) {
+            $header = $this->getRefreshedBackendHeader();
+            $dataDiff = array_diff(array_keys($data), $header);
+            if ($dataDiff) {
+                throw new LogicException(
+                    sprintf('Backend header doesn\'t contain fields: %s', implode(', ', $dataDiff))
+                );
+            }
+        }
+    }
+
+    /**
+     * @param array $header
+     * @param array $data
      * @return array
      * @throws LogicException
      */
     protected function fillEmptyColumns(array $header, array $data)
     {
-        $dataDiff = array_diff(array_keys($data), $header);
-        // if data contains keys that are not in header
-        if ($dataDiff) {
-            throw new LogicException(
-                sprintf('Backend header doesn\'t contain fields: %s', implode(', ', $dataDiff))
-            );
-        }
+        $this->validateColumns($header, $data);
 
         $result = array();
         foreach ($header as $headerKey) {
@@ -155,6 +208,15 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
                 return true;
             }
         );
+    }
+
+    /**
+     * @return array
+     */
+    protected function getRefreshedBackendHeader()
+    {
+        $this->backendHeader = null;
+        return $this->receiveBackendHeader();
     }
 
     /**
@@ -284,32 +346,6 @@ abstract class AbstractTableDataConverter extends DefaultDataConverter
         }
 
         return $resultData;
-    }
-
-    /**
-     * Remove all empty arrays and arrays with only null values
-     *
-     * @param array $data
-     * @return array|null
-     */
-    protected function filterEmptyArrays(array $data)
-    {
-        $hasValue = false;
-
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $value = $this->filterEmptyArrays($value);
-                $data[$key] = $value;
-            }
-
-            if (array() === $value) {
-                unset($data[$key]);
-            } elseif (null !== $value) {
-                $hasValue = true;
-            }
-        }
-
-        return $hasValue ? $data : array();
     }
 
     /**

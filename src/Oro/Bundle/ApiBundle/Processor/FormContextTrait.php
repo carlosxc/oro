@@ -2,17 +2,38 @@
 
 namespace Oro\Bundle\ApiBundle\Processor;
 
+use Oro\Bundle\ApiBundle\Collection\IncludedEntityCollection;
+use Oro\Bundle\ApiBundle\Util\EntityMapper;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormInterface;
 
 /**
- * @method bool has($key)
- * @method mixed get($key)
- * @method void set($key, $value)
- * @method void remove($key)
+ * Provides the implementation for methods from FormContext interface.
+ * @see \Oro\Bundle\ApiBundle\Processor\FormContext
  */
 trait FormContextTrait
 {
+    /** @var array */
+    private $requestData;
+
+    /** @var array */
+    private $includedData;
+
+    /** @var IncludedEntityCollection|null */
+    private $includedEntities;
+
+    /** @var EntityMapper|null */
+    private $entityMapper;
+
+    /** @var FormBuilderInterface|null */
+    private $formBuilder;
+
+    /** @var FormInterface|null */
+    private $form;
+
+    /** @var bool */
+    protected $skipFormValidation = false;
+
     /**
      * Returns request data.
      *
@@ -20,17 +41,77 @@ trait FormContextTrait
      */
     public function getRequestData()
     {
-        return $this->get(FormContext::REQUEST_DATA);
+        return $this->requestData;
     }
 
     /**
-     * Sets request data to the Context.
+     * Sets request data to the context.
      *
      * @param array $requestData
      */
     public function setRequestData(array $requestData)
     {
-        $this->set(FormContext::REQUEST_DATA, $requestData);
+        $this->requestData = $requestData;
+    }
+
+    /**
+     * Returns additional data included into the request.
+     *
+     * @return array
+     */
+    public function getIncludedData()
+    {
+        return $this->includedData;
+    }
+
+    /**
+     * Sets additional data included into the request.
+     *
+     * @param array $includedData
+     */
+    public function setIncludedData(array $includedData)
+    {
+        $this->includedData = $includedData;
+    }
+
+    /**
+     * Returns a collection contains additional entities included into the request data.
+     *
+     * @return IncludedEntityCollection|null
+     */
+    public function getIncludedEntities()
+    {
+        return $this->includedEntities;
+    }
+
+    /**
+     * Sets a collection contains additional entities included into the request data.
+     *
+     * @param IncludedEntityCollection|null $includedEntities
+     */
+    public function setIncludedEntities(IncludedEntityCollection $includedEntities = null)
+    {
+        $this->includedEntities = $includedEntities;
+    }
+
+    /**
+     * Gets a service that can be used to convert an entity object to a model object and vise versa.
+     *
+     * @return EntityMapper|null
+     */
+    public function getEntityMapper()
+    {
+        return $this->entityMapper;
+    }
+
+    /**
+     * Sets a service that can be used to convert an entity object to a model object and vise versa.
+     *
+     * @param EntityMapper|null $entityMapper
+     */
+    public function setEntityMapper(EntityMapper $entityMapper = null)
+    {
+        $this->entityMapper = $entityMapper;
     }
 
     /**
@@ -40,7 +121,7 @@ trait FormContextTrait
      */
     public function hasFormBuilder()
     {
-        return $this->has(FormContext::FORM_BUILDER);
+        return null !== $this->formBuilder;
     }
 
     /**
@@ -50,7 +131,7 @@ trait FormContextTrait
      */
     public function getFormBuilder()
     {
-        return $this->get(FormContext::FORM_BUILDER);
+        return $this->formBuilder;
     }
 
     /**
@@ -60,11 +141,7 @@ trait FormContextTrait
      */
     public function setFormBuilder(FormBuilderInterface $formBuilder = null)
     {
-        if ($formBuilder) {
-            $this->set(FormContext::FORM_BUILDER, $formBuilder);
-        } else {
-            $this->remove(FormContext::FORM_BUILDER);
-        }
+        $this->formBuilder = $formBuilder;
     }
 
     /**
@@ -74,7 +151,7 @@ trait FormContextTrait
      */
     public function hasForm()
     {
-        return $this->has(FormContext::FORM);
+        return null !== $this->form;
     }
 
     /**
@@ -84,7 +161,7 @@ trait FormContextTrait
      */
     public function getForm()
     {
-        return $this->get(FormContext::FORM);
+        return $this->form;
     }
 
     /**
@@ -94,10 +171,26 @@ trait FormContextTrait
      */
     public function setForm(FormInterface $form = null)
     {
-        if ($form) {
-            $this->set(FormContext::FORM, $form);
-        } else {
-            $this->remove(FormContext::FORM);
-        }
+        $this->form = $form;
+    }
+
+    /**
+     * Indicates whether the validation of the form should be skipped or not.
+     *
+     * @return bool
+     */
+    public function isFormValidationSkipped()
+    {
+        return $this->skipFormValidation;
+    }
+
+    /**
+     * Sets a flag indicates whether the validation of the form should be skipped or not.
+     *
+     * @param bool $skipFormValidation
+     */
+    public function skipFormValidation($skipFormValidation)
+    {
+        $this->skipFormValidation = $skipFormValidation;
     }
 }

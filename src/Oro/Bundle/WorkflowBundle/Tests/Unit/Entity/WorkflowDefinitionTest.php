@@ -3,16 +3,22 @@
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use JMS\Serializer as JMS;
+use Oro\Bundle\ScopeBundle\Entity\Scope;
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowEntityAcl;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowRestriction;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
+use Oro\Component\Testing\Unit\EntityTestCaseTrait;
 
 /**
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  */
-class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
+class WorkflowDefinitionTest extends \PHPUnit\Framework\TestCase
 {
+    use EntityTestCaseTrait;
+
     /**
      * @var WorkflowDefinition
      */
@@ -26,6 +32,93 @@ class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
     protected function tearDown()
     {
         unset($this->workflowDefinition);
+    }
+
+    public function testGetVirtualAttributes()
+    {
+        $this->workflowDefinition->setConfiguration([
+            'attributes' => [
+                'normal_attribute' => [],
+                'virtual_attribute' => [
+                    'options' => [
+                        'virtual' => true,
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertEquals(
+            [
+                'virtual_attribute' => [
+                    'options' => [
+                        'virtual' => true,
+                    ],
+                ],
+            ],
+            $this->workflowDefinition->getVirtualAttributes()
+        );
+    }
+
+    public function testAccessors()
+    {
+        $this->assertPropertyCollections($this->workflowDefinition, [
+            ['scopes', new Scope()],
+        ]);
+
+        $this->assertPropertyAccessors($this->workflowDefinition, [['applications', ['some_application'], true]]);
+    }
+
+    public function testSetScopesConfig()
+    {
+        $this->assertEquals([], $this->workflowDefinition->getScopesConfig());
+
+        $this->workflowDefinition->setScopesConfig(['data']);
+
+        $this->assertSame(['data'], $this->workflowDefinition->getScopesConfig());
+    }
+
+    public function testGetScopesConfig()
+    {
+        $this->assertEquals([], $this->workflowDefinition->getScopesConfig());
+
+        $this->workflowDefinition->setScopesConfig(['data']);
+
+        $this->assertEquals(['data'], $this->workflowDefinition->getScopesConfig());
+    }
+
+    public function testHasScopeConfig()
+    {
+        $this->assertFalse($this->workflowDefinition->hasScopesConfig());
+
+        $this->workflowDefinition->setScopesConfig(['data']);
+
+        $this->assertTrue($this->workflowDefinition->hasScopesConfig());
+    }
+
+    public function testGetDatagrids()
+    {
+        $datagridsConfig = ['grid1', 'grid2'];
+        $this->workflowDefinition->setConfiguration(['datagrids' => $datagridsConfig]);
+
+        $this->assertSame($datagridsConfig, $this->workflowDefinition->getDatagrids());
+    }
+
+    public function testGetHasDisabledOperations()
+    {
+        $definition = new WorkflowDefinition();
+
+        $this->assertEquals([], $definition->getDisabledOperations());
+        $this->assertFalse($definition->hasDisabledOperations());
+
+        $disabledOperationsConfig = [
+            'operation' => ['className'],
+            'operationWithoutClass' => []
+        ];
+
+        $definition->setConfiguration([WorkflowConfiguration::NODE_DISABLE_OPERATIONS => $disabledOperationsConfig]);
+
+        $this->assertEquals($disabledOperationsConfig, $definition->getDisabledOperations());
+        $this->assertTrue($definition->hasDisabledOperations());
     }
 
     public function testName()
@@ -70,62 +163,35 @@ class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(42, $this->workflowDefinition->getPriority());
     }
 
-    /**
-     * @param array $groups
-     * @dataProvider groupsData
-     */
-    public function testGroups(array $groups)
+    public function testActiveGroups()
     {
         $this->assertEquals([], $this->workflowDefinition->getExclusiveActiveGroups());
         $this->assertFalse($this->workflowDefinition->hasExclusiveActiveGroups());
+
+        $this->workflowDefinition->setExclusiveActiveGroups(['group1', 'group2']);
+
+        $this->assertEquals(['group1', 'group2'], $this->workflowDefinition->getExclusiveActiveGroups());
+
+        $this->assertTrue($this->workflowDefinition->hasExclusiveActiveGroups());
+    }
+
+    public function testRecordGroups()
+    {
         $this->assertEquals([], $this->workflowDefinition->getExclusiveRecordGroups());
         $this->assertFalse($this->workflowDefinition->hasExclusiveRecordGroups());
 
-        $this->workflowDefinition->setGroups($groups);
+        $this->workflowDefinition->setExclusiveRecordGroups(['group1', 'group2']);
 
-        $this->assertEquals(
-            array_key_exists(10, $groups)? $groups[10] : [],
-            $this->workflowDefinition->getExclusiveActiveGroups()
-        );
+        $this->assertEquals(['group1', 'group2'], $this->workflowDefinition->getExclusiveRecordGroups());
 
-        $this->assertEquals(
-            !empty($groups[10]),
-            $this->workflowDefinition->hasExclusiveActiveGroups()
-        );
-
-        $this->assertEquals(
-            array_key_exists(20, $groups)? $groups[20] : [],
-            $this->workflowDefinition->getExclusiveRecordGroups()
-        );
-
-        $this->assertEquals(
-            !empty($groups[20]),
-            $this->workflowDefinition->hasExclusiveRecordGroups()
-        );
+        $this->assertTrue($this->workflowDefinition->hasExclusiveRecordGroups());
     }
 
-    /**
-     * @return array
-     */
-    public function groupsData()
+    public function testIsForceAutostart()
     {
-        return [
-            [
-                [
-                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => ['active1', 'active2'],
-                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => ['record1', 'record2'],
-                ]
-            ],
-            [
-                [
-                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => [],
-                    WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => [],
-                ]
-            ],
-            [
-                []
-            ]
-        ];
+        $this->assertFalse($this->workflowDefinition->isForceAutostart());
+        $this->workflowDefinition->setConfiguration([WorkflowDefinition::CONFIG_FORCE_AUTOSTART => true]);
+        $this->assertTrue($this->workflowDefinition->isForceAutostart());
     }
 
     /**
@@ -148,39 +214,6 @@ class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
         $value = ['some', 'configuration', 'array'];
         $this->workflowDefinition->setConfiguration($value);
         $this->assertEquals($value, $this->workflowDefinition->getConfiguration());
-    }
-
-    public function testImport()
-    {
-        $startStep = new WorkflowStep();
-        $startStep->setName('start');
-        $expectedData = [
-            'name' => 'test_name',
-            'label' => 'test_label',
-            'steps' => new ArrayCollection([$startStep]),
-            'start_step' => $startStep,
-            'configuration' => ['test', 'configuration'],
-            'active_groups' => ['active1', 'active2'],
-            'record_groups' => ['record1', 'record2'],
-        ];
-
-        $this->assertNotEquals($expectedData, $this->getDefinitionAsArray($this->workflowDefinition));
-
-        $groups = [
-            WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_ACTIVE => ['active1', 'active2'],
-            WorkflowDefinition::GROUP_TYPE_EXCLUSIVE_RECORD => ['record1', 'record2'],
-        ];
-
-        $newDefinition = new WorkflowDefinition();
-        $newDefinition->setName($expectedData['name'])
-            ->setSteps($expectedData['steps'])
-            ->setLabel($expectedData['label'])
-            ->setStartStep($expectedData['start_step'])
-            ->setConfiguration($expectedData['configuration'])
-            ->setGroups($groups);
-
-        $this->assertEquals($this->workflowDefinition, $this->workflowDefinition->import($newDefinition));
-        $this->assertEquals($expectedData, $this->getDefinitionAsArray($this->workflowDefinition));
     }
 
     public function testSetSteps()
@@ -286,20 +319,39 @@ class WorkflowDefinitionTest extends \PHPUnit_Framework_TestCase
         $this->assertEmpty($this->workflowDefinition->getRestrictions()->toArray());
     }
 
-    /**
-     * @param WorkflowDefinition $definition
-     * @return array
-     */
-    protected function getDefinitionAsArray(WorkflowDefinition $definition)
+    public function testGetDisabledOperations()
     {
-        return [
-            'name' => $definition->getName(),
-            'label' => $definition->getLabel(),
-            'steps' => $definition->getSteps(),
-            'start_step' => $definition->getStartStep(),
-            'configuration' => $definition->getConfiguration(),
-            'active_groups' => $definition->getExclusiveActiveGroups(),
-            'record_groups' => $definition->getExclusiveRecordGroups(),
+        $configuration = [
+            WorkflowConfiguration::NODE_DISABLE_OPERATIONS => [
+                'operation' => ['entity']
+            ]
         ];
+        $this->workflowDefinition->setConfiguration($configuration);
+        $this->assertSame(
+            $configuration[WorkflowConfiguration::NODE_DISABLE_OPERATIONS],
+            $this->workflowDefinition->getDisabledOperations()
+        );
+    }
+
+    public function testExcludeRestrictionsField()
+    {
+        $step = new WorkflowStep();
+        $step->setName('step');
+
+        $restriction          = new WorkflowRestriction();
+        $restrictionAttribute = 'test attribute';
+        $restriction->setStep($step)->setAttribute($restrictionAttribute);
+
+        $definitionName = 'Definition name';
+        $this->workflowDefinition->setName($definitionName);
+        $this->workflowDefinition->setRestrictions([$restriction]);
+
+        $serializer  = JMS\SerializerBuilder::create()->build();
+        $jsonContent = $serializer->serialize($this->workflowDefinition, 'json');
+
+        $this->assertJson($jsonContent);
+        $this->assertNotContains('restrictions', $jsonContent);
+        $this->assertNotContains($restrictionAttribute, $jsonContent);
+        $this->assertContains($definitionName, $jsonContent);
     }
 }

@@ -1,394 +1,1343 @@
 <?php
+
 namespace Oro\Component\MessageQueue\Tests\Unit\Job;
 
+use Oro\Component\MessageQueue\Exception\JobNotFoundException;
+use Oro\Component\MessageQueue\Exception\JobRuntimeException;
+use Oro\Component\MessageQueue\Exception\StaleJobRuntimeException;
+use Oro\Component\MessageQueue\Job\Extension\ExtensionInterface;
 use Oro\Component\MessageQueue\Job\Job;
 use Oro\Component\MessageQueue\Job\JobProcessor;
 use Oro\Component\MessageQueue\Job\JobRunner;
+use Oro\Component\Testing\Unit\EntityTrait;
 
-class JobRunnerTest extends \PHPUnit_Framework_TestCase
+/**
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
+ * @SuppressWarnings(PHPMD.TooManyMethods)
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)
+ */
+class JobRunnerTest extends \PHPUnit\Framework\TestCase
 {
-    public function testRunUniqueShouldCreateRootAndChildJobAndCallCallback()
+    use EntityTrait;
+
+    /** @var JobProcessor|\PHPUnit_Framework_MockObject_MockObject */
+    private $jobProcessor;
+
+    /** @var ExtensionInterface|\PHPUnit_Framework_MockObject_MockObject */
+    private $jobExtension;
+
+    /** @var JobRunner */
+    private $jobRunner;
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function setUp()
     {
-        $root = new Job();
-        $child = new Job();
+        $this->jobProcessor = $this->createMock(JobProcessor::class);
+        $this->jobExtension = $this->createMock(ExtensionInterface::class);
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findOrCreateRootJob')
-            ->with('owner-id', 'job-name', true)
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findOrCreateChildJob')
-            ->with('job-name')
-            ->will($this->returnValue($child))
-        ;
-
-        $expChild = null;
-        $expRunner = null;
-
-        $jobRunner = new JobRunner($jobProcessor);
-        $result = $jobRunner->runUnique(
-            'owner-id',
-            'job-name',
-            function (JobRunner $runner, Job $child) use (&$expRunner, &$expChild) {
-                $expRunner = $runner;
-                $expChild = $child;
-
-                return 'return-value';
-            }
-        );
-
-        $this->assertInstanceOf(JobRunner::class, $expRunner);
-        $this->assertSame($expChild, $child);
-        $this->assertEquals('return-value', $result);
+        $this->jobRunner = new JobRunner($this->jobProcessor, $this->jobExtension);
     }
 
-    public function testRunUniqueShouldStartChildJobIfNotStarted()
+    public function testRunUniqueRootJobNotFound()
     {
-        $root = new Job();
-        $child = new Job();
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = null;
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateRootJob')
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('findOrCreateChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunUnique');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunUnique');
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () {
+        });
+
+        $this->assertNull($result);
+    }
+
+    public function testRunUniqueRootJobIsStale()
+    {
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1, 'status' => 'oro.message_queue_job.status.stale']);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateRootJob')
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('findOrCreateChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunUnique');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunUnique');
+
+        $this->expectException(StaleJobRuntimeException::class);
+        $this->expectExceptionMessage('Cannot run jobs in status stale, id: "1"');
+
+        $this->jobRunner->runUnique($ownerId, $jobName, function () {
+        });
+    }
+
+    public function testRunUniqueRootJobIsInterrupted()
+    {
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1, 'interrupted' => true]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateRootJob')
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateChildJob')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('cancelAllActiveChildJobs')
+            ->with($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onCancel')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunUnique');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunUnique');
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () {
+        });
+
+        $this->assertNull($result);
+    }
+
+    public function testRunUniqueChildJobIsReadyToStart()
+    {
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'stoppedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateRootJob')
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('startChildJob')
-            ->with($child)
-        ;
+            ->with($childJob);
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runUnique('owner-id', 'job-name', function () {
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
 
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunUnique')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () {
         });
+
+        $this->assertNull($result);
     }
 
-    public function testRunUniqueShouldNotStartChildJobIfAlreadyStarted()
+    /**
+     * @dataProvider resultSuccessDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunUniqueChildJobIsReadyToStopSuccess($expectedResult)
     {
-        $root = new Job();
-        $child = new Job();
-        $child->setStartedAt(new \DateTime());
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+        ]);
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateRootJob')
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateChildJob')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
             ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('successChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunUnique')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    /**
+     * @dataProvider resultFailedDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunUniqueChildJobIsReadyToStopFailed($expectedResult)
+    {
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateRootJob')
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('failChildJob')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunUnique')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    /**
+     * @dataProvider resultSuccessDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunUniqueChildJobFailedRedeliveredSuccess($expectedResult)
+    {
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+            'status' => 'oro.message_queue_job.status.failed_redelivered'
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateRootJob')
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->once())
             ->method('startChildJob')
-        ;
+            ->with($childJob);
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runUnique('owner-id', 'job-name', function () {
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('successChildJob')
+            ->with($childJob);
 
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunUnique')
+            ->with($childJob);
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () use ($expectedResult) {
+            return $expectedResult;
         });
+
+        $this->assertEquals($expectedResult, $result);
     }
 
-    public function testRunUniqueShouldSuccessJobIfCallbackReturnValueIsTrue()
+    /**
+     * @dataProvider resultFailedDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunUniqueChildJobFailedRedeliveredFailed($expectedResult)
     {
-        $root = new Job();
-        $child = new Job();
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+            'status' => 'oro.message_queue_job.status.failed_redelivered'
+        ]);
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateRootJob')
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateChildJob')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('successChildJob')
-        ;
-        $jobProcessor
-            ->expects($this->never())
-            ->method('failChildJob')
-        ;
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runUnique('owner-id', 'job-name', function () {
-            return true;
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('startChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('failChildJob')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunUnique')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runUnique($ownerId, $jobName, function () use ($expectedResult) {
+            return $expectedResult;
         });
+
+        $this->assertEquals($expectedResult, $result);
     }
 
-    public function testRunUniqueShouldFailJobIfCallbackReturnValueIsFalse()
+    public function testRunUniqueCallbackThrowException()
     {
-        $root = new Job();
-        $child = new Job();
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+        ]);
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateRootJob')
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateChildJob')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
-            ->expects($this->never())
-            ->method('successChildJob')
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('failChildJob')
-        ;
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runUnique('owner-id', 'job-name', function () {
-            return false;
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunUnique');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while running job, id: 2');
+
+        $this->jobRunner->runUnique($ownerId, $jobName, function () {
+            throw new \Exception('Exception Message');
         });
     }
 
-    public function testRunUniqueShouldNotSuccessJobIfJobIsAlreadyStopped()
+    public function testRunUniqueCallbackThrowError()
     {
-        $root = new Job();
-        $child = new Job();
-        $child->setStoppedAt(new \DateTime());
+        $ownerId = uniqid('test', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+        ]);
 
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateRootJob')
-            ->will($this->returnValue($root))
-        ;
-        $jobProcessor
+            ->with($ownerId, $jobName, true)
+            ->willReturn($rootJob);
+
+        $this->jobProcessor
             ->expects($this->once())
             ->method('findOrCreateChildJob')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
             ->expects($this->never())
-            ->method('successChildJob')
-        ;
-        $jobProcessor
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
             ->expects($this->never())
-            ->method('failChildJob')
-        ;
+            ->method('startChildJob');
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runUnique('owner-id', 'job-name', function () {
-            return true;
-        });
-    }
-
-    public function testCreateDelayedShouldCreateChildJobAndCallCallback()
-    {
-        $root = new Job();
-        $child = new Job();
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findOrCreateChildJob')
-            ->with('job-name', $this->identicalTo($root))
-            ->will($this->returnValue($child))
-        ;
-
-        $expRunner = null;
-        $expJob = null;
-
-        $jobRunner = new JobRunner($jobProcessor, $root);
-        $jobRunner->createDelayed('job-name', function (JobRunner $runner, Job $job) use (&$expRunner, &$expJob) {
-            $expRunner = $runner;
-            $expJob = $job;
-
-            return true;
-        });
-
-        $this->assertInstanceOf(JobRunner::class, $expRunner);
-        $this->assertSame($expJob, $child);
-    }
-
-    public function testRunDelayedShouldThrowExceptionIfJobWasNotFoundById()
-    {
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue(null))
-        ;
-
-        $jobRunner = new JobRunner($jobProcessor);
-
-        $this->setExpectedException(\LogicException::class, 'Job was not found. id: "job-id"');
-
-        $jobRunner->runDelayed('job-id', function () {
-        });
-    }
-
-    public function testRunDelayedShouldFindJobAndCallCallback()
-    {
-        $root = new Job();
-        $child = new Job();
-        $child->setRootJob($root);
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue($child))
-        ;
-
-        $expRunner = null;
-        $expJob = null;
-
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runDelayed('job-id', function (JobRunner $runner, Job $job) use (&$expRunner, &$expJob) {
-            $expRunner = $runner;
-            $expJob = $job;
-
-            return true;
-        });
-
-        $this->assertInstanceOf(JobRunner::class, $expRunner);
-        $this->assertSame($expJob, $child);
-    }
-
-    public function testRunDelayedShouldCancelJobIfRootJobIsInterrupted()
-    {
-        $root = new Job();
-        $root->setInterrupted(true);
-        $child = new Job();
-        $child->setRootJob($root);
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('cancelChildJob')
-            ->with($this->identicalTo($child))
-        ;
-
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runDelayed('job-id', function (JobRunner $runner, Job $job) {
-            return true;
-        });
-    }
-
-    public function testRunDelayedShouldSuccessJobIfCallbackReturnValueIsTrue()
-    {
-        $root = new Job();
-        $child = new Job();
-        $child->setRootJob($root);
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('successChildJob')
-            ->with($this->identicalTo($child))
-        ;
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->never())
-            ->method('failChildJob')
-        ;
+            ->method('successChildJob');
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runDelayed('job-id', function (JobRunner $runner, Job $job) {
-            return true;
-        });
-    }
-
-    public function testRunDelayedShouldFailJobIfCallbackReturnValueIsFalse()
-    {
-        $root = new Job();
-        $child = new Job();
-        $child->setRootJob($root);
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
+        $this->jobProcessor
             ->expects($this->never())
-            ->method('successChildJob')
-        ;
-        $jobProcessor
-            ->expects($this->once())
-            ->method('failChildJob')
-            ->with($this->identicalTo($child))
-        ;
+            ->method('failChildJob');
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runDelayed('job-id', function (JobRunner $runner, Job $job) {
-            return false;
-        });
-    }
-
-    public function testRunDelayedShouldNotSuccessJobIfAlreadyStopped()
-    {
-        $root = new Job();
-        $child = new Job();
-        $child->setRootJob($root);
-        $child->setStoppedAt(new \DateTime());
-
-        $jobProcessor = $this->createJobProcessorMock();
-        $jobProcessor
-            ->expects($this->once())
-            ->method('findJobById')
-            ->with('job-id')
-            ->will($this->returnValue($child))
-        ;
-        $jobProcessor
+        $this->jobExtension
             ->expects($this->never())
-            ->method('successChildJob')
-        ;
-        $jobProcessor
-            ->expects($this->never())
-            ->method('failChildJob')
-        ;
+            ->method('onCancel');
 
-        $jobRunner = new JobRunner($jobProcessor);
-        $jobRunner->runDelayed('job-id', function (JobRunner $runner, Job $job) {
-            return true;
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunUnique')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunUnique');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while running job, id: 2');
+
+        $this->jobRunner->runUnique($ownerId, $jobName, function () {
+            $func = function (array $a) {
+            };
+
+            call_user_func($func, 1);
         });
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|JobProcessor
+     * @dataProvider resultSuccessDataProvider
+     * @dataProvider resultFailedDataProvider
+     *
+     * @param mixed $expectedResult
      */
-    private function createJobProcessorMock()
+    public function testCreateDelayed($expectedResult)
     {
-        return $this->getMock(JobProcessor::class, [], [], '', false);
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreCreateDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostCreateDelayed')
+            ->with($childJob);
+
+        $jobRunner = new JobRunner($this->jobProcessor, $this->jobExtension, $rootJob);
+        $result = $jobRunner->createDelayed($jobName, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    public function testCreateDelayedException()
+    {
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreCreateDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostCreateDelayed');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while created job, id: 2');
+
+        $jobRunner = new JobRunner($this->jobProcessor, $this->jobExtension, $rootJob);
+        $jobRunner->createDelayed($jobName, function () {
+            throw new \Exception('Exception Message');
+        });
+    }
+
+    public function testCreateDelayedError()
+    {
+        $jobName = 'job_name';
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => 2,
+            'rootJob' => $rootJob,
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findOrCreateChildJob')
+            ->with($jobName, $rootJob)
+            ->willReturn($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreCreateDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostCreateDelayed');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while created job, id: 2');
+
+        $jobRunner = new JobRunner($this->jobProcessor, $this->jobExtension, $rootJob);
+        $jobRunner->createDelayed($jobName, function () {
+            $func = function (array $a) {
+            };
+
+            call_user_func($func, 1);
+        });
+    }
+
+    public function testRunDelayedChildJobNotFound()
+    {
+        $jobId = 2;
+        $childJob = null;
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunDelayed');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunDelayed');
+
+        $this->expectException(JobNotFoundException::class);
+        $this->expectExceptionMessage('Job was not found. id: "2"');
+
+        $this->jobRunner->runDelayed($jobId, function () {
+        });
+    }
+
+    public function testRunDelayedChildJobIsStale()
+    {
+        $jobId = 2;
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'status' => 'oro.message_queue_job.status.stale',
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunDelayed');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunDelayed');
+
+        $this->expectException(StaleJobRuntimeException::class);
+        $this->expectExceptionMessage('Cannot run jobs in status stale, id: "2"');
+
+        $this->jobRunner->runDelayed($jobId, function () {
+        });
+    }
+
+    public function testRunDelayedRootJobIsInterrupted()
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1, 'interrupted' => true]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('cancelAllActiveChildJobs')
+            ->with($rootJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onCancel')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPreRunDelayed');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunDelayed');
+
+        $result = $this->jobRunner->runDelayed($jobId, function () {
+        });
+
+        $this->assertNull($result);
+    }
+
+    public function testRunDelayedChildJobIsReadyToStart()
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'stoppedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('startChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunDelayed')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runDelayed($jobId, function () {
+        });
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * @dataProvider resultSuccessDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunDelayedChildJobIsReadyToStopSuccess($expectedResult)
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('successChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunDelayed')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runDelayed($jobId, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    /**
+     * @dataProvider resultFailedDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunDelayedChildJobIsReadyToStopFailed($expectedResult)
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('failChildJob')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunDelayed')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runDelayed($jobId, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    /**
+     * @dataProvider resultSuccessDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunDelayedChildJobFailedRedeliveredSuccess($expectedResult)
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+            'status' => 'oro.message_queue_job.status.failed_redelivered'
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('startChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('successChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunDelayed')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runDelayed($jobId, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    /**
+     * @dataProvider resultFailedDataProvider
+     *
+     * @param mixed $expectedResult
+     */
+    public function testRunDelayedChildJobFailedRedeliveredFailed($expectedResult)
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+            'status' => 'oro.message_queue_job.status.failed_redelivered'
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('startChildJob')
+            ->with($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('failChildJob')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPostRunDelayed')
+            ->with($childJob);
+
+        $result = $this->jobRunner->runDelayed($jobId, function () use ($expectedResult) {
+            return $expectedResult;
+        });
+
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    public function testRunDelayedCallbackThrowException()
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunDelayed');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while running job, id: 2');
+
+        $this->jobRunner->runDelayed($jobId, function () {
+            throw new \Exception('Exception Message');
+        });
+    }
+
+    public function testRunDelayedCallbackThrowError()
+    {
+        $jobId = 2;
+        $rootJob = $this->getEntity(Job::class, ['id' => 1]);
+        $childJob = $this->getEntity(Job::class, [
+            'id' => $jobId,
+            'rootJob' => $rootJob,
+            'startedAt' => new \DateTime(),
+            'stoppedAt' => new \DateTime(),
+        ]);
+
+        $this->jobProcessor
+            ->expects($this->once())
+            ->method('findJobById')
+            ->with($jobId)
+            ->willReturn($childJob);
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('cancelAllActiveChildJobs');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('startChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('successChildJob');
+
+        $this->jobProcessor
+            ->expects($this->never())
+            ->method('failChildJob');
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onCancel');
+
+        $this->jobExtension
+            ->expects($this->once())
+            ->method('onPreRunDelayed')
+            ->with($childJob);
+
+        $this->jobExtension
+            ->expects($this->never())
+            ->method('onPostRunDelayed');
+
+        $this->expectException(JobRuntimeException::class);
+        $this->expectExceptionMessage('An error occurred while running job, id: 2');
+
+        $this->jobRunner->runDelayed($jobId, function () {
+            $func = function (array $a) {
+            };
+
+            call_user_func($func, 1);
+        });
+    }
+
+    /**
+     * @return array
+     */
+    public function resultSuccessDataProvider()
+    {
+        return [
+            'bool' => [true],
+            'int' => [1],
+            'string' => ['test'],
+            'object' => [new \stdClass()],
+            'callback' => [function () {
+            }],
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    public function resultFailedDataProvider()
+    {
+        return [
+            'bool' => [false],
+            'int' => [0],
+            'null' => [null],
+            'string' => [''],
+        ];
     }
 }

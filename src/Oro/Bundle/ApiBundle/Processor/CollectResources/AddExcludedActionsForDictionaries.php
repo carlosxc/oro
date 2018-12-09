@@ -2,14 +2,15 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\CollectResources;
 
-use Oro\Component\ChainProcessor\ContextInterface;
-use Oro\Component\ChainProcessor\ProcessorInterface;
 use Oro\Bundle\ApiBundle\Config\ActionsConfig;
 use Oro\Bundle\ApiBundle\Request\ApiResource;
 use Oro\Bundle\EntityBundle\Provider\ChainDictionaryValueListProvider;
+use Oro\Component\ChainProcessor\ContextInterface;
+use Oro\Component\ChainProcessor\ProcessorInterface;
 
 /**
- * Disables the "delete" and "delete_list" actions for dictionary entities.
+ * Disables the "delete", "delete_list", "create" and "update" actions
+ * for entities marked as a dictionary.
  */
 class AddExcludedActionsForDictionaries implements ProcessorInterface
 {

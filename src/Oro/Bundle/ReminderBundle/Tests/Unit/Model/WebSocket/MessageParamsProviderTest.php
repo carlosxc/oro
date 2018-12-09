@@ -4,7 +4,7 @@ namespace Oro\Bundle\ReminderBundle\Tests\Unit\Model\WebSocket;
 
 use Oro\Bundle\ReminderBundle\Model\WebSocket\MessageParamsProvider;
 
-class MessageParamsProviderTest extends \PHPUnit_Framework_TestCase
+class MessageParamsProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var MessageParamsProvider
@@ -12,22 +12,22 @@ class MessageParamsProviderTest extends \PHPUnit_Framework_TestCase
     protected $messageParamsProvider;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $configProvider;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $dateTimeFormatter;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $translator;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $urlProvider;
 
@@ -67,7 +67,7 @@ class MessageParamsProviderTest extends \PHPUnit_Framework_TestCase
         $expectedIdentifier        = 'test_template_identifier';
         $expectedClassName         = 'Tasks';
 
-        $reminder = $this->getMock('Oro\Bundle\ReminderBundle\Entity\Reminder');
+        $reminder = $this->createMock('Oro\Bundle\ReminderBundle\Entity\Reminder');
         $reminder->expects($this->exactly(2))->method('getExpireAt')->willReturn($expectedExpireAt);
         $reminder->expects($this->exactly(2))->method('getRelatedEntityClassName')->willReturn($expectedClassName);
         $reminder->expects($this->once())->method('getId')->willReturn($expectedId);
@@ -108,7 +108,7 @@ class MessageParamsProviderTest extends \PHPUnit_Framework_TestCase
         $expectedFormattedExpireAt = 'formatted date time';
         $expectedUrl               = 'www.tests.com';
 
-        $reminder = $this->getMock('Oro\Bundle\ReminderBundle\Entity\Reminder');
+        $reminder = $this->createMock('Oro\Bundle\ReminderBundle\Entity\Reminder');
         $reminder->expects($this->once())
             ->method('getId')
             ->will($this->returnValue($expectedId));

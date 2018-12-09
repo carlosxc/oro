@@ -2,23 +2,22 @@
 
 namespace Oro\Bundle\ImapBundle\Tests\Unit\Form\EventListener;
 
+use Oro\Bundle\ImapBundle\Entity\UserEmailOrigin;
+use Oro\Bundle\ImapBundle\Form\EventListener\GmailOAuthSubscriber;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Translation\TranslatorInterface;
 
-use Oro\Bundle\ImapBundle\Entity\UserEmailOrigin;
-use Oro\Bundle\ImapBundle\Form\EventListener\GmailOAuthSubscriber;
-
-class GmailOAuthSubscriberTest extends \PHPUnit_Framework_TestCase
+class GmailOAuthSubscriberTest extends \PHPUnit\Framework\TestCase
 {
     /** @var  GmailOAuthSubscriber */
     protected $listener;
 
-    /** @var TranslatorInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var TranslatorInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
     protected function setUp()
     {
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $this->translator->expects($this->any())
             ->method('trans');
 

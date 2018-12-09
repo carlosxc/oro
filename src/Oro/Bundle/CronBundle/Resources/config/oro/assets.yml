@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/orocron/css/scss/main.scss'

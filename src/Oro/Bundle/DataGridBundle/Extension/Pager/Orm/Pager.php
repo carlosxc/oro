@@ -4,17 +4,22 @@ namespace Oro\Bundle\DataGridBundle\Extension\Pager\Orm;
 
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\BatchBundle\ORM\Query\QueryCountCalculator;
 use Oro\Bundle\BatchBundle\ORM\QueryBuilder\CountQueryBuilderOptimizer;
-use Oro\Bundle\DataGridBundle\Extension\Pager\PagerInterface;
 use Oro\Bundle\DataGridBundle\Extension\Pager\AbstractPager;
 use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
+use Oro\Component\DoctrineUtils\ORM\QueryHintResolver;
 
-class Pager extends AbstractPager implements PagerInterface
+class Pager extends AbstractPager
 {
     /** @var QueryBuilder */
     protected $qb;
+
+    /** @var QueryBuilder */
+    protected $countQb;
+
+    /** @var array */
+    protected $countQueryHints = [];
 
     /** @var boolean */
     protected $isTotalCalculated = false;
@@ -34,20 +39,25 @@ class Pager extends AbstractPager implements PagerInterface
     /** @var CountQueryBuilderOptimizer */
     protected $countQueryBuilderOptimizer;
 
+    /** @var QueryHintResolver */
+    protected $queryHintResolver;
+
     /** @var string */
     protected $aclPermission = 'VIEW';
 
     public function __construct(
         AclHelper $aclHelper,
         CountQueryBuilderOptimizer $countQueryOptimizer,
+        QueryHintResolver $queryHintResolver,
         $maxPerPage = 10,
         QueryBuilder $qb = null
     ) {
         $this->qb = $qb;
         parent::__construct($maxPerPage);
 
-        $this->aclHelper = $aclHelper;
+        $this->aclHelper                  = $aclHelper;
         $this->countQueryBuilderOptimizer = $countQueryOptimizer;
+        $this->queryHintResolver          = $queryHintResolver;
     }
 
     /**
@@ -57,7 +67,7 @@ class Pager extends AbstractPager implements PagerInterface
      */
     public function setQueryBuilder(QueryBuilder $qb)
     {
-        $this->qb = $qb;
+        $this->qb                = $qb;
         $this->isTotalCalculated = false;
 
         return $this;
@@ -72,22 +82,36 @@ class Pager extends AbstractPager implements PagerInterface
     }
 
     /**
+     * @param QueryBuilder $countQb
+     * @param array $queryHints
+     */
+    public function setCountQb(QueryBuilder $countQb, $queryHints = [])
+    {
+        $this->countQb           = $countQb;
+        $this->countQueryHints   = $queryHints;
+        $this->isTotalCalculated = false;
+    }
+
+    /**
      * Calculates count
      *
      * @return int
      */
     public function computeNbResult()
     {
-        $countQb = $this->countQueryBuilderOptimizer->getCountQueryBuilder($this->getQueryBuilder());
-        $query = $countQb->getQuery();
+        $countQb = $this->countQb ? : $this->qb;
+        $countQb = $this->countQueryBuilderOptimizer->getCountQueryBuilder($countQb);
+        $query   = $countQb->getQuery();
         if (!$this->skipAclCheck) {
             $query = $this->aclHelper->apply($query, $this->aclPermission);
         }
+        $this->queryHintResolver->resolveHints($query, $this->countQueryHints);
 
         $useWalker = null;
         if ($this->skipCountWalker !== null) {
             $useWalker = !$this->skipCountWalker;
         }
+
         return QueryCountCalculator::calculateCount($query, $useWalker);
     }
 
@@ -149,6 +173,9 @@ class Pager extends AbstractPager implements PagerInterface
 
         if (0 == $this->getPage() || 0 == $this->getMaxPerPage() || 0 == $this->getNbResults()) {
             $this->setLastPage(0);
+            if (0 !== $this->getMaxPerPage()) {
+                $query->setMaxResults($this->getMaxPerPage());
+            }
         } else {
             $offset = ($this->getPage() - 1) * $this->getMaxPerPage();
 
@@ -253,5 +280,13 @@ class Pager extends AbstractPager implements PagerInterface
         $results = $queryForRetrieve->getQuery()->execute();
 
         return $results[0];
+    }
+
+    /**
+     * @param array $countQueryHints
+     */
+    public function setCountQueryHints(array $countQueryHints)
+    {
+        $this->countQueryHints = $countQueryHints;
     }
 }

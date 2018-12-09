@@ -5,7 +5,7 @@
         'relatedEntityId': entity.id,
         'relatedEntityClassName': oro_class_name(entity, true),
         'listTemplate': '#template-activity-item-comment',
-        'canCreate': resource_granted('oro_comment_create'),
+        'canCreate': is_granted('oro_comment_create'),
         'name': 'comments'
     } %}
     <div class="comment"
@@ -13,4 +13,4 @@
          data-page-component-options="{{ options|json_encode }}">
     </div>
 </div>
-{% include 'OroCommentBundle:Comment/js:list.js.twig' with {'id': 'template-activity-item-comment'} %}
+{% include 'OroCommentBundle:Comment/js:list.html.twig' with {'id': 'template-activity-item-comment'} %}

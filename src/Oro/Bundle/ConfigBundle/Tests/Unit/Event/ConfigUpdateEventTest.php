@@ -2,9 +2,10 @@
 
 namespace Oro\Bundle\ConfigBundle\Tests\Unit\Event;
 
+use Oro\Bundle\ConfigBundle\Config\ConfigChangeSet;
 use Oro\Bundle\ConfigBundle\Event\ConfigUpdateEvent;
 
-class ConfigUpdateEventTest extends \PHPUnit_Framework_TestCase
+class ConfigUpdateEventTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ConfigUpdateEvent */
     protected $event;
@@ -15,7 +16,7 @@ class ConfigUpdateEventTest extends \PHPUnit_Framework_TestCase
             'old' => 'old value',
             'new' => 'default value'
         ],
-        'oro_user.level' => [
+        'oro_user.level'    => [
             'old' => 'pre value',
             'new' => 50
         ]
@@ -27,9 +28,21 @@ class ConfigUpdateEventTest extends \PHPUnit_Framework_TestCase
         $this->event = new ConfigUpdateEvent($this->changeSet);
     }
 
-    public function testChangeSet()
+    /**
+     * @dataProvider changeSetProvider
+     */
+    public function testChangeSet($changeSet)
     {
-        $this->assertEquals($this->changeSet, $this->event->getChangeSet());
+        $event = new ConfigUpdateEvent($changeSet);
+        $this->assertEquals($this->changeSet, $event->getChangeSet());
+    }
+
+    public function changeSetProvider()
+    {
+        return [
+            'object' => [new ConfigChangeSet($this->changeSet)],
+            'array'  => [$this->changeSet]
+        ];
     }
 
     /**
@@ -66,7 +79,7 @@ class ConfigUpdateEventTest extends \PHPUnit_Framework_TestCase
     public function testValueRetrieving($key, array $expectedValues, $exception = false)
     {
         if (false !== $exception) {
-            $this->setExpectedException($exception);
+            $this->expectException($exception);
         }
 
         $new = $this->event->getNewValue($key);
@@ -94,6 +107,32 @@ class ConfigUpdateEventTest extends \PHPUnit_Framework_TestCase
                 [],
                 '\LogicException'
             ],
+        ];
+    }
+
+    /**
+     * @dataProvider dataProviderForScopes
+     * @param string|null $scope
+     * @param int|null    $scopeId
+     */
+    public function testScopes($scope, $scopeId)
+    {
+        $event = new ConfigUpdateEvent([], $scope, $scopeId);
+
+        $this->assertEquals($scope, $event->getScope());
+        $this->assertEquals($scopeId, $event->getScopeId());
+    }
+
+    /**
+     * @return array
+     */
+    public function dataProviderForScopes()
+    {
+        return [
+            ['website', null],
+            ['website', 1],
+            [null, 1],
+            [null, null],
         ];
     }
 }

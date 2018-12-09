@@ -2,18 +2,27 @@
 
 namespace Oro\Bundle\DataGridBundle\Extension\Sorter;
 
+use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
-use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
-
 class Configuration implements ConfigurationInterface
 {
-    const SORTERS_PATH         = '[sorters]';
-    const COLUMNS_PATH         = '[sorters][columns]';
-    const MULTISORT_PATH       = '[sorters][multiple_sorting]';
-    const DEFAULT_SORTERS_PATH = '[sorters][default]';
-    const TOOLBAR_SORTING_PATH = '[sorters][toolbar_sorting]';
+    const SORTERS_KEY                       = 'sorters';
+    const COLUMNS_KEY                       = 'columns';
+    const MULTISORT_KEY                     = 'multiple_sorting';
+    const DEFAULT_SORTERS_KEY               = 'default';
+    const TOOLBAR_SORTING_KEY               = 'toolbar_sorting';
+    const DISABLE_DEFAULT_SORTING_KEY       = 'disable_default_sorting';
+    const DISABLE_NOT_SELECTED_OPTION_KEY   = 'disable_not_selected_option';
+
+    const SORTERS_PATH                      = '[sorters]';
+    const COLUMNS_PATH                      = '[sorters][columns]';
+    const MULTISORT_PATH                    = '[sorters][multiple_sorting]';
+    const DEFAULT_SORTERS_PATH              = '[sorters][default]';
+    const TOOLBAR_SORTING_PATH              = '[sorters][toolbar_sorting]';
+    const DISABLE_DEFAULT_SORTING_PATH      = '[sorters][disable_default_sorting]';
+    const DISABLE_NOT_SELECTED_OPTION_PATH  = '[sorters][disable_not_selected_option]';
 
     /**
      * {@inheritDoc}
@@ -22,9 +31,9 @@ class Configuration implements ConfigurationInterface
     {
         $builder = new TreeBuilder();
 
-        $builder->root('sorters')
+        $builder->root(static::SORTERS_KEY)
             ->children()
-                ->arrayNode('columns')
+                ->arrayNode(static::COLUMNS_KEY)
                     ->prototype('array')
                         ->children()
                             ->scalarNode(PropertyInterface::DATA_NAME_KEY)->isRequired()->end()
@@ -34,12 +43,17 @@ class Configuration implements ConfigurationInterface
                         ->end()
                     ->end()
                 ->end()
-                ->arrayNode('default')
+                ->arrayNode(static::DEFAULT_SORTERS_KEY)
                     ->prototype('enum')
-                        ->values([OrmSorterExtension::DIRECTION_DESC, OrmSorterExtension::DIRECTION_ASC])->end()
+                        ->values([
+                            AbstractSorterExtension::DIRECTION_DESC,
+                            AbstractSorterExtension::DIRECTION_ASC
+                        ])->end()
                     ->end()
-                    ->booleanNode('multiple_sorting')->end()
-                    ->booleanNode('toolbar_sorting')->end()
+                    ->booleanNode(static::MULTISORT_KEY)->end()
+                    ->booleanNode(static::TOOLBAR_SORTING_KEY)->end()
+                    ->booleanNode(static::DISABLE_DEFAULT_SORTING_KEY)->end()
+                    ->booleanNode(static::DISABLE_NOT_SELECTED_OPTION_KEY)->defaultValue(false)->end()
                 ->end()
             ->end();
 

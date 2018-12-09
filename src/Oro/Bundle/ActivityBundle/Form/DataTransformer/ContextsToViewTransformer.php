@@ -2,60 +2,48 @@
 
 namespace Oro\Bundle\ActivityBundle\Form\DataTransformer;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManager;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Form\DataTransformerInterface;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Bundle\ActivityBundle\Event\PrepareContextTitleEvent;
-use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
-use Oro\Bundle\SearchBundle\Resolver\EntityTitleResolverInterface;
 
 class ContextsToViewTransformer implements DataTransformerInterface
 {
+    const SEPARATOR = '-|-';
+
     /** @var EntityManager */
     protected $entityManager;
-
-    /** @var ConfigManager */
-    protected $configManager;
 
     /** @var TranslatorInterface */
     protected $translator;
 
-    /* @var TokenStorageInterface */
-    protected $securityTokenStorage;
+    /** @var bool */
+    protected $collectionModel;
 
-    /** @var EventDispatcherInterface */
-    protected $dispatcher;
-
-    /** @var EntityTitleResolverInterface */
-    protected $entityTitleResolver;
+    /** @var string */
+    protected $separator = self::SEPARATOR;
 
     /**
-     * @param EntityManager         $entityManager
-     * @param ConfigManager         $configManager
-     * @param TranslatorInterface   $translator
-     * @param TokenStorageInterface $securityTokenStorage
-     * @param EventDispatcherInterface $dispatcher
-     * @param EntityTitleResolverInterface $entityTitleResolver
+     * @param EntityManager $entityManager
+     * @param bool $collectionModel True if result should be Collection instead of array
+     * @param string $separator
      */
     public function __construct(
         EntityManager $entityManager,
-        ConfigManager $configManager,
-        TranslatorInterface $translator,
-        TokenStorageInterface $securityTokenStorage,
-        EventDispatcherInterface $dispatcher,
-        EntityTitleResolverInterface $entityTitleResolver
+        $collectionModel = false
     ) {
-        $this->entityManager        = $entityManager;
-        $this->configManager        = $configManager;
-        $this->translator           = $translator;
-        $this->securityTokenStorage = $securityTokenStorage;
-        $this->dispatcher           = $dispatcher;
-        $this->entityTitleResolver  = $entityTitleResolver;
+        $this->entityManager = $entityManager;
+        $this->collectionModel = $collectionModel;
+    }
+
+    /**
+     * @param string $separator
+     */
+    public function setSeparator($separator)
+    {
+        $this->separator = $separator;
     }
 
     /**
@@ -67,33 +55,20 @@ class ContextsToViewTransformer implements DataTransformerInterface
             return '';
         }
 
-        if (is_array($value)) {
+        if (is_array($value) || $value instanceof Collection) {
             $result = [];
-            $user   = $this->securityTokenStorage->getToken()->getUser();
             foreach ($value as $target) {
-                // Exclude current user
                 $targetClass = ClassUtils::getClass($target);
-                if (ClassUtils::getClass($user) === $targetClass &&
-                    $user->getId() === $target->getId()
-                ) {
-                    continue;
-                }
 
-                $title = $this->entityTitleResolver->resolve($target);
-                if ($label = $this->getClassLabel($targetClass)) {
-                    $title .= ' (' . $label . ')';
-                }
-
-                $item['title'] = $title;
-                $item['targetId'] = $target->getId();
-                $event = new PrepareContextTitleEvent($item, $targetClass);
-                $this->dispatcher->dispatch(PrepareContextTitleEvent::EVENT_NAME, $event);
-                $item = $event->getItem();
-
-                $result[] = json_encode($this->getResult($item['title'], $target));
+                $result[] = json_encode(
+                    [
+                        'entityClass' => $targetClass,
+                        'entityId'    => $target->getId(),
+                    ]
+                );
             }
 
-            $value = implode(';', $result);
+            $value = implode($this->separator, $result);
         }
 
         return $value;
@@ -108,7 +83,7 @@ class ContextsToViewTransformer implements DataTransformerInterface
             return [];
         }
 
-        $targets = explode(';', $value);
+        $targets = explode($this->separator, $value);
         $result  = [];
         $filters = [];
 
@@ -130,39 +105,10 @@ class ContextsToViewTransformer implements DataTransformerInterface
             $result   = array_merge($result, $entities);
         }
 
-        return $result;
-    }
-
-    /**
-     * @param string $className - FQCN
-     *
-     * @return string|null
-     */
-    protected function getClassLabel($className)
-    {
-        if (!$this->configManager->hasConfig($className)) {
-            return null;
+        if ($this->collectionModel) {
+            $result = new ArrayCollection($result);
         }
 
-        $label = $this->configManager->getProvider('entity')->getConfig($className)->get('label');
-
-        return $this->translator->trans($label);
-    }
-
-    /**
-     * @param string $text
-     * @param object $object
-     *
-     * @return array
-     */
-    protected function getResult($text, $object)
-    {
-        return [
-            'text' => $text,
-            'id'   => json_encode([
-                'entityClass' => ClassUtils::getClass($object),
-                'entityId'    => $object->getId(),
-            ])
-        ];
+        return $result;
     }
 }

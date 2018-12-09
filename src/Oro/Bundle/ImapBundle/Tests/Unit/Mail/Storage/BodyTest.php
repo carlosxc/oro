@@ -5,9 +5,9 @@ namespace Oro\Bundle\ImapBundle\Tests\Unit\Mail\Storage;
 use Oro\Bundle\ImapBundle\Mail\Storage\Body;
 use Oro\Bundle\ImapBundle\Mail\Storage\Content;
 
-class BodyTest extends \PHPUnit_Framework_TestCase
+class BodyTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $part;
 
     /** @var Body */
@@ -141,7 +141,7 @@ class BodyTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    private function mockIterator(\PHPUnit_Framework_MockObject_MockObject $obj, $iterationResult1, $iterationResult2)
+    private function mockIterator(\PHPUnit\Framework\MockObject\MockObject $obj, $iterationResult1, $iterationResult2)
     {
         $obj->expects($this->exactly(3))
             ->method('current')
@@ -155,7 +155,7 @@ class BodyTest extends \PHPUnit_Framework_TestCase
     }
 
     private function preparePartMock(
-        \PHPUnit_Framework_MockObject_MockObject $obj,
+        \PHPUnit\Framework\MockObject\MockObject $obj,
         $contentValue,
         $contentType,
         $contentTransferEncoding,
@@ -179,13 +179,13 @@ class BodyTest extends \PHPUnit_Framework_TestCase
         $obj->expects($this->once())->method('getContent')
             ->will($this->returnValue($contentValue));
 
-        $contentTypeHeader = $this->getMock('Zend\Mail\Header\ContentType');
+        $contentTypeHeader = $this->createMock('Zend\Mail\Header\ContentType');
         $contentTypeHeader->expects($this->any())->method('getType')
             ->will($this->returnValue($contentType));
         $contentTypeHeader->expects($this->any())->method('getParameter')
             ->will($this->returnValue($contentEncoding));
 
-        $contentEncodingHeader = $this->getMock('Zend\Mail\Header\HeaderInterface');
+        $contentEncodingHeader = $this->createMock('Zend\Mail\Header\HeaderInterface');
         $contentEncodingHeader->expects($this->any())->method('getFieldValue')
             ->will($this->returnValue($contentTransferEncoding));
 

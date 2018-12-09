@@ -1,20 +1,16 @@
-OroDashboardBundle
-==================
+# OroDashboardBundle
+
+OroDashboardBundle introduces different widget types and manages the configuration of user dashboards and dashboard widgets.
  
-This bundle allows you to manage dashboards for your application created using ORO Platform.
-Dashboard is an entity with user owner. Dashboard view page contains a set of blocks (widgets) with important or useful
-information for your users. User with permissions can add any available widget to dashboard.
- 
-Developer also can configure what widgets are available using configuration files.
- 
-Dashboard configuration
------------------------
+## Dashboard configuration
+
 ```yaml
-oro_dashboard_config:
+dashboards:
     # Configuration of widgets
     widgets:                                                 # widget declaration section
         quick_launchpad:                                     # widget name
-            icon:       icon.png                             # widget icon shown on widget add dialog
+            icon_class: fa-rocket                            # name of FontAwesome class for an icon shown on widget add dialog
+            icon:       icon.png                             # widget icon shown on widget add dialog, in case the iconClass is not defined
             description: Text                                # description of widget
             acl:        acl_resource                         # acl resource of dashboard
             route:      oro_dashboard_itemized_widget        # widget route
@@ -28,11 +24,10 @@ oro_dashboard_config:
 ```
 To view all configuration options you can launch `config:dump-reference` command:
 ```bash
-php app/console config:dump-reference OroDashboardBundle
+php bin/console config:dump-reference OroDashboardBundle
 ```
 
-How to add new dashboard
-------------------------
+## How to add new dashboard
 
 To add new dashboard you need to create new data migration:
 
@@ -98,10 +93,9 @@ class LoadDashboardData extends AbstractDashboardFixture implements DependentFix
 
 ```
  
-How to make a dashboard a first page of your application
---------------------------------------------------------
+## How to make a dashboard a first page of your application
  
-Make the following changes in `app/config/routing.yml`:
+Make the following changes in `config/routing.yml`:
 ```yaml
 oro_default:
     pattern:  /
@@ -109,18 +103,17 @@ oro_default:
         _controller: OroDashboardBundle:Dashboard:view
 ```
  
-How to add new widget
----------------------
+## How to add new widget
  
-In this example lets create a grid widget. First you need to create a grid. Use `datagrid.yml` of your bundle to do this. For example lets create `dashboard-recent-calls-grid` grid:
+In this example lets create a grid widget. First you need to create a grid. Use `datagrids.yml` of your bundle to do this. For example lets create `dashboard-recent-calls-grid` grid:
 ```yaml
-datagrid:
+datagrids:
     dashboard-recent-calls-grid:
         options:
             entityHint: call
         source:
             type: orm
-            acl_resource: orocrm_call_view
+            acl_resource: oro_call_view
             query:
                 select:
                     - call.id
@@ -129,7 +122,7 @@ datagrid:
                     - call.callDateTime as dateTime
                     - directionType.name as callDirection
                 from:
-                    - { table: %orocrm_call.call.entity.class%, alias: call }
+                    - { table: %oro_call.call.entity.class%, alias: call }
                 join:
                     left:
                         - { join: call.direction, alias: directionType }
@@ -137,13 +130,13 @@ datagrid:
                         - { join: call.owner, alias: ownerUser }
                 where:
                     and:
-                      - ownerUser.id = @oro_security.security_facade->getLoggedUserId
+                      - ownerUser.id = @oro_security.token_accessor->getUserId
         columns:
             callDirection:
                 type: twig
                 label: ~
                 frontend_type: html
-                template: OroCRMCallBundle:Datagrid:Column/direction.html.twig
+                template: OroCallBundle:Datagrid:Column/direction.html.twig
             dateTime:
                 label: orocrm.call.datagrid.date_time
                 frontend_type: datetime
@@ -151,7 +144,7 @@ datagrid:
                 type: twig
                 label: orocrm.call.subject.label
                 frontend_type: html
-                template: OroCRMCallBundle:Datagrid:Column/subject.html.twig
+                template: OroCallBundle:Datagrid:Column/subject.html.twig
             phone:
                 label: orocrm.call.phone_number.label
         sorters:
@@ -169,6 +162,7 @@ datagrid:
 ```
  
 Next you need to create a TWIG template renders your grid. This template should be located `Resources/views/Dashboard` directory in of your bundle. For example lets create `recentCalls.html.twig`:
+
 ```twig
 {% extends 'OroDashboardBundle:Dashboard:widget.html.twig' %}
 {% import 'OroDataGridBundle::macros.html.twig' as dataGrid %}
@@ -182,7 +176,7 @@ Next you need to create a TWIG template renders your grid. This template should 
  
 {% block actions %}
     {% set actions = [{
-        'url': path('orocrm_call_index'),
+        'url': path('oro_call_index'),
         'type': 'link',
         'label': 'orocrm.dashboard.recent_calls.view_all'|trans
     }] %}
@@ -191,29 +185,29 @@ Next you need to create a TWIG template renders your grid. This template should 
 {% endblock %}
 ```
  
-After that you need to register your widget and add it on the appropriate dashboard. Use `dashboard.yml` of your bundle to do this. For example:
+After that you need to register your widget and add it on the appropriate dashboard. Use `dashboards.yml` of your bundle to do this. For example:
+
 ```yaml
-oro_dashboard_config:
+dashboards:
     widgets:
         recent_calls:                               # register a widget
             label:      orocrm.dashboard.recent_calls.title
             route:      oro_dashboard_widget        # you can use existing controller to render your TWIG template
-            route_parameters: { bundle: OroCRMCallBundle, name: recentCalls }   # just specify a bundle and a TWIG template name
-            acl:        orocrm_call_view
+            route_parameters: { bundle: OroCallBundle, name: recentCalls }   # just specify a bundle and a TWIG template name
+            acl:        oro_call_view
 ```
  
 Also there are some additional TWIG templates for mostly used widgets, for example `tabbed`, `itemized` (a widget contains some items, for example links), `chart` and others.
 You can find them in `OroDashboardBundle/Resources/views/Dashboard` directory.
 
-Widget configuration
----------------------
+## Widget configuration
 
 Each widget can have own configuration. Configuration values stores for each widget instance on dashboard.
 
 To add configuration, the widget configuration should contain 'configuration' block, there should be list of available configuration values. For example:
 
 ```yaml
-oro_dashboard_config:
+dashboards:
     widgets:
         my_test_chart:
   ...
@@ -224,10 +218,10 @@ oro_dashboard_config:
                        label: acme.test.label    # field label            
                     show_on_widget: true         # if true - value of config parameter will be shown at the bottom of widget. By default - false
 ```
-If developer wants to add some config value to all widgets, he can use 'widgets_configuration' block of dashboard.yml file. For example:
+If developer wants to add some config value to all widgets, he can use 'widgets_configuration' block of dashboards.yml file. For example:
 
 ```yaml
-oro_dashboard_config:
+dashboards:
     widgets_configuration:
         globalConfigParameter:
             type: text
@@ -235,14 +229,13 @@ oro_dashboard_config:
                label: acme.globalConfigParameter.label
 ```
 
-Grid widget configuration
--------------------------
+## Grid widget configuration
 
 There is special route "oro_dashboard_grid" for rendering grids allowing to set grid specific options.
 
 This action also allows you to configure shown view for grid.
 
-### dashboard.yml
+### dashboards.yml
 
 ``` yml
     accounts_grid:

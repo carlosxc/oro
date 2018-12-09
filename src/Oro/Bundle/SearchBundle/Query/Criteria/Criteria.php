@@ -60,6 +60,10 @@ class Criteria extends BaseCriteria
     public static function getSearchOperatorByComparisonOperator($operator)
     {
         switch ($operator) {
+            case Comparison::LIKE:
+                return Query::OPERATOR_LIKE;
+            case Comparison::NOT_LIKE:
+                return Query::OPERATOR_NOT_LIKE;
             case Comparison::CONTAINS:
                 return Query::OPERATOR_CONTAINS;
             case Comparison::NOT_CONTAINS:
@@ -68,6 +72,12 @@ class Criteria extends BaseCriteria
                 return Query::OPERATOR_NOT_EQUALS;
             case Comparison::NIN:
                 return Query::OPERATOR_NOT_IN;
+            case Comparison::STARTS_WITH:
+                return Query::OPERATOR_STARTS_WITH;
+            case Comparison::EXISTS:
+                return Query::OPERATOR_EXISTS;
+            case Comparison::NOT_EXISTS:
+                return Query::OPERATOR_NOT_EXISTS;
         }
 
         return strtolower($operator);

@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollector;
 
-class MessageQueueCollectorTest extends \PHPUnit_Framework_TestCase
+class MessageQueueCollectorTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
     
@@ -28,7 +28,7 @@ class MessageQueueCollectorTest extends \PHPUnit_Framework_TestCase
     {
         $collector = new MessageQueueCollector($this->createMessageProducerMock());
 
-        $this->assertEquals('oro.message_queue', $collector->getName());
+        $this->assertEquals('message_queue', $collector->getName());
     }
 
     public function testShouldReturnEmptySentMessageArrayIfNotTraceableMessageProducer()
@@ -87,18 +87,18 @@ class MessageQueueCollectorTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProducerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProducerInterface
      */
     protected function createMessageProducerMock()
     {
-        return $this->getMock(MessageProducerInterface::class);
+        return $this->createMock(MessageProducerInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|TraceableMessageProducer
+     * @return \PHPUnit\Framework\MockObject\MockObject|TraceableMessageProducer
      */
     protected function createTraceableMessageProducerMock()
     {
-        return $this->getMock(TraceableMessageProducer::class, [], [], '', false);
+        return $this->createMock(TraceableMessageProducer::class);
     }
 }

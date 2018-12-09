@@ -4,14 +4,13 @@ namespace Oro\Bundle\LocaleBundle\Tests\Unit\Helper;
 
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\LocaleBundle\Helper\LocalizationQueryTrait;
 
-class LocalizationQueryTraitTest extends \PHPUnit_Framework_TestCase
+class LocalizationQueryTraitTest extends \PHPUnit\Framework\TestCase
 {
     use LocalizationQueryTrait;
 
-    /** @var QueryBuilder|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var QueryBuilder|\PHPUnit\Framework\MockObject\MockObject */
     protected $queryBuilder;
 
     /**
@@ -40,6 +39,24 @@ class LocalizationQueryTraitTest extends \PHPUnit_Framework_TestCase
         $this->assertSame(
             $this->queryBuilder,
             $this->joinDefaultLocalizedValue($this->queryBuilder, 'join', 'joinAlias', 'fieldAlias')
+        );
+    }
+
+    public function testLeftJoinDefaultLocalizedValue()
+    {
+        $this->queryBuilder->expects($this->at(0))
+            ->method('addSelect')
+            ->with('joinAlias.string as fieldAlias')
+            ->willReturn($this->queryBuilder);
+
+        $this->queryBuilder->expects($this->at(1))
+            ->method('leftJoin')
+            ->with('join', 'joinAlias', Join::WITH, 'joinAlias.localization IS NULL')
+            ->willReturn($this->queryBuilder);
+
+        $this->assertSame(
+            $this->queryBuilder,
+            $this->joinDefaultLocalizedValue($this->queryBuilder, 'join', 'joinAlias', 'fieldAlias', 'leftJoin')
         );
     }
 }

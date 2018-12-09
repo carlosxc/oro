@@ -5,23 +5,24 @@ To enable inline editing on a grid, do the following actions:
 - Go to the datagrid yml
 - Add the following lines into the datagrid configuration
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         inline_editing:
             enable: true
         save_api_accessor:
             http_method: PATCH
-            route: orocrm_account_update
+            route: oro_account_update
 ```
 - Open the corresponding page, all the columns for which the frontend type supports inline editing will become editable
 
 ## Datagrid configuration details
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         inline_editing:
             enable: true
+            acl_resource: custom_acl_resource
             entity_name: Oro\Bundle\UserBundle\Entity\User
             behaviour: enable_all
             plugin: orodatagrid/js/app/plugins/grid/inline-editing-plugin
@@ -37,6 +38,7 @@ datagrid:
 Option name              | Default value | Description
 :------------------------|:--------------|:-----------
 enable    | false        | Enables inline editing on the grid. By default is enabled for all cells that have frontend type that supports inline editing
+acl_resource | | Enables inline editing if access granted to specified resource. By default is checked EDIT permission to specified entity
 entity_name | | Entity class name for saving data. By default it tries to get value from `extended_entity_name`
 behaviour | enable_all   | Specifies the way to enable the inline editing. Possible values: `enable_all` - (default). this will enable inline editing where possible. `enable_selected` - disable by default, enable only on configured cells
 plugin    | orodatagrid/js/app/plugins/grid/inline-editing-plugin | Specifies the plugin realization
@@ -47,7 +49,7 @@ save_api_accessor | {class: 'oroui/js/tools/api-accessor'} | Required. Describes
 ### Sample usage of the save_api_accessor with full options provided
 ``` yml
 save_api_accessor:
-    route: orocrm_opportunity_task_update # for example this route uses following mask
+    route: oro_opportunity_task_update # for example this route uses following mask
         # to generate url /api/opportunity/{opportunity_id}/tasks/{id}
     http_method: POST
     headers:
@@ -66,7 +68,7 @@ Please note that `{id}` will be taken from the current row in the grid
 
 ## Column configuration options
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         columns:
@@ -106,7 +108,7 @@ frontend_type: select - simple choice from provided values
 
 Example:
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         columns:
@@ -127,7 +129,7 @@ frontend_type: multi-select - simple choice from provided values allow choose fe
 
 Example:
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         columns:
@@ -147,7 +149,7 @@ frontend_type: relation - select2 type with autocomplete search function
 
 Example:
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         columns:
@@ -165,7 +167,7 @@ frontend_type: multi-relation - select2 type with autocomplete search function a
 
 Example:
 ``` yml
-datagrid:
+datagrids:
     {grid-uid}:
         # <grid configuration> goes here
         columns:

@@ -1,10 +1,9 @@
-/*jslint nomen:true*/
-/*global define*/
 define([
+    'underscore',
     'oroui/js/messenger',
     'orotranslation/js/translator',
     'oroui/js/mediator'
-], function(messenger, __, mediator) {
+], function(_, messenger, __, mediator) {
     'use strict';
 
     /**
@@ -14,11 +13,21 @@ define([
      * @class   oro.WorkflowTransitionEventHandlers
      */
     return {
-        getOnSuccess: function(element) {
+        getOnStart: function(element, pageRefresh) {
+            return function() {
+                if (pageRefresh) {
+                    mediator.execute('showLoading');
+                }
+
+                element.trigger('transitions_start');
+            };
+        },
+        getOnSuccess: function(element, pageRefresh) {
             return function(response) {
-                mediator.execute('hideLoading');
+                pageRefresh = _.isUndefined(pageRefresh) ? true : pageRefresh;
+
                 function doRedirect(redirectUrl) {
-                    mediator.execute('redirectTo', {url: redirectUrl});
+                    mediator.execute('redirectTo', {url: redirectUrl}, {redirect: true});
                 }
                 function doReload() {
                     mediator.execute('refreshPage');
@@ -36,17 +45,30 @@ define([
                     }
                 });
                 /** By default reload page */
-                element.one('transitions_success', doReload);
+                if (pageRefresh) {
+                    element.one('transitions_success', doReload);
+                }
+
                 element.trigger('transitions_success', [response]);
             };
         },
-        getOnFailure: function(element) {
+        getOnFailure: function(element, pageRefresh) {
             return function(jqxhr, textStatus, error) {
-                mediator.execute('hideLoading');
+                pageRefresh = _.isUndefined(pageRefresh) ? true : pageRefresh;
+
+                if (pageRefresh) {
+                    mediator.execute('hideLoading');
+                }
+
                 element.one('transitions_failure', function() {
-                    messenger.notificationFlashMessage('error', __('Could not perform transition'));
+                    var message = __('Could not perform transition');
+                    if (jqxhr.message !== undefined) {
+                        message += ': ' + jqxhr.message;
+                    }
+                    messenger.notificationFlashMessage('error', message);
                 });
                 element.trigger('transitions_failure', [jqxhr, textStatus, error]);
+                mediator.trigger('workflow:transitions_failure', element, jqxhr, textStatus, error);
             };
         }
     };

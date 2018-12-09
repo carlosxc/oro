@@ -4,7 +4,6 @@ namespace Oro\Bundle\EmailBundle\Entity\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\EmailBundle\Entity\EmailRecipient;
 use Oro\Bundle\EmailBundle\Entity\EmailThread;
 
@@ -16,6 +15,7 @@ class EmailRecipientRepository extends EntityRepository
      * @param EmailThread $thread
      *
      * @return EmailRecipient[]
+     * @deprecated since 2.3. Use EmailGridResultHelper::addEmailRecipients instead
      */
     public function getThreadUniqueRecipients(EmailThread $thread)
     {
@@ -55,12 +55,11 @@ class EmailRecipientRepository extends EntityRepository
     ) {
         $emailQb = $this->_em->getRepository('Oro\Bundle\EmailBundle\Entity\Email')->createQueryBuilder('e');
         $emailQb
-            ->select('MAX(r.id) AS id')
+            ->select('r.id')
             ->join('e.fromEmailAddress', 'fe')
             ->join('e.recipients', 'r')
             ->join('r.emailAddress', 'a')
-            ->andWhere('e.sentAt > :from')
-            ->groupBy('a.email');
+            ->andWhere('e.sentAt > :from');
 
         if ($senderEmails) {
             $emailQb->andWhere($emailQb->expr()->in('fe.email', ':senders'));
@@ -74,6 +73,7 @@ class EmailRecipientRepository extends EntityRepository
 
         $recepientsQb = $this->createQueryBuilder('re');
         $recepientsQb
+            ->distinct()
             ->select('re.name, ea.email')
             ->orderBy('re.name')
             ->join('re.emailAddress', 'ea')

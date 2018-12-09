@@ -2,11 +2,10 @@
 
 namespace Oro\Bundle\SecurityBundle\Authentication\Guesser;
 
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-
-use Oro\Bundle\UserBundle\Entity\OrganizationAwareUserInterface;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface;
+use Oro\Bundle\UserBundle\Entity\OrganizationAwareUserInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 class UserOrganizationGuesser
 {
@@ -25,6 +24,16 @@ class UserOrganizationGuesser
             return $token->getOrganizationContext();
         }
 
+        return $this->guessByUser($user);
+    }
+
+    /**
+     * @param OrganizationAwareUserInterface $user
+     *
+     * @return null|Organization
+     */
+    public function guessByUser(OrganizationAwareUserInterface $user)
+    {
         $activeOrganizations = $user->getOrganizations(true);
         $creatorOrganization = $user->getOrganization();
 

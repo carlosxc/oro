@@ -2,33 +2,23 @@
 
 namespace Oro\Component\Layout\Tests\Unit\Loader\Driver;
 
-use Symfony\Component\Filesystem\Filesystem;
-
 use Oro\Component\Layout\Exception\SyntaxException;
 use Oro\Component\Layout\Loader\Driver\PhpDriver;
 use Oro\Component\Layout\Loader\Generator\GeneratorData;
 use Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface;
+use Oro\Component\Testing\TempDirExtension;
 
-class PhpDriverTest extends \PHPUnit_Framework_TestCase
+class PhpDriverTest extends \PHPUnit\Framework\TestCase
 {
+    use TempDirExtension;
+
     protected $cacheDir;
 
     public function setUp()
     {
         parent::setUp();
 
-        $this->cacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'layouts';
-
-        $fs = new Filesystem();
-        $fs->remove($this->cacheDir);
-    }
-
-    public function tearDown()
-    {
-        parent::tearDown();
-
-        $fs = new Filesystem();
-        $fs->remove($this->cacheDir);
+        $this->cacheDir = $this->getTempDir('layouts', false);
     }
 
     /**
@@ -36,13 +26,13 @@ class PhpDriverTest extends \PHPUnit_Framework_TestCase
      */
     public function testEmptyCacheDirException()
     {
-        $generator = $this->getMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
+        $generator = $this->createMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
         $this->getLoader($generator);
     }
 
     public function testLoadInDebugMode()
     {
-        $generator = $this->getMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
+        $generator = $this->createMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
         $loader    = $this->getLoader($generator, true, $this->cacheDir);
 
         $generator->expects($this->once())->method('generate')->willReturnCallback([$this, 'buildClass']);
@@ -56,7 +46,7 @@ class PhpDriverTest extends \PHPUnit_Framework_TestCase
 
     public function testLoadInProductionMode()
     {
-        $generator = $this->getMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
+        $generator = $this->createMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
         $loader    = $this->getLoader($generator, false, $this->cacheDir);
 
         $generator->expects($this->once())->method('generate')->willReturnCallback([$this, 'buildClass']);
@@ -71,7 +61,7 @@ class PhpDriverTest extends \PHPUnit_Framework_TestCase
 
     public function testProcessSyntaxExceptions()
     {
-        $generator = $this->getMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
+        $generator = $this->createMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface');
         $loader    = $this->getLoader($generator, true, $this->cacheDir);
 
         $exception = new SyntaxException(
@@ -88,7 +78,8 @@ Syntax error: Some error found at "0"
 
 Filename:
 MESSAGE;
-        $this->setExpectedException('\RuntimeException', $message);
+        $this->expectException('\RuntimeException');
+        $this->expectExceptionMessage($message);
 
         $path     = rtrim(__DIR__, DIRECTORY_SEPARATOR) . '/../Stubs/Updates/layout_update4.php';
         $path     = str_replace('/', DIRECTORY_SEPARATOR, $path);
@@ -129,7 +120,7 @@ CLASS;
     }
 
     /**
-     * @param null|LayoutUpdateGeneratorInterface|\PHPUnit_Framework_MockObject_MockObject $generator
+     * @param null|LayoutUpdateGeneratorInterface|\PHPUnit\Framework\MockObject\MockObject $generator
      * @param bool                                                                         $debug
      * @param bool                                                                         $cache
      *
@@ -138,7 +129,7 @@ CLASS;
     protected function getLoader($generator = null, $debug = false, $cache = false)
     {
         $generator = null === $generator
-            ? $this->getMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface')
+            ? $this->createMock('Oro\Component\Layout\Loader\Generator\LayoutUpdateGeneratorInterface')
             : $generator;
 
         return new PhpDriver($generator, $debug, $cache);

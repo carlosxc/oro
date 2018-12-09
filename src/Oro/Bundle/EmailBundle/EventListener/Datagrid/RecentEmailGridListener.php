@@ -16,12 +16,12 @@ class RecentEmailGridListener
     protected $emailQueryFactory;
 
     /**
-     * @param EmailGridHelper        $emailGridHelper
-     * @param EmailQueryFactory|null $emailQueryFactory
+     * @param EmailGridHelper   $emailGridHelper
+     * @param EmailQueryFactory $emailQueryFactory
      */
-    public function __construct(EmailGridHelper $emailGridHelper, EmailQueryFactory $emailQueryFactory = null)
+    public function __construct(EmailGridHelper $emailGridHelper, EmailQueryFactory $emailQueryFactory)
     {
-        $this->emailGridHelper   = $emailGridHelper;
+        $this->emailGridHelper = $emailGridHelper;
         $this->emailQueryFactory = $emailQueryFactory;
     }
 
@@ -30,13 +30,8 @@ class RecentEmailGridListener
      */
     public function onBuildAfter(BuildAfter $event)
     {
-        $datagrid   = $event->getDatagrid();
-        $datasource = $datagrid->getDatasource();
-        if ($datasource instanceof OrmDatasource) {
-            $queryBuilder = $datasource->getQueryBuilder();
-
-            $this->emailQueryFactory->applyAcl($queryBuilder);
-            $this->emailQueryFactory->prepareQuery($queryBuilder);
-        }
+        /** @var OrmDatasource $datasource */
+        $datasource = $event->getDatagrid()->getDatasource();
+        $this->emailQueryFactory->applyAcl($datasource->getQueryBuilder());
     }
 }

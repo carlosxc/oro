@@ -9,8 +9,8 @@ use Oro\Component\Layout\Extension\Theme\Model\ThemeManager;
 use Oro\Component\Layout\Extension\Theme\ResourceProvider\ResourceProviderInterface;
 use Oro\Component\Layout\Extension\Theme\ThemeExtension;
 use Oro\Component\Layout\ImportsAwareLayoutUpdateInterface;
+use Oro\Component\Layout\IsApplicableLayoutUpdateInterface;
 use Oro\Component\Layout\LayoutUpdateImportInterface;
-use Oro\Component\Layout\LayoutUpdateInterface;
 use Oro\Component\Layout\Loader\Generator\ElementDependentLayoutUpdateInterface;
 use Oro\Component\Layout\Loader\LayoutUpdateLoaderInterface;
 use Oro\Component\Layout\Model\LayoutUpdateImport;
@@ -31,7 +31,7 @@ class ImportVisitor implements VisitorInterface
     /** @var ThemeManager */
     private $themeManager;
 
-    /** @var LayoutUpdateInterface[] */
+    /** @var array */
     private $updates = [];
 
     /**
@@ -72,11 +72,14 @@ class ImportVisitor implements VisitorInterface
      * @param ImportsAwareLayoutUpdateInterface $parentUpdate
      * @param ContextInterface $context
      *
-     * @return LayoutUpdateImportInterface
      * @throws LogicException
      */
     private function loadImportUpdate($parentUpdate, ContextInterface $context)
     {
+        if ($parentUpdate instanceof IsApplicableLayoutUpdateInterface && !$parentUpdate->isApplicable($context)) {
+            return;
+        }
+
         $imports = $parentUpdate->getImports();
         if (!is_array($imports)) {
             throw new LogicException(
@@ -84,7 +87,8 @@ class ImportVisitor implements VisitorInterface
             );
         }
 
-        foreach ($imports as $importData) {
+        $importsReversed = array_reverse($imports);
+        foreach ($importsReversed as $importData) {
             $import = $this->createImport($importData);
             if ($parentUpdate instanceof LayoutUpdateImportInterface) {
                 $import->setParent($parentUpdate->getImport());
@@ -98,10 +102,7 @@ class ImportVisitor implements VisitorInterface
                     $update->setParentUpdate($parentUpdate);
                 }
 
-                $el = $update instanceof ElementDependentLayoutUpdateInterface
-                    ? $update->getElement()
-                    : 'root';
-                $this->updates[$el][] = $update;
+                $this->insertUpdate($parentUpdate, $update);
 
                 $this->dependencyInitializer->initialize($update);
 
@@ -110,6 +111,27 @@ class ImportVisitor implements VisitorInterface
                 }
             }
         }
+    }
+
+    /**
+     * Insert import update right after its parent update
+     *
+     * @param ImportsAwareLayoutUpdateInterface $parentUpdate
+     * @param LayoutUpdateImportInterface $update
+     */
+    private function insertUpdate($parentUpdate, $update)
+    {
+        $el = $update instanceof ElementDependentLayoutUpdateInterface
+            ? $update->getElement()
+            : 'root';
+
+        $parentUpdateIndex = array_search($parentUpdate, $this->updates[$el]);
+
+        $this->updates[$el] = array_merge(
+            array_slice($this->updates[$el], 0, $parentUpdateIndex, true),
+            [$update],
+            array_slice($this->updates[$el], $parentUpdateIndex, null, true)
+        );
     }
 
     /**

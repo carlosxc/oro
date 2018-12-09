@@ -2,37 +2,37 @@
 
 namespace Oro\Bundle\SearchBundle\Query\Result;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
-use Doctrine\Common\Persistence\ObjectManager;
-
 use JMS\Serializer\Annotation\Type;
-use JMS\Serializer\Annotation\Exclude;
 
+/**
+ * Represents item of search results
+ */
 class Item
 {
     /**
      * @var string
      * @Type("string")
-     * @Soap\ComplexType("string")
      */
     protected $entityName;
 
     /**
+     * @var string
+     * @Type("string")
+     */
+    protected $entityLabel;
+
+    /**
      * @var int
      * @Type("integer")
-     * @Soap\ComplexType("int")
      */
     protected $recordId;
 
     /**
-     * @Soap\ComplexType("string")
      * @var string
      */
     protected $recordTitle;
 
     /**
-     * @Soap\ComplexType("string")
      * @var string
      */
     protected $recordUrl;
@@ -43,19 +43,11 @@ class Item
     protected $entityConfig;
 
     /**
-     * @var ObjectManager
-     * @Exclude
-     */
-    protected $em;
-
-    /**
-     * @Soap\ComplexType("Oro\Bundle\SearchBundle\Soap\Type\SelectedValue[]")
      * @var string[]
      */
     protected $selectedData = [];
 
     /**
-     * @param ObjectManager $em
      * @param string|null   $entityName
      * @param string|null   $recordId
      * @param string|null   $recordTitle
@@ -64,21 +56,20 @@ class Item
      * @param array         $entityConfig
      */
     public function __construct(
-        ObjectManager $em,
         $entityName = null,
         $recordId = null,
         $recordTitle = null,
         $recordUrl = null,
-        $selectedData = [],
-        $entityConfig = []
+        array $selectedData = [],
+        array $entityConfig = []
     ) {
-        $this->em           = $em;
         $this->entityName   = $entityName;
+        $this->entityLabel  = '';
         $this->recordId     = empty($recordId) ? 0 : $recordId;
         $this->recordTitle  = $recordTitle;
         $this->recordUrl    = $recordUrl;
-        $this->entityConfig = empty($entityConfig) ? [] : $entityConfig;
-        $this->selectedData = is_array($selectedData) ? $selectedData : [];
+        $this->selectedData = $selectedData;
+        $this->entityConfig = $entityConfig;
     }
 
     /**
@@ -90,6 +81,19 @@ class Item
     public function setEntityName($entityName)
     {
         $this->entityName = $entityName;
+
+        return $this;
+    }
+
+    /**
+     * Set entity label
+     *
+     * @param string $entityLabel
+     * @return Item
+     */
+    public function setEntityLabel($entityLabel)
+    {
+        $this->entityLabel = $entityLabel;
 
         return $this;
     }
@@ -118,6 +122,16 @@ class Item
     }
 
     /**
+     * Get entity label
+     *
+     * @return string
+     */
+    public function getEntityLabel()
+    {
+        return $this->entityLabel;
+    }
+
+    /**
      * Get record id
      *
      * @return int
@@ -128,12 +142,13 @@ class Item
     }
 
     /**
-     * Load related object
-     * @return object
+     * Alias for getRecordId
+     *
+     * @return int
      */
-    public function getEntity()
+    public function getId()
     {
-        return $this->em->getRepository($this->entityName)->find($this->recordId);
+        return $this->getRecordId();
     }
 
     /**
@@ -218,14 +233,12 @@ class Item
      */
     public function toArray()
     {
-        $entityConfig = $this->getEntityConfig();
         $result = [
             'entity_name'   => $this->entityName,
+            'entity_label'   => $this->entityLabel,
             'record_id'     => $this->recordId,
             'record_string' => $this->recordTitle,
             'record_url'    => $this->recordUrl,
-            'alias'         => (array_key_exists("alias",$entityConfig))?$entityConfig["alias"]:null,
-
         ];
 
         if (count($this->selectedData) > 0) {

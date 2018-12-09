@@ -3,639 +3,617 @@
 namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Grid;
 
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
+use Oro\Bundle\DataGridBundle\Provider\SelectedFields\SelectedFieldsProviderInterface;
 use Oro\Bundle\DataGridBundle\Tests\Unit\Datagrid\DatagridGuesserMock;
 use Oro\Bundle\EntityBundle\EntityConfig\DatagridScope;
+use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\EntityConfigBundle\Attribute\Entity\AttributeFamily;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
+use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
+use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
+use Oro\Bundle\EntityConfigBundle\Entity\FieldConfigModel;
+use Oro\Bundle\EntityConfigBundle\Entity\Repository\AttributeFamilyRepository;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Grid\DynamicFieldsExtension;
-use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
+use Oro\Component\Testing\Unit\EntityTrait;
 
-class DynamicFieldsExtensionTest extends \PHPUnit_Framework_TestCase
+class DynamicFieldsExtensionTest extends AbstractFieldsExtensionTestCase
 {
-    const ENTITY_CLASS = 'Test\Entity';
-    const ENTITY_NAME  = 'Test:Entity';
-    const FIELD_NAME   = 'testField';
+    use EntityTrait;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $configManager;
+    /** @var DoctrineHelper|\PHPUnit\Framework\MockObject\MockObject */
+    private $doctrineHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityClassResolver;
+    /** @var Config */
+    private $attributeEntityConfig;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityConfigProvider;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $extendConfigProvider;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $datagridConfigProvider;
-
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $viewConfigProvider;
-
-    /** @var DynamicFieldsExtension */
-    protected $extension;
+    /** @var SelectedFieldsProviderInterface|\PHPUnit\Framework\MockObject\MockObject */
+    private $selectedFieldsProvider;
 
     protected function setUp()
     {
-        $this->configManager       = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Config\ConfigManager')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $this->entityClassResolver = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\EntityClassResolver')
-            ->disableOriginalConstructor()
-            ->getMock();
+        parent::setUp();
 
-        $this->entityConfigProvider   = $this->getConfigProviderMock();
-        $this->extendConfigProvider   = $this->getConfigProviderMock();
-        $this->datagridConfigProvider = $this->getConfigProviderMock();
-        $this->viewConfigProvider     = $this->getConfigProviderMock();
+        $this->doctrineHelper = $this->createMock(DoctrineHelper::class);
+        $this->attributeEntityConfig = new Config(new EntityConfigId('attribute', self::ENTITY_NAME));
+        $this->selectedFieldsProvider = $this->createMock(SelectedFieldsProviderInterface::class);
 
-        $this->configManager->expects($this->any())
-            ->method('getProvider')
-            ->will(
-                $this->returnValueMap(
-                    [
-                        ['entity', $this->entityConfigProvider],
-                        ['extend', $this->extendConfigProvider],
-                        ['datagrid', $this->datagridConfigProvider],
-                        ['view', $this->viewConfigProvider],
-                    ]
-                )
-            );
+        $this->selectedFieldsProvider
+            ->expects(self::any())
+            ->method('getSelectedFields')
+            ->with($this->isInstanceOf(DatagridConfiguration::class), $this->isInstanceOf(ParameterBag::class))
+            ->willReturn([self::FIELD_NAME]);
+    }
 
-        $this->extension = new DynamicFieldsExtension(
+
+    /** {@inheritdoc} */
+    protected function getExtension()
+    {
+        $extension = new DynamicFieldsExtension(
             $this->configManager,
             $this->entityClassResolver,
-            new DatagridGuesserMock()
+            new DatagridGuesserMock(),
+            $this->fieldsHelper,
+            $this->doctrineHelper,
+            $this->selectedFieldsProvider
         );
+
+        $extension->setParameters(new ParameterBag());
+
+        return $extension;
     }
 
     public function testIsApplicable()
     {
         $this->assertFalse(
-            $this->extension->isApplicable(
+            $this->getExtension()->isApplicable(
                 DatagridConfiguration::create(
                     [
                         'source' => [
-                            'type' => 'orm'
-                        ]
-                    ]
-                )
-            )
-        );
-        $this->assertTrue(
-            $this->extension->isApplicable(
-                DatagridConfiguration::create(
-                    [
-                        'extended_entity_name' => 'entity',
-                        'source'               => [
-                            'type' => 'orm'
-                        ]
+                            'type' => 'orm',
+                        ],
                     ]
                 )
             )
         );
         $this->assertFalse(
-            $this->extension->isApplicable(
+            $this->getExtension()->isApplicable(
                 DatagridConfiguration::create(
                     [
-                        'extended_entity_name' => 'entity'
+                        'extended_entity_name' => 'entity',
                     ]
                 )
             )
         );
+    }
+
+    public function testIsApplicableWhenHasNoConfig()
+    {
+        $datagridConfig = DatagridConfiguration::create([
+            'extended_entity_name' => self::ENTITY_NAME,
+            'source' => [
+                'type' => 'orm',
+            ],
+        ]);
+
+        $this->extendConfigProvider
+            ->expects($this->once())
+            ->method('hasConfig')
+            ->with(self::ENTITY_CLASS)
+            ->willReturn(false);
+
+        $this->assertFalse($this->getExtension()->isApplicable($datagridConfig));
+    }
+
+    /**
+     * @return array
+     */
+    public function isExtendDataProvider()
+    {
+        return [
+            'is applicable' => [
+                'isExtend' => true
+            ],
+            'not applicable' => [
+                'isExtend' => false
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider isExtendDataProvider
+     *
+     * @param bool $isExtend
+     */
+    public function testIsApplicableIfEntityIsExtendable($isExtend)
+    {
+        $datagridConfig = DatagridConfiguration::create([
+            'extended_entity_name' => self::ENTITY_NAME,
+            'source' => [
+                'type' => 'orm',
+            ],
+        ]);
+
+        $config = $this->createMock(ConfigInterface::class);
+        $config
+            ->expects($this->once())
+            ->method('is')
+            ->with('is_extend')
+            ->willReturn($isExtend);
+
+        $this->extendConfigProvider
+            ->expects($this->once())
+            ->method('getConfig')
+            ->with(self::ENTITY_CLASS)
+            ->willReturn($config);
+
+        $this->extendConfigProvider
+            ->expects($this->once())
+            ->method('hasConfig')
+            ->with(self::ENTITY_CLASS)
+            ->willReturn(true);
+
+        $this->assertEquals($isExtend, $this->getExtension()->isApplicable($datagridConfig));
     }
 
     public function testGetPriority()
     {
         $this->assertEquals(
             300,
-            $this->extension->getPriority()
-        );
-    }
-
-    public function testProcessConfigs()
-    {
-        $fieldLabel = 'test.field.label';
-        $fieldType  = 'string';
-
-        $this->entityClassResolver->expects($this->once())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
-        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
-
-        $entityFieldConfig = new Config(new FieldConfigId('entity', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType));
-        $entityFieldConfig->set('label', $fieldLabel);
-        $this->entityConfigProvider->expects($this->once())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($entityFieldConfig));
-
-        $datagridFieldConfig = new Config(
-            new FieldConfigId('datagrid', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->datagridConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($datagridFieldConfig));
-
-        $viewFieldConfig = new Config(
-            new FieldConfigId('view', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->viewConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($viewFieldConfig));
-
-        $config = $this->getDatagridConfiguration();
-        $initialConfig = $config->toArray();
-        $this->extension->processConfigs($config);
-        $this->assertEquals(
-            array_merge(
-                $initialConfig,
-                [
-                    'columns'              => [
-                        self::FIELD_NAME => [
-                            'label'         => $fieldLabel,
-                            'frontend_type' => 'string',
-                            'renderable'    => false,
-                            'required'      => false
-                        ]
-                    ],
-                    'sorters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => self::FIELD_NAME
-                            ]
-                        ]
-                    ],
-                    'filters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'type'      => 'string',
-                                'data_name' => self::FIELD_NAME,
-                                'enabled'   => false
-                            ]
-                        ]
-                    ],
-                ]
-            ),
-            $config->toArray()
+            $this->getExtension()->getPriority()
         );
     }
 
     public function testProcessConfigsWithVisibleFilter()
     {
-        $fieldLabel = 'test.field.label';
-        $fieldType  = 'string';
+        $fieldType = 'string';
 
-        $this->entityClassResolver->expects($this->once())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
         $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
-
-        $entityFieldConfig = new Config(new FieldConfigId('entity', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType));
-        $entityFieldConfig->set('label', $fieldLabel);
-        $this->entityConfigProvider->expects($this->once())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($entityFieldConfig));
-
-        $datagridFieldConfig = new Config(
-            new FieldConfigId('datagrid', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $datagridFieldConfig->set('show_filter', true);
-        $this->datagridConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($datagridFieldConfig));
-
-        $viewFieldConfig = new Config(
-            new FieldConfigId('view', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->viewConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($viewFieldConfig));
 
         $config = $this->getDatagridConfiguration();
         $initialConfig = $config->toArray();
-        $this->extension->processConfigs($config);
+
+        $this->getExtension()->processConfigs($config);
         $this->assertEquals(
             array_merge(
                 $initialConfig,
                 [
-                    'columns'              => [
+                    'columns' => [
                         self::FIELD_NAME => [
-                            'label'         => $fieldLabel,
+                            'label' => 'label',
                             'frontend_type' => 'string',
-                            'renderable'    => false,
-                            'required'      => false
-                        ]
+                            'renderable' => true,
+                            'required' => false,
+                            'data_name' => 'testField',
+                            'order' => 0
+                        ],
                     ],
-                    'sorters'              => [
+                    'sorters' => [
                         'columns' => [
                             self::FIELD_NAME => [
-                                'data_name' => self::FIELD_NAME
-                            ]
-                        ]
+                                'data_name' => 'o.' . self::FIELD_NAME,
+                            ],
+                        ],
                     ],
-                    'filters'              => [
+                    'filters' => [
                         'columns' => [
                             self::FIELD_NAME => [
-                                'type'      => 'string',
-                                'data_name' => self::FIELD_NAME,
-                                'enabled'   => true
-                            ]
-                        ]
+                                'type' => 'string',
+                                'data_name' => 'o.' . self::FIELD_NAME,
+                                'enabled' => true,
+                            ],
+                        ],
                     ],
+                    'source' => [
+                        'query' => [
+                            'from' => [['table' => self::ENTITY_CLASS, 'alias' => 'o']],
+                            'select' => ['o.testField'],
+                        ],
+                    ],
+                    'fields_acl' => ['columns' => ['testField' => ['data_name' => 'o.testField']]],
                 ]
             ),
             $config->toArray()
         );
     }
 
-    public function testVisitDatasourceNoFields()
+    /** {@inheritdoc} */
+    protected function getDatagridConfiguration(array $options = [])
     {
-        $this->entityClassResolver->expects($this->once())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
-
-        $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $qb->expects($this->never())
-            ->method('getDQLPart');
-
-        $datasource = $this->getMockBuilder('Oro\\Bundle\\DataGridBundle\\Datasource\\Orm\\OrmDatasource')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $datasource->expects($this->never())->method('getQueryBuilder');
-
-        $config = $this->getDatagridConfiguration();
-        $this->extension->visitDatasource($config, $datasource);
+        return DatagridConfiguration::create(array_merge($options, ['extended_entity_name' => self::ENTITY_NAME]));
     }
 
-    public function testVisitDatasourceForNotConfigurableEntity()
+    /** {@inheritdoc} */
+    protected function setExpectationForGetFields($className, $fieldName, $fieldType, array $extendFieldConfig = [])
     {
-        $this->entityClassResolver->expects($this->once())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
+        // Assume that entity cannot have attributes.
+        $this->attributeEntityConfig->set('has_attributes', false);
 
-        $this->configManager->expects($this->once())
-            ->method('hasConfig')
-            ->with(self::ENTITY_CLASS)
-            ->will($this->returnValue(false));
-
-        $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $qb->expects($this->never())
-            ->method('getDQLPart');
-
-        $datasource = $this->getMockBuilder('Oro\\Bundle\\DataGridBundle\\Datasource\\Orm\\OrmDatasource')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $datasource->expects($this->never())->method('getQueryBuilder');
-
-        $config = $this->getDatagridConfiguration();
-        $this->extension->visitDatasource($config, $datasource);
-    }
-
-    public function testVisitDatasource()
-    {
-        $fieldType  = 'string';
-        $alias      = 'c';
-
-        $this->entityClassResolver->expects($this->any())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
-        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
-
-        $from = $this->getMockBuilder('Doctrine\ORM\Query\Expr\From')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $from->expects($this->once())
-            ->method('getAlias')
-            ->will($this->returnValue($alias));
-        $from->expects($this->once())
-            ->method('getFrom')
-            ->will($this->returnValue(self::ENTITY_NAME));
-
-        $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $qb->expects($this->once())
-            ->method('getDQLPart')
-            ->with('from')
-            ->will($this->returnValue([$from]));
-        $qb->expects($this->once())
-            ->method('addSelect')
-            ->with($alias . '.' . self::FIELD_NAME)
-            ->will($this->returnSelf());
-
-        $datasource = $this->getMockBuilder('Oro\\Bundle\\DataGridBundle\\Datasource\\Orm\\OrmDatasource')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $datasource->expects($this->once())
-            ->method('getQueryBuilder')
-            ->will($this->returnValue($qb));
-
-        $viewFieldConfig = new Config(
-            new FieldConfigId('view', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->viewConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($viewFieldConfig));
-
-        $config = $this->getDatagridConfiguration();
-        $initialConfig = $config->toArray();
-        $this->extension->visitDatasource($config, $datasource);
-        $this->assertEquals(
-            array_merge(
-                $initialConfig,
-                [
-                    'columns'              => [
-                        self::FIELD_NAME => [
-                            'data_name' => self::FIELD_NAME
-                        ]
-                    ],
-                    'sorters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ],
-                    'filters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ],
-                    'fields_acl' => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ]
-                ]
-            ),
-            $config->toArray()
-        );
-    }
-
-    public function testVisitDatasourceForEnum()
-    {
-        $fieldType  = 'enum';
-        $alias      = 'c';
-
-        $targetFieldName = 'testRel';
-        $relAlias        = 'auto_rel_1';
-
-        $this->entityClassResolver->expects($this->any())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
-        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
-
-        $extendFieldConfig = new Config(new FieldConfigId('extend', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType));
-        $extendFieldConfig->set('target_field', $targetFieldName);
-        $this->extendConfigProvider->expects($this->once())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($extendFieldConfig));
-
-        $viewFieldConfig = new Config(
-            new FieldConfigId('view', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->viewConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($viewFieldConfig));
-
-        $from = $this->getMockBuilder('Doctrine\ORM\Query\Expr\From')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $from->expects($this->once())
-            ->method('getAlias')
-            ->will($this->returnValue($alias));
-        $from->expects($this->once())
-            ->method('getFrom')
-            ->will($this->returnValue(self::ENTITY_NAME));
-
-        $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')->disableOriginalConstructor()->getMock();
-        $qb->expects($this->once())
-            ->method('getDQLPart')
-            ->with('from')
-            ->will($this->returnValue([$from]));
-        $qb->expects($this->once())
-            ->method('leftJoin')
-            ->with($alias . '.' . self::FIELD_NAME, $relAlias)
-            ->will($this->returnSelf());
-        $qb->expects($this->once())
-            ->method('addSelect')
-            ->with(sprintf('IDENTITY(%s.%s) as %s', $alias, self::FIELD_NAME, self::FIELD_NAME))
-            ->will($this->returnSelf());
-
-        $datasource = $this->getMockBuilder('Oro\\Bundle\\DataGridBundle\\Datasource\\Orm\\OrmDatasource')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $datasource->expects($this->once())
-            ->method('getQueryBuilder')
-            ->will($this->returnValue($qb));
-
-        $config = $this->getDatagridConfiguration();
-        $initialConfig = $config->toArray();
-        $this->extension->visitDatasource($config, $datasource);
-        $this->assertEquals(
-            array_merge(
-                $initialConfig,
-                [
-                    'columns'              => [
-                        self::FIELD_NAME => [
-                            'data_name' => self::FIELD_NAME
-                        ]
-                    ],
-                    'sorters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $relAlias . '.' . $targetFieldName
-                            ]
-                        ]
-                    ],
-                    'filters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ],
-                    'fields_acl' => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ]
-                ]
-            ),
-            $config->toArray()
-        );
-    }
-
-    public function testVisitDatasourceForMultiEnum()
-    {
-        $fieldType  = 'multiEnum';
-        $alias      = 'c';
-
-        $snapshotFieldName = ExtendHelper::getMultiEnumSnapshotFieldName(self::FIELD_NAME);
-
-        $this->entityClassResolver->expects($this->any())
-            ->method('getEntityClass')
-            ->with(self::ENTITY_NAME)
-            ->will($this->returnValue(self::ENTITY_CLASS));
-        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
-
-        $viewFieldConfig = new Config(
-            new FieldConfigId('view', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
-        );
-        $this->viewConfigProvider->expects($this->any())
-            ->method('getConfig')
-            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
-            ->will($this->returnValue($viewFieldConfig));
-
-        $from = $this->getMockBuilder('Doctrine\ORM\Query\Expr\From')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $from->expects($this->once())
-            ->method('getAlias')
-            ->will($this->returnValue($alias));
-        $from->expects($this->once())
-            ->method('getFrom')
-            ->will($this->returnValue(self::ENTITY_NAME));
-
-        $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $qb->expects($this->once())
-            ->method('getDQLPart')
-            ->with('from')
-            ->will($this->returnValue([$from]));
-        $qb->expects($this->once())
-            ->method('addSelect')
-            ->with($alias . '.' . $snapshotFieldName)
-            ->will($this->returnSelf());
-
-        $datasource = $this->getMockBuilder('Oro\\Bundle\\DataGridBundle\\Datasource\\Orm\\OrmDatasource')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $datasource->expects($this->once())
-            ->method('getQueryBuilder')
-            ->will($this->returnValue($qb));
-
-        $config = $this->getDatagridConfiguration();
-        $initialConfig = $config->toArray();
-        $this->extension->visitDatasource($config, $datasource);
-        $this->assertEquals(
-            array_merge(
-                $initialConfig,
-                [
-                    'columns'              => [
-                        self::FIELD_NAME => [
-                            'data_name' => $snapshotFieldName
-                        ]
-                    ],
-                    'sorters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . $snapshotFieldName
-                            ]
-                        ]
-                    ],
-                    'filters'              => [
-                        'columns' => [
-                            self::FIELD_NAME => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ],
-                    'fields_acl' => [
-                        'columns' => [
-                            'testFieldSnapshot' => [
-                                'data_name' => $alias . '.' . self::FIELD_NAME
-                            ]
-                        ]
-                    ]
-                ]
-            ),
-            $config->toArray()
-        );
-    }
-
-    protected function getDatagridConfiguration()
-    {
-        return DatagridConfiguration::create(['extended_entity_name' => self::ENTITY_NAME]);
-    }
-
-    protected function setExpectationForGetFields($className, $fieldName, $fieldType)
-    {
         $fieldId = new FieldConfigId('entity', $className, $fieldName, $fieldType);
 
         $extendConfig = new Config(new FieldConfigId('extend', $className, $fieldName, $fieldType));
         $extendConfig->set('owner', ExtendScope::OWNER_CUSTOM);
         $extendConfig->set('state', ExtendScope::STATE_ACTIVE);
+        foreach ($extendFieldConfig as $key => $value) {
+            $extendConfig->set($key, $value);
+        }
         $extendConfig->set('is_deleted', false);
 
-        $datagridConfig = new Config(new FieldConfigId('datagrid', $className, $fieldName, $fieldType));
-        $datagridConfig->set('is_visible', DatagridScope::IS_VISIBLE_TRUE);
+        $entityFieldConfig = new Config(new FieldConfigId('entity', $className, $fieldName, $fieldType));
+        $entityFieldConfig->set('label', 'label');
+
+        $datagridFieldConfig = new Config(
+            new FieldConfigId('datagrid', $className, $fieldName, $fieldType)
+        );
+        $datagridFieldConfig->set('show_filter', true);
+        $datagridFieldConfig->set('is_visible', DatagridScope::IS_VISIBLE_TRUE);
+
+        $viewFieldConfig = new Config(
+            new FieldConfigId('view', $className, $fieldName, $fieldType)
+        );
+
+        $this->fieldsHelper->expects($this->any())
+            ->method('getFields')
+            ->willReturn([$fieldId]);
+
+        $this->entityConfigProvider->expects($this->any())
+            ->method('getConfig')
+            ->with($className, $fieldName)
+            ->will($this->returnValue($entityFieldConfig));
+
+        $this->extendConfigProvider->expects($this->any())
+            ->method('getConfig')
+            ->with($className, $fieldName)
+            ->will($this->returnValue($extendConfig));
+
+        $this->datagridConfigProvider->expects($this->any())
+            ->method('getConfig')
+            ->with($className, $fieldName)
+            ->will($this->returnValue($datagridFieldConfig));
+
+        $this->viewConfigProvider->expects($this->any())
+            ->method('getConfig')
+            ->with($className, $fieldName)
+            ->will($this->returnValue($viewFieldConfig));
+
+        $this->configManager->expects($this->any())
+            ->method('getEntityConfig')
+            ->with('attribute', $className)
+            ->willReturn($this->attributeEntityConfig);
+    }
+
+    public function testProcessConfigsWhenNoAttributes()
+    {
+        $fieldType = 'string';
+
+        $this->mockAttributeFieldConfig($fieldType, false);
+
+        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
+
+        // Entity can have attributes.
+        $this->attributeEntityConfig->set('has_attributes', true);
+
+        $config = $this->getDatagridConfiguration();
+
+        $this->getExtension()->processConfigs($config);
+        $this->assertEquals($this->getExpectedConfig($config), $config->toArray());
+    }
+
+    public function testProcessConfigsWhenAttributesInFamilies()
+    {
+        $fieldType = 'string';
+
+        $attributeFieldConfig = $this->mockAttributeFieldConfig($fieldType, true);
+        $this->mockAttributeInFamilies($attributeFieldConfig, [1 => [1]]);
+
+        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
+
+        // Entity can have attributes.
+        $this->attributeEntityConfig->set('has_attributes', true);
+
+        $config = $this->getDatagridConfiguration();
+
+        $this->getExtension()->processConfigs($config);
+        $this->assertEquals($this->getExpectedConfig($config), $config->toArray());
+    }
+
+    public function testProcessConfigsWhenAttributesNotInFamilies()
+    {
+        $fieldType = 'string';
+
+        $attributeFieldConfig = $this->mockAttributeFieldConfig($fieldType, true);
+        $this->mockAttributeInFamilies($attributeFieldConfig, []);
+
+        $this->setExpectationForGetFields(self::ENTITY_CLASS, self::FIELD_NAME, $fieldType);
+
+        // Entity can have attributes.
+        $this->attributeEntityConfig->set('has_attributes', true);
+
+        $config = $this->getDatagridConfiguration();
+        $initialConfig = $config->toArray();
+
+        $this->getExtension()->processConfigs($config);
+        $this->assertEquals($initialConfig, $config->toArray());
+    }
+
+    /**
+     * @param DatagridConfiguration $config
+     *
+     * @return array
+     */
+    private function getExpectedConfig(DatagridConfiguration $config): array
+    {
+        $expectedConfig = [
+            'columns' => [
+                self::FIELD_NAME => [
+                    'label' => 'label',
+                    'frontend_type' => 'string',
+                    'renderable' => true,
+                    'required' => false,
+                    'data_name' => 'testField',
+                    'order' => 0
+                ],
+            ],
+            'sorters' => [
+                'columns' => [
+                    self::FIELD_NAME => [
+                        'data_name' => 'o.' . self::FIELD_NAME,
+                    ],
+                ],
+            ],
+            'filters' => [
+                'columns' => [
+                    self::FIELD_NAME => [
+                        'type' => 'string',
+                        'data_name' => 'o.' . self::FIELD_NAME,
+                        'enabled' => true,
+                    ],
+                ],
+            ],
+            'source' => [
+                'query' => [
+                    'from' => [['table' => self::ENTITY_CLASS, 'alias' => 'o']],
+                    'select' => ['o.testField'],
+                ],
+            ],
+            'fields_acl' => ['columns' => ['testField' => ['data_name' => 'o.testField']]],
+        ];
+
+        return $this->mergeWithInitialConfig($config, $expectedConfig);
+    }
+
+    /**
+     * @param Config $attributeFieldConfig
+     * @param array $familiesIdsByAttributesIds
+     */
+    private function mockAttributeInFamilies(Config $attributeFieldConfig, array $familiesIdsByAttributesIds): void
+    {
+        /** @var FieldConfigId $fieldConfigId */
+        $fieldConfigId = $attributeFieldConfig->getId();
+        $fieldConfigModel = $this->getEntity(
+            FieldConfigModel::class,
+            ['id' => 1, 'fieldName' => $fieldConfigId->getFieldName(), 'type' => $fieldConfigId->getFieldType()]
+        );
 
         $this->configManager->expects($this->once())
-            ->method('hasConfig')
-            ->with($className)
-            ->will($this->returnValue(true));
+            ->method('getConfigFieldModel')
+            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
+            ->willReturn($fieldConfigModel);
 
-        $this->entityConfigProvider->expects($this->once())
-            ->method('getIds')
-            ->with($className)
-            ->will($this->returnValue([$fieldId]));
-        $this->extendConfigProvider->expects($this->once())
-            ->method('getConfigById')
-            ->with($this->identicalTo($fieldId))
-            ->will($this->returnValue($extendConfig));
-        $this->datagridConfigProvider->expects($this->once())
-            ->method('getConfigById')
-            ->with($this->identicalTo($fieldId))
-            ->will($this->returnValue($datagridConfig));
+        $this->doctrineHelper->expects($this->once())
+            ->method('getEntityRepositoryForClass')
+            ->with(AttributeFamily::class)
+            ->willReturn($attributeFamilyRepository = $this->createMock(AttributeFamilyRepository::class));
+
+        $attributeFamilyRepository->expects($this->once())
+            ->method('getFamilyIdsForAttributes')
+            ->with([$fieldConfigModel])
+            ->willReturn($familiesIdsByAttributesIds);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @param string $fieldType
+     * @param bool $isAttribute
+     *
+     * @return Config
      */
-    protected function getEventDispatcherMock()
+    private function mockAttributeFieldConfig(string $fieldType, bool $isAttribute): Config
     {
-        return $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcherInterface')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $attributeFieldConfig = new Config(
+            new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, $fieldType)
+        );
+        $attributeFieldConfig->set('is_attribute', $isAttribute);
+
+        $this->attributeConfigProvider->expects($this->any())
+            ->method('getConfig')
+            ->with(self::ENTITY_CLASS, self::FIELD_NAME)
+            ->willReturn($attributeFieldConfig);
+
+        return $attributeFieldConfig;
+    }
+
+    public function testBuildExpressionWhenNoRelevantFields()
+    {
+        $selectedFieldsProvider = $this->createMock(SelectedFieldsProviderInterface::class);
+        $extension = new DynamicFieldsExtension(
+            $this->configManager,
+            $this->entityClassResolver,
+            new DatagridGuesserMock(),
+            $this->fieldsHelper,
+            $this->doctrineHelper,
+            $selectedFieldsProvider
+        );
+        $extension->setParameters(new ParameterBag());
+
+        $config = $this->getDatagridConfiguration();
+        $expectedConfigArray = $this->mergeWithInitialConfig($config, []);
+
+        $selectedFieldsProvider
+            ->expects(self::once())
+            ->method('getSelectedFields')
+            ->with($config, $extension->getParameters())
+            ->willReturn([]);
+
+        $fieldConfigId = new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'string');
+        $extension->buildExpression([$fieldConfigId], $config, 'o');
+        $this->assertEquals($expectedConfigArray, $config->toArray());
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @dataProvider buildExpressionDataProvider
+     *
+     * @param FieldConfigId[] $fieldsConfigIds
+     * @param array $configArray
      */
-    protected function getConfigProviderMock()
+    public function testBuildExpressionWhenFieldNotRelevant(array $fieldsConfigIds, array $configArray)
     {
-        return $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $extension = $this->getExtension();
+
+        $config = $this->getDatagridConfiguration();
+        $expectedConfigArray = $this->mergeWithInitialConfig($config, $configArray);
+
+        // Assumes that 1st field returned by buildExpressionDataProvider is always relevant.
+        $this->setExpectationForGetFields(
+            $fieldsConfigIds[0]->getClassName(),
+            $fieldsConfigIds[0]->getFieldName(),
+            $fieldsConfigIds[0]->getFieldType()
+        );
+
+        $extension->buildExpression($fieldsConfigIds, $config, 'o');
+        $this->assertEquals($expectedConfigArray, $config->toArray());
+    }
+
+    /**
+     * @return array
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     */
+    public function buildExpressionDataProvider(): array
+    {
+        return [
+            'string type' => [
+                'fieldsConfigIds' => [
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'string'),
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, 'notRelevantField', 'string'),
+                ],
+                'configArray' => [
+                    'source' => ['query' => ['select' => ['o.' . self::FIELD_NAME]]],
+                    'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME]],
+                    'sorters' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                    'filters' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                    'fields_acl' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                ],
+            ],
+            'enum type' => [
+                'fieldsConfigIds' => [
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'enum'),
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, 'notRelevantField', 'enum'),
+                ],
+                'configArray' => [
+                    'source' => [
+                        'query' => [
+                            'join' => ['left' => [['join' => 'o.' . self::FIELD_NAME, 'alias' => 'auto_rel_1']]],
+                            'select' => [
+                                'IDENTITY(o.' . self::FIELD_NAME . ') as ' . self::FIELD_NAME,
+                                'auto_rel_1. as auto_rel_1_',
+                            ],
+                        ],
+                    ],
+                    'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME]],
+                    'sorters' => ['columns' => [self::FIELD_NAME => ['data_name' => 'auto_rel_1_']]],
+                    'filters' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                    'fields_acl' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                ],
+            ],
+            'multiEnum type' => [
+                'fieldsConfigIds' => [
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'multiEnum'),
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, 'notRelevantField', 'multiEnum'),
+                ],
+                'expectedConfigArray' => [
+                    'extended_entity_name' => 'Test:Entity',
+                    'source' => ['query' => ['select' => ['o.' . self::FIELD_NAME . 'Snapshot']]],
+                    'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME . 'Snapshot']],
+                    'sorters' => [
+                        'columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME . 'Snapshot']],
+                    ],
+                    'filters' => ['columns' => [self::FIELD_NAME => ['data_name' => 'o.' . self::FIELD_NAME]]],
+                    'fields_acl' => [
+                        'columns' => [self::FIELD_NAME . 'Snapshot' => ['data_name' => 'o.' . self::FIELD_NAME]],
+                    ],
+                ],
+            ],
+            'manyToOne type' => [
+                'fieldsConfigIds' => [
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'manyToOne'),
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, 'notRelevantField', 'manyToOne'),
+                ],
+                'expectedConfigArray' => [
+                    'extended_entity_name' => 'Test:Entity',
+                    'source' => [
+                        'query' => [
+                            'join' => ['left' => [['join' => 'o.' . self::FIELD_NAME, 'alias' => 'auto_rel_1']]],
+                            'select' => [
+                                'IDENTITY(o.' . self::FIELD_NAME . ') as ' . self::FIELD_NAME . '_identity',
+                                'auto_rel_1.id as ' . self::FIELD_NAME . '_target_field',
+                            ],
+                        ],
+                    ],
+                    'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME . '_target_field']],
+                    'sorters' => [
+                        'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME . '_target_field']],
+                    ],
+                    'filters' => [
+                        'columns' => [self::FIELD_NAME => ['data_name' => 'IDENTITY(o.' . self::FIELD_NAME . ')']],
+                    ],
+                    'fields_acl' => [
+                        'columns' => [self::FIELD_NAME . '_target_field' => ['data_name' => 'o.' . self::FIELD_NAME]],
+                    ],
+                ],
+            ],
+            'oneToOne type' => [
+                'fieldsConfigIds' => [
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, self::FIELD_NAME, 'oneToOne'),
+                    new FieldConfigId('attribute', self::ENTITY_CLASS, 'notRelevantField', 'oneToOne'),
+                ],
+                'expectedConfigArray' => [
+                    'extended_entity_name' => 'Test:Entity',
+                    'source' => [
+                        'query' => [
+                            'join' => ['left' => [['join' => 'o.' . self::FIELD_NAME, 'alias' => 'auto_rel_1']]],
+                            'select' => [
+                                'IDENTITY(o.' . self::FIELD_NAME . ') as ' . self::FIELD_NAME . '_identity',
+                                'auto_rel_1.id as ' . self::FIELD_NAME . '_target_field',
+                            ],
+                        ],
+                    ],
+                    'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME . '_target_field']],
+                    'sorters' => [
+                        'columns' => [self::FIELD_NAME => ['data_name' => self::FIELD_NAME . '_target_field']],
+                    ],
+                    'filters' => [
+                        'columns' => [self::FIELD_NAME => ['data_name' => 'IDENTITY(o.' . self::FIELD_NAME . ')']],
+                    ],
+                    'fields_acl' => [
+                        'columns' => [self::FIELD_NAME . '_target_field' => ['data_name' => 'o.' . self::FIELD_NAME]],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param DatagridConfiguration $config
+     * @param array $expectedConfig
+     *
+     * @return array
+     */
+    private function mergeWithInitialConfig(DatagridConfiguration $config, array $expectedConfig): array
+    {
+        $initialConfig = $config->toArray();
+
+        return array_merge($initialConfig, $expectedConfig);
     }
 }

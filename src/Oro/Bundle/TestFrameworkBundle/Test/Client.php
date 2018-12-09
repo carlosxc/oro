@@ -2,45 +2,20 @@
 
 namespace Oro\Bundle\TestFrameworkBundle\Test;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Driver\PDOConnection;
-
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\KernelInterface;
-use Symfony\Component\HttpKernel\TerminableInterface;
-use Symfony\Bundle\FrameworkBundle\Client as BaseClient;
-use Symfony\Component\BrowserKit\Request as InternalRequest;
-use Symfony\Component\BrowserKit\Response as InternalResponse;
-
 use Oro\Bundle\DataGridBundle\Datagrid\Manager;
 use Oro\Bundle\DataGridBundle\Exception\UserInputErrorExceptionInterface;
 use Oro\Bundle\NavigationBundle\Event\ResponseHashnavListener;
+use Symfony\Bundle\FrameworkBundle\Client as BaseClient;
+use Symfony\Component\BrowserKit\Cookie;
+use Symfony\Component\BrowserKit\Request as InternalRequest;
+use Symfony\Component\BrowserKit\Response as InternalResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class Client extends BaseClient
 {
     const LOCAL_URL = 'http://localhost';
-
-    /**
-     * @var PDOConnection
-     */
-    protected $pdoConnection;
-
-    /**
-     * @var KernelInterface
-     */
-    protected $kernel;
-
-    /**
-     * @var boolean
-     */
-    protected $hasPerformedRequest;
-
-    /**
-     * @var boolean[]
-     */
-    protected $loadedFixtures;
 
     /**
      * @var bool
@@ -49,6 +24,7 @@ class Client extends BaseClient
 
     /**
      * {@inheritdoc}
+     * @SuppressWarnings(PHPMD.NPathComplexity)
      */
     public function request(
         $method,
@@ -59,7 +35,7 @@ class Client extends BaseClient
         $content = null,
         $changeHistory = true
     ) {
-        if (strpos($uri, 'http://') === false) {
+        if (strpos($uri, 'http://') === false && strpos($uri, 'https://') === false) {
             $uri = self::LOCAL_URL . $uri;
         }
 
@@ -72,6 +48,10 @@ class Client extends BaseClient
         if ($this->isHashNavigationRequest($uri, $parameters, $server)) {
             $server[$hashNavigationHeader] = 1;
         }
+
+        // set the session cookie
+        $sessionOptions = $this->kernel->getContainer()->getParameter('session.storage.options');
+        $this->getCookieJar()->set(new Cookie($sessionOptions['name'], 'test'));
 
         parent::request($method, $uri, $parameters, $files, $server, $content, $changeHistory);
 
@@ -125,30 +105,35 @@ class Client extends BaseClient
      * @param array|string $gridParameters
      * @param array $filter
      * @param bool $isRealRequest
+     * @param string $route
      * @return Response
      */
-    public function requestGrid($gridParameters, $filter = array(), $isRealRequest = false)
-    {
+    public function requestGrid(
+        $gridParameters,
+        $filter = array(),
+        $isRealRequest = false,
+        $route = 'oro_datagrid_index'
+    ) {
         list($gridName, $gridParameters) = $this->parseGridParameters($gridParameters, $filter);
 
         if ($isRealRequest) {
             $this->request(
                 'GET',
-                $this->getUrl('oro_datagrid_index', $gridParameters)
+                $this->getUrl($route, $gridParameters)
             );
 
             return $this->getResponse();
         } else {
             $container = $this->getContainer();
 
-            $request = Request::create($this->getUrl('oro_datagrid_index', $gridParameters));
-            $container->get('oro_datagrid.datagrid.request_parameters_factory')->setRequest($request);
+            $request = Request::create($this->getUrl($route, $gridParameters));
+            $container->get('request_stack')->push($request);
             /** @var Manager $gridManager */
             $gridManager = $container->get('oro_datagrid.datagrid.manager');
             $gridConfig  = $gridManager->getConfigurationForGrid($gridName);
             $acl         = $gridConfig->getAclResource();
 
-            if ($acl && !$container->get('oro_security.security_facade')->isGranted($acl)) {
+            if ($acl && !$container->get('security.authorization_checker')->isGranted($acl)) {
                 return new Response('Access denied.', 403);
             }
 
@@ -210,26 +195,6 @@ class Client extends BaseClient
     protected function getUrl($name, $parameters = array(), $absolute = false)
     {
         return $this->getContainer()->get('router')->generate($name, $parameters, $absolute);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function doRequest($request)
-    {
-        if ($this->hasPerformedRequest) {
-            $this->kernel->shutdown();
-            $this->kernel->boot();
-        } else {
-            $this->hasPerformedRequest = true;
-        }
-
-        $response = $this->kernel->handle($request);
-
-        if ($this->kernel instanceof TerminableInterface) {
-            $this->kernel->terminate($request, $response);
-        }
-        return $response;
     }
 
     /**

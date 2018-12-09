@@ -4,7 +4,6 @@ namespace Oro\Bundle\DataGridBundle\Migrations\Data\ORM;
 
 use Doctrine\Common\DataFixtures\AbstractFixture;
 use Doctrine\Common\Persistence\ObjectManager;
-
 use Oro\Bundle\DataGridBundle\Entity\AppearanceType;
 
 class LoadAppearanceTypes extends AbstractFixture
@@ -15,11 +14,11 @@ class LoadAppearanceTypes extends AbstractFixture
     protected $data = [
         'grid'  => [
             'label' => 'oro.datagrid.appearance.grid',
-            'icon'  => 'icon-table'
+            'icon'  => 'fa-table'
         ],
         'board'  => [
             'label' => 'oro.datagrid.appearance.board',
-            'icon'  => 'icon-th'
+            'icon'  => 'fa-th'
         ],
     ];
 

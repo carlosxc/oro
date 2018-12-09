@@ -3,12 +3,12 @@
 namespace Oro\Component\Layout\Tests\Unit;
 
 use Oro\Component\Layout\BlockView;
-use Oro\Component\Layout\LayoutRenderer;
 use Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface;
+use Oro\Component\Layout\LayoutRenderer;
 
-class LayoutRendererTest extends \PHPUnit_Framework_TestCase
+class LayoutRendererTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $innerRenderer;
 
     /** @var LayoutRenderer */
@@ -19,8 +19,8 @@ class LayoutRendererTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->innerRenderer = $this->getMock('Oro\Component\Layout\Form\FormRendererInterface');
-        $this->formRenderer = $this->getMock('Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface');
+        $this->innerRenderer = $this->createMock('Oro\Component\Layout\Form\FormRendererInterface');
+        $this->formRenderer = $this->createMock('Oro\Component\Layout\Form\RendererEngine\FormRendererEngineInterface');
         $this->renderer      = new LayoutRenderer($this->innerRenderer, $this->formRenderer);
     }
 

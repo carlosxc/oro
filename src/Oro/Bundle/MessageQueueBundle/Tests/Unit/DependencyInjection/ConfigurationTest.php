@@ -1,4 +1,5 @@
 <?php
+
 namespace Oro\Bundle\MessageQueueBundle\Tests\Unit\DependencyInjection;
 
 use Oro\Bundle\MessageQueueBundle\DependencyInjection\Configuration;
@@ -11,7 +12,10 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
 
-class ConfigurationTest extends \PHPUnit_Framework_TestCase
+/**
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
+ */
+class ConfigurationTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
 
@@ -27,11 +31,8 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 
     public function testThrowIfTransportNotConfigured()
     {
-        $this->setExpectedException(
-            InvalidConfigurationException::class,
-            'The child node "transport" at path "oro_message_queue" must be configured.'
-        );
-
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The child node "transport" at path "oro_message_queue" must be configured.');
         $configuration = new Configuration([]);
 
         $processor = new Processor();
@@ -58,8 +59,8 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 
         $processor = new Processor();
 
-        $this->setExpectedException(
-            InvalidConfigurationException::class,
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage(
             'The path "oro_message_queue.transport.foo.foo_param" cannot contain an empty value, but got null.'
         );
 
@@ -98,7 +99,11 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals([
             'transport' => [
                 'null' => [],
-            ]
+            ],
+            'persistent_services' => [],
+            'persistent_processors' => [],
+            'security_agnostic_topics' => [],
+            'security_agnostic_processors' => []
         ], $config);
     }
 
@@ -124,7 +129,11 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
                 'default' => ['alias' => 'foo'],
                 'null' => [],
                 'foo' => ['foo_param' => 'aParam'],
-            ]
+            ],
+            'persistent_services' => [],
+            'persistent_processors' => [],
+            'security_agnostic_topics' => [],
+            'security_agnostic_processors' => []
         ], $config);
     }
 
@@ -143,6 +152,8 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
             ]
         ]]);
 
+        $pidDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'oro-message-queue';
+
         $this->assertEquals([
             'transport' => [
                 'default' => [
@@ -151,10 +162,15 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
                 'dbal' => [
                     'connection' => 'default',
                     'table' => 'oro_message_queue',
-                    'orphan_time' => 300,
+                    'pid_file_dir' => $pidDir,
                     'polling_interval' => 1000,
-                ],
-            ]
+                    'consumer_process_pattern' => ':consume'
+                ]
+            ],
+            'persistent_services' => [],
+            'persistent_processors' => [],
+            'security_agnostic_topics' => [],
+            'security_agnostic_processors' => []
         ], $config);
     }
 
@@ -180,15 +196,20 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
                 'router_destination' => 'default',
                 'default_destination' => 'default',
                 'traceable_producer' => false,
-                'redelivered_delay_time' => 10
+                'redelivered_delay_time' => 10,
+                'default_topic' => 'default'
             ],
+            'persistent_services' => [],
+            'persistent_processors' => [],
+            'security_agnostic_topics' => [],
+            'security_agnostic_processors' => []
         ], $config);
     }
 
     public function testThrowExceptionIfRouterDestinationIsEmpty()
     {
-        $this->setExpectedException(
-            InvalidConfigurationException::class,
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage(
             'The path "oro_message_queue.client.router_destination" cannot contain an empty value, but got "".'
         );
 
@@ -207,8 +228,8 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionIfDefaultDestinationIsEmpty()
     {
-        $this->setExpectedException(
-            InvalidConfigurationException::class,
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage(
             'The path "oro_message_queue.client.default_destination" cannot contain an empty value, but got "".'
         );
 

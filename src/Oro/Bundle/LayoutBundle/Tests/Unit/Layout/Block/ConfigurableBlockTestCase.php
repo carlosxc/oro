@@ -134,17 +134,18 @@ class ConfigurableBlockTestCase extends BaseBlockTypeTestCase
         ];
     }
 
-    public function testSetDefaultOptionsWithEmptyOptions()
+    public function testConfigureOptionsWithEmptyOptions()
     {
         $this->assertEquals([
             'option_default' => 'value',
             'option_required' => 'required_value',
             'option_default_false' => false,
             'option_default_null' => null,
+            'visible' => true,
         ], $this->resolveOptions(static::TYPE_NAME, ['option_required' => 'required_value']));
     }
 
-    public function testSetDefaultOptionsWithValidOptions()
+    public function testConfigureOptionsWithValidOptions()
     {
         $this->assertEquals([
             'option' => 'value',
@@ -152,6 +153,7 @@ class ConfigurableBlockTestCase extends BaseBlockTypeTestCase
             'option_required' => 'required_value',
             'option_default_false' => false,
             'option_default_null' => null,
+            'visible' => true,
         ], $this->resolveOptions(static::TYPE_NAME, [
             'option' => 'value',
             'option_default' => 'default_value',
@@ -164,8 +166,8 @@ class ConfigurableBlockTestCase extends BaseBlockTypeTestCase
      */
     protected function assertSetOptionException($object)
     {
-        $this->setExpectedException(
-            'InvalidArgumentException',
+        $this->expectException('InvalidArgumentException');
+        $this->expectExceptionMessage(
             'Option setting "test" not supported. Supported settings is [default, required]'
         );
         $object->setOptionsConfig(['test' => ['test' => 'value']]);

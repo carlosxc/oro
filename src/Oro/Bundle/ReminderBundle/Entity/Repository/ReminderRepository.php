@@ -3,7 +3,6 @@
 namespace Oro\Bundle\ReminderBundle\Entity\Repository;
 
 use Doctrine\ORM\EntityRepository;
-
 use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\ReminderBundle\Entity\Reminder;
 use Oro\Bundle\ReminderBundle\Model\WebSocket\WebSocketSendProcessor;
@@ -18,14 +17,35 @@ class ReminderRepository extends EntityRepository
      */
     public function findRemindersToSend()
     {
+        return $this->createRemindersToSendQuery()
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * @return int
+     */
+    public function countRemindersToSend()
+    {
+        return $this->createRemindersToSendQuery()
+            ->select('COUNT(reminder.id)')
+            ->getQuery()
+            ->getSingleScalarResult()
+        ;
+    }
+
+    /**
+     * @return QueryBuilder
+     */
+    protected function createRemindersToSendQuery()
+    {
         return $this->createQueryBuilder('reminder')
             ->where('reminder.state = :state')
             ->andWhere('reminder.startAt <= :now')
             ->andWhere('reminder.expireAt >= :now')
             ->setParameter('now', new \DateTime())
             ->setParameter('state', Reminder::STATE_NOT_SENT)
-            ->getQuery()
-            ->execute();
+        ;
     }
 
     /**
@@ -73,9 +93,7 @@ class ReminderRepository extends EntityRepository
      */
     public function findReminders(array $reminderIds)
     {
-        $qb = $this->createQueryBuilder('reminder');
-
-        return $qb->where($qb->expr()->in('reminder.id', $reminderIds))->getQuery()->execute();
+        return $this->findBy(['id' => $reminderIds]);
     }
 
     /**

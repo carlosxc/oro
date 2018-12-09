@@ -7,14 +7,13 @@ use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
-use Symfony\Component\PropertyAccess\PropertyAccess;
-
-use Oro\Bundle\EntityBundle\Form\EntityField\Handler\EntityApiBaseHandler;
 use Oro\Bundle\EntityBundle\Form\EntityField\FormBuilder;
+use Oro\Bundle\EntityBundle\Form\EntityField\Handler\EntityApiBaseHandler;
 use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
-use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider;
 use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataInterface;
+use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\PropertyAccess\PropertyAccess;
 
 /**
  * Class EntityFieldManager
@@ -38,7 +37,7 @@ class EntityFieldManager
     /** @var  EntityRoutingHelper */
     protected $entityRoutingHelper;
 
-    /** @var OwnershipMetadataProvider */
+    /** @var OwnershipMetadataProviderInterface */
     protected $ownershipMetadataProvider;
 
     /** @var EntityFieldValidator */
@@ -49,7 +48,7 @@ class EntityFieldManager
      * @param FormBuilder $formBuilder
      * @param EntityApiBaseHandler $handler
      * @param EntityRoutingHelper $entityRoutingHelper
-     * @param OwnershipMetadataProvider $ownershipMetadataProvider
+     * @param OwnershipMetadataProviderInterface $ownershipMetadataProvider
      * @param EntityFieldValidator $entityFieldValidator
      */
     public function __construct(
@@ -57,7 +56,7 @@ class EntityFieldManager
         FormBuilder $formBuilder,
         EntityApiBaseHandler $handler,
         EntityRoutingHelper $entityRoutingHelper,
-        OwnershipMetadataProvider $ownershipMetadataProvider,
+        OwnershipMetadataProviderInterface $ownershipMetadataProvider,
         EntityFieldValidator $entityFieldValidator
     ) {
         $this->registry = $registry;
@@ -91,7 +90,7 @@ class EntityFieldManager
     protected function processUpdate($entity, $content)
     {
         $form = $this->formBuilder->build($entity, $content);
-        $data = $this->presetData($entity);
+        $data = $this->presetData($entity, $form);
 
         foreach ($content as $fieldName => $fieldValue) {
             $fieldValue = $this->cleanupValue($fieldValue);
@@ -104,16 +103,17 @@ class EntityFieldManager
     }
 
     /**
-     * @param $entity
+     * @param object $entity
+     * @param FormInterface $form
      *
      * @return array
      */
-    protected function presetData($entity)
+    protected function presetData($entity, $form)
     {
         $accessor = PropertyAccess::createPropertyAccessor();
         $data = [];
         $metadata = $this->getMetadataConfig($entity);
-        if (!$metadata || $metadata->isGlobalLevelOwned()) {
+        if (!$metadata || $metadata->isOrganizationOwned() || !$form->offsetExists($metadata->getOwnerFieldName())) {
             return $data;
         }
 

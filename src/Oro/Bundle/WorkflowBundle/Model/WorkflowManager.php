@@ -3,25 +3,32 @@
 namespace Oro\Bundle\WorkflowBundle\Model;
 
 use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManager;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
-use Oro\Bundle\WorkflowBundle\Exception\WorkflowRecordGroupException;
 use Oro\Bundle\WorkflowBundle\Entity\Repository\WorkflowItemRepository;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowItem;
 use Oro\Bundle\WorkflowBundle\Event\WorkflowChangesEvent;
 use Oro\Bundle\WorkflowBundle\Event\WorkflowEvents;
 use Oro\Bundle\WorkflowBundle\Exception\WorkflowException;
+use Oro\Bundle\WorkflowBundle\Exception\WorkflowRecordGroupException;
+use Oro\Bundle\WorkflowBundle\Model\Tools\StartedWorkflowsBag;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
+ * Handles logic for getting workflow, transitions, workflow items as well as all other related actions
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
-class WorkflowManager
+class WorkflowManager implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
+    const MASS_START_BATCH_SIZE = 100;
+
     /** @var DoctrineHelper */
     protected $doctrineHelper;
 
@@ -37,22 +44,28 @@ class WorkflowManager
     /** @var WorkflowApplicabilityFilterInterface[] */
     private $applicabilityFilters = [];
 
+    /** @var StartedWorkflowsBag */
+    private $startedWorkflowsBag;
+
     /**
      * @param WorkflowRegistry $workflowRegistry
      * @param DoctrineHelper $doctrineHelper
      * @param EventDispatcherInterface $eventDispatcher
      * @param WorkflowEntityConnector $entityConnector
+     * @param StartedWorkflowsBag $startedWorkflowsBag
      */
     public function __construct(
         WorkflowRegistry $workflowRegistry,
         DoctrineHelper $doctrineHelper,
         EventDispatcherInterface $eventDispatcher,
-        WorkflowEntityConnector $entityConnector
+        WorkflowEntityConnector $entityConnector,
+        StartedWorkflowsBag $startedWorkflowsBag
     ) {
         $this->workflowRegistry = $workflowRegistry;
         $this->doctrineHelper = $doctrineHelper;
         $this->eventDispatcher = $eventDispatcher;
         $this->entityConnector = $entityConnector;
+        $this->startedWorkflowsBag = $startedWorkflowsBag;
     }
 
     /**
@@ -90,8 +103,8 @@ class WorkflowManager
 
     /**
      * @param string|Transition $transition
-     * @param WorkflowItem $workflowItem
-     * @param Collection $errors
+     * @param WorkflowItem      $workflowItem
+     * @param Collection        $errors
      * @return bool
      */
     public function isTransitionAvailable(WorkflowItem $workflowItem, $transition, Collection $errors = null)
@@ -102,11 +115,11 @@ class WorkflowManager
     }
 
     /**
-     * @param string|Workflow $workflow
+     * @param string|Workflow   $workflow
      * @param string|Transition $transition
-     * @param object $entity
-     * @param array $data
-     * @param Collection $errors
+     * @param object            $entity
+     * @param array             $data
+     * @param Collection        $errors
      * @return bool
      */
     public function isStartTransitionAvailable(
@@ -155,19 +168,64 @@ class WorkflowManager
     }
 
     /**
-     * @param string $workflow
+     * @param string|Workflow $workflow
      * @param object $entity
      * @param string|Transition|null $transition
      * @param array $data
      * @param bool $throwGroupException
-     * @return WorkflowItem
-     * @throws \Exception
+     *
+     * @return WorkflowItem|null
      * @throws WorkflowRecordGroupException
      */
     public function startWorkflow($workflow, $entity, $transition = null, array $data = [], $throwGroupException = true)
     {
+        try {
+            $workflowItem = $this->doStartWorkflow($workflow, $entity, $transition, $data);
+        } catch (WorkflowRecordGroupException $exception) {
+            if ($throwGroupException) {
+                throw $exception;
+            }
+
+            return null;
+        }
+
+        if ($workflowItem) {
+            $workflowItem = $this->inTransaction(
+                function (EntityManager $em) use ($workflowItem) {
+                    $em->persist($workflowItem);
+                    $em->flush();
+
+                    return $workflowItem;
+                },
+                WorkflowItem::class
+            );
+        }
+
+        return $workflowItem;
+    }
+
+    /**
+     * @param string|Workflow $workflow
+     * @param object $entity
+     * @param string|Transition|null $transition
+     * @param array $data
+     * @param array $workflowItems
+     *
+     * @return WorkflowItem|null
+     *
+     * @throws WorkflowRecordGroupException
+     */
+    protected function doStartWorkflow(
+        $workflow,
+        $entity,
+        $transition = null,
+        array $data = [],
+        array $workflowItems = []
+    ) {
         //consider to refactor (e.g. remove) type check in favor of string usage only as most cases are
-        $workflow = $workflow instanceof Workflow ? $workflow : $this->workflowRegistry->getWorkflow($workflow);
+        $workflow = $this->getWorkflow($workflow);
+
+        //If transition passed as "null", then check if default "start" transition allowed
         if (!$transition) {
             $transition = $workflow->getTransitionManager()->getDefaultStartTransition();
 
@@ -176,58 +234,109 @@ class WorkflowManager
             }
         }
 
-        if (!$this->isStartAllowedByRecordGroups($entity, $workflow->getDefinition()->getExclusiveRecordGroups())) {
-            if ($throwGroupException) {
-                throw new WorkflowRecordGroupException(
-                    sprintf(
-                        'Workflow "%s" can not be started because it belongs to exclusive_record_group ' .
-                        'with already started other workflow for this entity',
-                        $workflow->getName()
-                    )
-                );
-            }
-
+        $transition = $workflow->getTransitionManager()->getStartTransition($transition);
+        if (!$this->isStartAllowedForEntity($workflow, $entity)) {
             return null;
         }
 
-        return $this->inTransaction(
-            function (EntityManager $em) use ($workflow, $entity, $transition, &$data) {
-                $workflowItem = $workflow->start($entity, $data, $transition);
-                $em->persist($workflowItem);
-                $em->flush();
+        //Collect and merge existing workflow items
+        $workflowItems = array_merge($workflowItems, $this->getWorkflowItemsByEntity($entity));
 
-                return $workflowItem;
-            },
-            WorkflowItem::class
-        );
+        if (!$this->isStartAllowedByRecordGroups($entity, $workflow, $workflowItems)) {
+            $message = sprintf(
+                'Workflow "%s" can not be started because it belongs to exclusive_record_group ' .
+                'with already started other workflow for this entity',
+                $workflow->getName()
+            );
+            if ($this->logger) {
+                $this->logger->error($message, [
+                    'workflow' => $workflow->getName(),
+                    'transition' => ($transition instanceof Transition) ? $transition->getName() : $transition,
+                    'entityClass' => ClassUtils::getClass($entity),
+                    'entityId' => $this->doctrineHelper->getSingleEntityIdentifier($entity),
+                    'data' => $data,
+                ]);
+            }
+            throw new WorkflowRecordGroupException($message);
+        }
+
+        $this->unsetStartedWorkflowForEntity($workflow, $entity);
+
+        return $workflow->start($entity, $data, $transition);
     }
 
     /**
      * Start several workflows
      *
      * @param array|WorkflowStartArguments[] $startArgumentsList instances of WorkflowStartArguments
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     public function massStartWorkflow(array $startArgumentsList)
     {
-        foreach ($startArgumentsList as $startArguments) {
-            if (!$startArguments instanceof WorkflowStartArguments) {
-                continue;
-            }
+        $startArgumentsList = array_filter($startArgumentsList, function ($item) {
+            return $item instanceof WorkflowStartArguments;
+        });
 
-            $this->startWorkflow(
-                $startArguments->getWorkflowName(),
-                $startArguments->getEntity(),
-                $startArguments->getTransition(),
-                $startArguments->getData(),
-                false
-            );
+        if (!$startArgumentsList) {
+            return;
+        }
+
+        $startArgumentsChunks = array_chunk($startArgumentsList, self::MASS_START_BATCH_SIZE);
+        $em = $this->doctrineHelper->getEntityManagerForClass(WorkflowItem::class);
+
+        foreach ($startArgumentsChunks as $key => $chunk) {
+            $workflowItems = [];
+            $em->beginTransaction();
+
+            try {
+                /** @var WorkflowStartArguments $startArguments */
+                foreach ($chunk as $startArguments) {
+                    $entity = $startArguments->getEntity();
+
+                    $hash = spl_object_hash($entity);
+                    if (!array_key_exists($hash, $workflowItems)) {
+                        $workflowItems[$hash] = [];
+                    }
+
+                    try {
+                        $workflowItem = $this->doStartWorkflow(
+                            $startArguments->getWorkflowName(),
+                            $entity,
+                            $startArguments->getTransition(),
+                            $startArguments->getData(),
+                            $workflowItems[$hash]
+                        );
+                    } catch (WorkflowRecordGroupException $exception) {
+                        continue;
+                    }
+
+                    if ($workflowItem) {
+                        $em->persist($workflowItem);
+                        $workflowItems[$hash][] = $workflowItem;
+                    }
+                }
+
+                if ($workflowItems) {
+                    $em->flush();
+                }
+
+                $em->commit();
+            } catch (\Exception $exception) {
+                $em->rollback();
+                if ($this->logger) {
+                    $this->logger->critical('Workflow mass start transition exception', ['exception' => $exception]);
+                }
+            } finally {
+                unset($startArgumentsChunks[$key]);
+            }
         }
     }
 
     /**
      * Perform workflow item transition.
      *
-     * @param WorkflowItem $workflowItem
+     * @param WorkflowItem      $workflowItem
      * @param string|Transition $transition
      */
     public function transit(WorkflowItem $workflowItem, $transition)
@@ -238,9 +347,9 @@ class WorkflowManager
     }
 
     /**
-     * @param Workflow $workflow
+     * @param Workflow     $workflow
      * @param WorkflowItem $workflowItem
-     * @param $transition
+     * @param string       $transition
      */
     private function transitWorkflow(Workflow $workflow, WorkflowItem $workflowItem, $transition)
     {
@@ -249,6 +358,17 @@ class WorkflowManager
                 $workflow->transit($workflowItem, $transition);
                 $workflowItem->setUpdated(); // transition might not change workflow item
                 $em->flush();
+
+                if ($this->logger) {
+                    $this->logger->info(
+                        'Workflow transition is complete',
+                        [
+                            'workflow'     => $workflow,
+                            'workflowItem' => $workflowItem,
+                            'transition'   => $transition
+                        ]
+                    );
+                }
             },
             WorkflowItem::class
         );
@@ -258,7 +378,7 @@ class WorkflowManager
      * Tries to transit workflow and checks weather given transition is allowed.
      * Returns true on success - false otherwise.
      * @param WorkflowItem $workflowItem
-     * @param $transition
+     * @param string       $transition
      * @return bool
      */
     public function transitIfAllowed(WorkflowItem $workflowItem, $transition)
@@ -316,7 +436,7 @@ class WorkflowManager
 
     /**
      * @param callable $callable
-     * @param string $entityClass
+     * @param string   $entityClass
      * @return mixed
      * @throws \Exception
      */
@@ -336,23 +456,26 @@ class WorkflowManager
     }
 
     /**
-     * @param object $entity
+     * @param object|string $entity
      * @return Workflow[]|array
      * @throws \InvalidArgumentException
      */
     public function getApplicableWorkflows($entity)
     {
-        $recordContext = new WorkflowRecordContext($entity);
-
         if (!$this->entityConnector->isApplicableEntity($entity)) {
             return [];
         }
 
-        $workflows = $this->workflowRegistry
-            ->getActiveWorkflowsByEntityClass($this->doctrineHelper->getEntityClass($entity));
+        $workflows = $this->workflowRegistry->getActiveWorkflowsByEntityClass(
+            $this->doctrineHelper->getEntityClass($entity)
+        );
 
-        foreach ($this->applicabilityFilters as $applicabilityFilter) {
-            $workflows = $applicabilityFilter->filter($workflows, $recordContext);
+        if (is_object($entity)) {
+            $recordContext = new WorkflowRecordContext($entity);
+
+            foreach ($this->applicabilityFilters as $applicabilityFilter) {
+                $workflows = $applicabilityFilter->filter($workflows, $recordContext);
+            }
         }
 
         return $workflows->toArray();
@@ -411,6 +534,17 @@ class WorkflowManager
     }
 
     /**
+     * @param $entity
+     * @return false|WorkflowItem
+     */
+    public function getFirstWorkflowItemByEntity($entity)
+    {
+        $items = $this->getWorkflowItemsByEntity($entity);
+
+        return \reset($items);
+    }
+
+    /**
      * Ensures that workflow is currently active
      * @param string $workflowName
      * @return bool weather workflow was changed his state
@@ -427,21 +561,33 @@ class WorkflowManager
      */
     public function deactivateWorkflow($workflowName)
     {
-        return $this->setWorkflowStatus($workflowName, false);
+        $result = $this->setWorkflowStatus($workflowName, false);
+
+        if ($result) {
+            $this->startedWorkflowsBag->removeWorkflow($workflowName);
+        }
+
+        return $result;
     }
 
     /**
      * @param string $workflowName
-     * @param bool $isActive
+     * @param bool   $isActive
      * @return bool weather workflow was changed his state
      */
     private function setWorkflowStatus($workflowName, $isActive)
     {
         $definition = $this->workflowRegistry->getWorkflow($workflowName)->getDefinition();
 
-        if ((bool)$isActive !== $definition->isActive()) {
+        if ((bool) $isActive !== $definition->isActive()) {
+            $this->eventDispatcher->dispatch(
+                $isActive ? WorkflowEvents::WORKFLOW_BEFORE_ACTIVATION : WorkflowEvents::WORKFLOW_BEFORE_DEACTIVATION,
+                new WorkflowChangesEvent($definition)
+            );
+
             $definition->setActive($isActive);
             $this->doctrineHelper->getEntityManager(WorkflowDefinition::class)->flush($definition);
+
             $this->eventDispatcher->dispatch(
                 $isActive ? WorkflowEvents::WORKFLOW_ACTIVATED : WorkflowEvents::WORKFLOW_DEACTIVATED,
                 new WorkflowChangesEvent($definition)
@@ -454,14 +600,13 @@ class WorkflowManager
     }
 
     /**
+     * Checks weather workflow with such name is active in refreshed instance.
      * @param string $workflowName
      * @return bool
      */
     public function isActiveWorkflow($workflowName)
     {
-        $definition = $this->workflowRegistry->getWorkflow($workflowName)->getDefinition();
-
-        return $definition->isActive();
+        return $this->workflowRegistry->getWorkflow($workflowName)->isActive();
     }
 
     /**
@@ -470,6 +615,7 @@ class WorkflowManager
     public function resetWorkflowData($workflowName)
     {
         $this->getWorkflowItemRepository()->resetWorkflowData($workflowName);
+        $this->startedWorkflowsBag->removeWorkflow($workflowName);
     }
 
     /**
@@ -482,19 +628,81 @@ class WorkflowManager
 
     /**
      * @param object $entity
-     * @param array $recordGroups
+     * @param Workflow $workflow
+     * @param array $workflowItems
+     *
      * @return bool
      */
-    protected function isStartAllowedByRecordGroups($entity, array $recordGroups)
+    protected function isStartAllowedByRecordGroups($entity, Workflow $workflow, array $workflowItems = [])
     {
-        $workflowItems = $this->getWorkflowItemsByEntity($entity);
+        //Allow to start for new entities
+        if (null === $this->doctrineHelper->getSingleEntityIdentifier($entity)) {
+            return true;
+        }
+
         foreach ($workflowItems as $workflowItem) {
-            if (array_intersect($recordGroups, $workflowItem->getDefinition()->getExclusiveRecordGroups())) {
+            $result = array_intersect(
+                $workflow->getDefinition()->getExclusiveRecordGroups(),
+                $workflowItem->getDefinition()->getExclusiveRecordGroups()
+            );
+            if ($result) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Return false if the Workflow already started for the Entity
+     *
+     * @param Workflow $workflow
+     * @param object $entity
+     *
+     * @return bool
+     */
+    protected function isStartAllowedForEntity(Workflow $workflow, $entity)
+    {
+        $startedWorkflowsBag = $this->startedWorkflowsBag;
+        $entityId = $this->doctrineHelper->getSingleEntityIdentifier($entity);
+        $workflowName = $workflow->getName();
+
+        if ($entityId && $startedWorkflowsBag->hasWorkflowEntity($workflowName)) {
+            foreach ($startedWorkflowsBag->getWorkflowEntities($workflowName) as $startedEntity) {
+                $startedEntityId = $this->doctrineHelper->getSingleEntityIdentifier($startedEntity);
+                if ($startedEntityId && ($startedEntityId === $entityId)) {
+                    return false;
+                }
+            }
+        }
+
+        $startedWorkflowsBag->addWorkflowEntity($workflowName, $entity);
+
+        return true;
+    }
+
+    /**
+     * Unset started workflow for entity
+     *
+     * @param Workflow $workflow
+     * @param object $entity
+     */
+    protected function unsetStartedWorkflowForEntity(Workflow $workflow, $entity)
+    {
+        $startedWorkflowsBag = $this->startedWorkflowsBag;
+        $entityId = $this->doctrineHelper->getSingleEntityIdentifier($entity);
+        $workflowName = $workflow->getName();
+
+        if ($entityId === null || !$startedWorkflowsBag->hasWorkflowEntity($workflowName)) {
+            return;
+        }
+
+        foreach ($startedWorkflowsBag->getWorkflowEntities($workflowName) as $startedEntity) {
+            if ($this->doctrineHelper->getSingleEntityIdentifier($startedEntity) === $entityId) {
+                $startedWorkflowsBag->removeWorkflowEntity($workflowName, $startedEntity);
+                break;
+            }
+        }
     }
 
     /**

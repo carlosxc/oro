@@ -1,15 +1,16 @@
 <?php
+
 namespace Oro\Bundle\NotificationBundle\Tests\Unit;
 
 use Oro\Bundle\NotificationBundle\OroNotificationBundle;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 
-class OroNavigationBundleTest extends \PHPUnit_Framework_TestCase
+class OroNotificationBundleTest extends \PHPUnit\Framework\TestCase
 {
     public function testBuild()
     {
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
-        $kernel = $this->getMock('Symfony\Component\HttpKernel\KernelInterface');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $kernel = $this->createMock('Symfony\Component\HttpKernel\KernelInterface');
 
         $container->expects($this->at(0))
             ->method('addCompilerPass')

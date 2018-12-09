@@ -39,6 +39,19 @@ class Product
      */
     protected $updatedAt;
 
+    /** @var ProductPrice */
+    protected $price;
+
+    /**
+     * @ORM\Column(name="price_value", type="string")
+     */
+    protected $priceValue;
+
+    /**
+     * @ORM\Column(name="price_currency", type="string")
+     */
+    protected $priceCurrency;
+
     /**
      * @return int
      */
@@ -119,6 +132,31 @@ class Product
         $this->updatedAt = $updatedAt;
     }
 
+    /**
+     * @return ProductPrice
+     */
+    public function getPrice()
+    {
+        if (!$this->price) {
+            $this->price = new ProductPrice($this->priceValue, $this->priceCurrency);
+        }
+
+        return $this->price;
+    }
+
+    /**
+     * @param ProductPrice $price
+     *
+     * @return self
+     */
+    public function setPrice(ProductPrice $price)
+    {
+        $this->price = $price;
+        $this->priceValue = $this->price->getValue();
+        $this->priceCurrency = $this->price->getCurrency();
+
+        return $this;
+    }
 
     /**
      * @return string

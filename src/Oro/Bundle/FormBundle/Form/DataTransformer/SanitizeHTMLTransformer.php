@@ -2,11 +2,13 @@
 
 namespace Oro\Bundle\FormBundle\Form\DataTransformer;
 
+use Oro\Bundle\FormBundle\Form\Converter\TagDefinitionConverter;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Form\DataTransformerInterface;
 
-use Oro\Bundle\FormBundle\Form\Converter\TagDefinitionConverter;
-
+/**
+ * Sanitazes passed value using html purifier with configured attributes which is enabled
+ */
 class SanitizeHTMLTransformer implements DataTransformerInterface
 {
     const SUB_DIR = 'ezyang';
@@ -73,6 +75,7 @@ class SanitizeHTMLTransformer implements DataTransformerInterface
                 'URI.AllowedSchemes',
                 ['http' => true, 'https' => true, 'mailto' => true, 'ftp' => true, 'data' => true, 'tel' => true]
             );
+            $config->set('Attr.EnableID', true);
             $config->set('Attr.AllowedFrameTargets', ['_blank']);
             $this->htmlPurifier = new \HTMLPurifier($config);
         }
@@ -121,6 +124,8 @@ class SanitizeHTMLTransformer implements DataTransformerInterface
         if ($this->allowedElements) {
             $config->set('HTML.AllowedElements', $converter->getElements($this->allowedElements));
             $config->set('HTML.AllowedAttributes', $converter->getAttributes($this->allowedElements));
+        } else {
+            $config->set('HTML.Allowed', '');
         }
     }
 }

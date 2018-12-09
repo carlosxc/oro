@@ -5,7 +5,7 @@ namespace Oro\Bundle\PlatformBundle\Tests\Unit\EventListener\Console;
 use Oro\Bundle\PlatformBundle\EventListener\Console\DriverLockCommandListener;
 use Oro\Bundle\PlatformBundle\Maintenance\Events;
 
-class DriverLockCommandListenerTest extends \PHPUnit_Framework_TestCase
+class DriverLockCommandListenerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var DriverLockCommandListener
@@ -13,23 +13,23 @@ class DriverLockCommandListenerTest extends \PHPUnit_Framework_TestCase
     protected $target;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $dispatcherInterface;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $event;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $command;
 
     protected function setUp()
     {
-        $this->dispatcherInterface = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->dispatcherInterface = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $this->event = $this->getMockBuilder('Symfony\Component\Console\Event\ConsoleTerminateEvent')
             ->disableOriginalConstructor()

@@ -6,8 +6,8 @@
     "homepage": "https://github.com/laboro/PlatformBundle",
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "lexik/maintenance-bundle": "dev-master",
         "oro/config": "dev-master"
     },
@@ -15,7 +15,6 @@
         "psr-0": { "Oro\\Bundle\\PlatformBundle": "" }
     },
     "target-dir": "Oro/Bundle/PlatformBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

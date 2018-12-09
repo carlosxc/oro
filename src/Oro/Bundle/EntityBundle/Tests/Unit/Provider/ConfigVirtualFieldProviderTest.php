@@ -3,7 +3,7 @@ namespace Oro\Bundle\EntityBundle\Tests\Unit\Provider;
 
 use Oro\Bundle\EntityBundle\Provider\ConfigVirtualFieldProvider;
 
-class ConfigVirtualFieldProviderTest extends \PHPUnit_Framework_TestCase
+class ConfigVirtualFieldProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ConfigVirtualFieldProvider */
     private $configVirtualFieldProvider;
@@ -13,7 +13,8 @@ class ConfigVirtualFieldProviderTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $entityHierarchyProvider = $this->getMock('Oro\Bundle\EntityBundle\Provider\EntityHierarchyProviderInterface');
+        $entityHierarchyProvider = $this
+            ->createMock('Oro\Bundle\EntityBundle\Provider\EntityHierarchyProviderInterface');
 
         $hierarchy = ['TestEntity' => ['AbstractEntity']];
         $entityHierarchyProvider

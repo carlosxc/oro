@@ -1,16 +1,16 @@
 define(function(require) {
     'use strict';
 
-    var AbstractInputWidget;
+    var AbstractInputWidgetView;
     var _ = require('underscore');
     var BaseView = require('oroui/js/app/views/base/view');
 
     /**
-     * AbstractInputWidget is the base class for all input widgets.
+     * AbstractInputWidgetView is the base class for all input widgets.
      * InputWidget is used to provide a common API for all input widgets.
      * By using this API you provide ability to change input widget to any other or remove it.
      */
-    AbstractInputWidget = BaseView.extend({
+    AbstractInputWidgetView = BaseView.extend({
         /** @property {jQuery} */
         $container: null,
 
@@ -45,12 +45,19 @@ define(function(require) {
         /**
          * @inheritDoc
          */
+        constructor: function AbstractInputWidgetView() {
+            AbstractInputWidgetView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             this.resolveOptions(options);
             this.initializeWidget();
 
             if (this.isInitialized()) {
-                this.container().addClass(this.containerClass);
+                this.getContainer().addClass(this.containerClass);
             }
 
             this.$el.trigger('input-widget:init');
@@ -65,7 +72,7 @@ define(function(require) {
         },
 
         delegateEvents: function() {
-            AbstractInputWidget.__super__.delegateEvents.apply(this, arguments);
+            AbstractInputWidgetView.__super__.delegateEvents.apply(this, arguments);
             if (this.refreshOnChange) {
                 this._addEvent('change', _.bind(this.refresh, this));
             }
@@ -88,7 +95,7 @@ define(function(require) {
 
             this.$el.data('inputWidget', this)
                 .attr('data-bound-input-widget', this.widgetFunctionName || 'no-name');
-            if (!this.widgetFunction) {
+            if (!this.widgetFunction && this.widgetFunctionName) {
                 this.widgetFunction = _.bind(this.$el[this.widgetFunctionName], this.$el);
             }
 
@@ -113,10 +120,11 @@ define(function(require) {
                 .removeAttr('data-bound-input-widget');
             delete this.$container;
 
-            return AbstractInputWidget.__super__.dispose.apply(this, arguments);
+            return AbstractInputWidgetView.__super__.dispose.apply(this, arguments);
         },
 
         disposeWidget: function() {
+            this.$container = null;
             if (this.destroyOptions) {
                 this.widgetFunction(this.destroyOptions);
             }
@@ -134,7 +142,7 @@ define(function(require) {
          *
          * @returns {jQuery}
          */
-        container: function() {
+        getContainer: function() {
             return this.$container || (this.$container = this.findContainer());
         },
 
@@ -150,7 +158,7 @@ define(function(require) {
          * @param {mixed} width
          */
         width: function(width) {
-            this.container().width(width);
+            this.getContainer().width(width);
         },
 
         /**
@@ -159,6 +167,7 @@ define(function(require) {
         refresh: function() {
             if (this.refreshOptions) {
                 this.widgetFunction(this.refreshOptions);
+                this.$container = this.findContainer();
             } else {
                 this.disposeWidget();
                 this.initializeWidget();
@@ -166,17 +175,22 @@ define(function(require) {
         },
 
         hide: function() {
-            this.container().hide();
+            this.getContainer().hide();
         },
 
         show: function() {
-            this.container().show();
+            this.getContainer().show();
         },
 
         _addEvent: function(eventName, callback) {
             this.$el.on(eventName + this.eventNamespace(), callback);
+        },
+
+        disable: function(state) {
+            this.$el.attr('disabled', state);
+            this.refresh();
         }
     });
 
-    return AbstractInputWidget;
+    return AbstractInputWidgetView;
 });

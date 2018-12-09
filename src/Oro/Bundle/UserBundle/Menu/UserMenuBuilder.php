@@ -2,28 +2,20 @@
 
 namespace Oro\Bundle\UserBundle\Menu;
 
-use Symfony\Component\Security\Core\SecurityContextInterface;
 use Knp\Menu\ItemInterface;
 use Oro\Bundle\NavigationBundle\Menu\BuilderInterface;
 
+/**
+ * Allows to add extra items to user menu
+ */
 class UserMenuBuilder implements BuilderInterface
 {
     /**
-     * @var SecurityContextInterface
+     * {@inheritdoc}
      */
-    private $securityContext;
-
-    /**
-     * @param SecurityContextInterface $securityContext
-     */
-    public function __construct(SecurityContextInterface $securityContext)
-    {
-        $this->securityContext = $securityContext;
-    }
-
     public function build(ItemInterface $menu, array $options = array(), $alias = null)
     {
-        $menu->setExtra('type', 'dropdown');
+        $menu->setExtra('type', 'user_menu');
         /* Disabled status menu till active stream will be implemented (BAP-617)
          $menu->addChild(
             'Update status',
@@ -38,17 +30,17 @@ class UserMenuBuilder implements BuilderInterface
             )
         );*/
 
-        $menu->addChild('divider-' . rand(1, 99999))
+        $menu->addChild('divider-user-before-logout')
             ->setLabel('')
-            ->setAttribute('class', 'divider');
+            ->setExtra('divider', true);
         $menu->addChild(
             'Logout',
-            array(
+            [
                 'route' => 'oro_user_security_logout',
-                'linkAttributes' => array(
+                'linkAttributes' => [
                     'class' => 'no-hash'
-                )
-            )
+                ]
+            ]
         );
     }
 }

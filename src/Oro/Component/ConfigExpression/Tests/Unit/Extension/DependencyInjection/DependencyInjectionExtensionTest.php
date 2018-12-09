@@ -4,20 +4,24 @@ namespace Oro\Component\ConfigExpression\Tests\Unit\Extension\DependencyInjectio
 
 use Oro\Component\ConfigExpression\Extension\DependencyInjection\DependencyInjectionExtension;
 
-class DependencyInjectionExtensionTest extends \PHPUnit_Framework_TestCase
+class DependencyInjectionExtensionTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $container;
 
     /** @var DependencyInjectionExtension */
     protected $extension;
 
+    /** @var  array */
+    protected $serviceIds;
+
     protected function setUp()
     {
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $this->serviceIds = ['test' => 'expression_service'];
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $this->extension = new DependencyInjectionExtension(
             $this->container,
-            ['test' => 'expression_service']
+            $this->serviceIds
         );
     }
 
@@ -29,7 +33,7 @@ class DependencyInjectionExtensionTest extends \PHPUnit_Framework_TestCase
 
     public function testGetExpression()
     {
-        $expr = $this->getMock('Oro\Component\ConfigExpression\ExpressionInterface');
+        $expr = $this->createMock('Oro\Component\ConfigExpression\ExpressionInterface');
 
         $this->container->expects($this->once())
             ->method('get')
@@ -46,5 +50,10 @@ class DependencyInjectionExtensionTest extends \PHPUnit_Framework_TestCase
     public function testGetUnknownExpression()
     {
         $this->extension->getExpression('unknown');
+    }
+
+    public function testGetServiceIds()
+    {
+        $this->assertSame($this->serviceIds, $this->extension->getServiceIds());
     }
 }

@@ -3,8 +3,8 @@
 
 namespace Oro\Component\Layout;
 
-use Oro\Component\Layout\Model\LayoutUpdateImport;
 use Oro\Component\Layout\Exception\LogicException;
+use Oro\Component\Layout\Model\LayoutUpdateImport;
 
 class ImportLayoutManipulator implements LayoutManipulatorInterface
 {
@@ -45,7 +45,7 @@ class ImportLayoutManipulator implements LayoutManipulatorInterface
         $blockType,
         array $options = [],
         $siblingId = null,
-        $prepend = false
+        $prepend = null
     ) {
         $this->addAdditionalBlockPrefixOption($id, $options);
 
@@ -79,7 +79,7 @@ class ImportLayoutManipulator implements LayoutManipulatorInterface
     /**
      * {@inheritDoc}
      */
-    public function move($id, $parentId = null, $siblingId = null, $prepend = false)
+    public function move($id, $parentId = null, $siblingId = null, $prepend = null)
     {
         $this
             ->replaceRoot($id)
@@ -263,7 +263,7 @@ class ImportLayoutManipulator implements LayoutManipulatorInterface
             if ($rootId === self::ROOT_PLACEHOLDER) {
                 $rootId = $this->getRootId($import->getParent());
             } else {
-                $this->replaceNamespace($rootId, $import->getParent()->getNamespace());
+                $this->replaceNamespace($rootId, $this->getNamespace($import->getParent()));
             }
         }
         return $rootId;
@@ -309,16 +309,25 @@ class ImportLayoutManipulator implements LayoutManipulatorInterface
      */
     protected function getNamespace(LayoutUpdateImport $import)
     {
-        $namespace = $import->getNamespace();
+        return implode(self::NAMESPACE_SUFFIX, $this->getNamespaces($import));
+    }
+
+    /**
+     * @param LayoutUpdateImport $import
+     *
+     * @return array
+     */
+    protected function getNamespaces(LayoutUpdateImport $import)
+    {
+        $namespaces = [];
         if ($import->getParent()) {
-            $parentNamespace = $this->getNamespace($import->getParent());
-            if ($namespace && $parentNamespace) {
-                $namespace = $parentNamespace.self::NAMESPACE_SUFFIX.$namespace;
-            } elseif ($parentNamespace) {
-                $namespace = $parentNamespace;
-            }
+            $namespaces = array_merge($namespaces, $this->getNamespaces($import->getParent()));
         }
-        return $namespace;
+        if ($import->getNamespace()) {
+            array_push($namespaces, $import->getNamespace());
+        }
+
+        return $namespaces;
     }
 
     /**

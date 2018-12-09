@@ -3,14 +3,17 @@
 namespace Oro\Bundle\DashboardBundle\Helper;
 
 use Doctrine\ORM\QueryBuilder;
-
-use Symfony\Bridge\Doctrine\RegistryInterface;
-
-use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
-
 use Oro\Bundle\FilterBundle\Form\Type\Filter\AbstractDateFilterType;
 use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
+use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
+use Symfony\Bridge\Doctrine\RegistryInterface;
 
+/**
+ * Provides a set of reusable utility methods for dashboard widgets
+ * to simplify a work with time periods by which the widget's data is filtered.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
+ */
 class DateHelper
 {
     const YEAR_TYPE_DAYS  = 1460;
@@ -169,17 +172,28 @@ class DateHelper
      * @param \DateTime    $start
      * @param \DateTime    $end
      * @param QueryBuilder $qb
-     * @param              $entityField
+     * @param string       $entityField
      */
-    public function addDatePartsSelect(\DateTime $start, \DateTime $end, QueryBuilder $qb, $entityField)
-    {
+    public function addDatePartsSelect(
+        \DateTime $start,
+        \DateTime $end,
+        QueryBuilder $qb,
+        $entityField
+    ) {
+        QueryBuilderUtil::checkField($entityField);
         switch ($this->getFormatStrings($start, $end)['viewType']) {
             case 'year':
-                $qb->addSelect(sprintf('%s as yearCreated', $this->getEnforcedTimezoneFunction('YEAR', $entityField)));
+                $qb->addSelect(sprintf(
+                    '%s as yearCreated',
+                    $this->getEnforcedTimezoneFunction('YEAR', $entityField)
+                ));
                 $qb->addGroupBy('yearCreated');
                 break;
             case 'month':
-                $qb->addSelect(sprintf('%s as yearCreated', $this->getEnforcedTimezoneFunction('YEAR', $entityField)));
+                $qb->addSelect(sprintf(
+                    '%s as yearCreated',
+                    $this->getEnforcedTimezoneFunction('YEAR', $entityField)
+                ));
                 $qb->addSelect(
                     sprintf(
                         '%s as monthCreated',
@@ -190,27 +204,45 @@ class DateHelper
                 $qb->addGroupBy('monthCreated');
                 break;
             case 'date':
-                $qb->addSelect(sprintf("%s as yearCreated", $this->getEnforcedTimezoneFunction('YEAR', $entityField)));
-                $qb->addSelect(sprintf('%s as weekCreated', $this->getEnforcedTimezoneFunction('WEEK', $entityField)));
+                $qb->addSelect(sprintf(
+                    "%s as yearCreated",
+                    $this->getEnforcedTimezoneFunction('YEAR', $entityField)
+                ));
+                $qb->addSelect(sprintf(
+                    '%s as weekCreated',
+                    $this->getEnforcedTimezoneFunction('WEEK', $entityField)
+                ));
                 $qb->addGroupBy('yearCreated');
                 $qb->addGroupBy('weekCreated');
                 break;
             case 'day':
-                $qb->addSelect(sprintf("%s as yearCreated", $this->getEnforcedTimezoneFunction('YEAR', $entityField)));
+                $qb->addSelect(sprintf(
+                    "%s as yearCreated",
+                    $this->getEnforcedTimezoneFunction('YEAR', $entityField)
+                ));
                 $qb->addSelect(
                     sprintf(
                         "%s as monthCreated",
                         $this->getEnforcedTimezoneFunction('MONTH', $entityField)
                     )
                 );
-                $qb->addSelect(sprintf("%s as dayCreated", $this->getEnforcedTimezoneFunction('DAY', $entityField)));
+                $qb->addSelect(sprintf(
+                    "%s as dayCreated",
+                    $this->getEnforcedTimezoneFunction('DAY', $entityField)
+                ));
                 $qb->addGroupBy('yearCreated');
                 $qb->addGroupBy('monthCreated');
                 $qb->addGroupBy('dayCreated');
                 break;
             case 'time':
-                $qb->addSelect(sprintf('%s as dateCreated', $this->getEnforcedTimezoneFunction('DATE', $entityField)));
-                $qb->addSelect(sprintf('%s as hourCreated', $this->getEnforcedTimezoneFunction('HOUR', $entityField)));
+                $qb->addSelect(sprintf(
+                    '%s as dateCreated',
+                    $this->getEnforcedTimezoneFunction('DATE', $entityField)
+                ));
+                $qb->addSelect(sprintf(
+                    '%s as hourCreated',
+                    $this->getEnforcedTimezoneFunction('HOUR', $entityField)
+                ));
                 $qb->addGroupBy('dateCreated');
                 $qb->addGroupBy('hourCreated');
                 break;
@@ -233,7 +265,6 @@ class DateHelper
                 break;
             case 'year':
                 return $row['yearCreated'];
-                break;
             case 'day':
                 $time = strtotime(sprintf('%s-%s-%s', $row['yearCreated'], $row['monthCreated'], $row['dayCreated']));
                 break;
@@ -241,9 +272,8 @@ class DateHelper
                 $week = $row['weekCreated'] < 10 ? '0' . $row['weekCreated'] : $row['weekCreated'];
 
                 return $row['yearCreated'] . '-' . $week;
-                break;
             case 'time':
-                return $row['dateCreated'] . '-' . $row['hourCreated'];
+                return $row['dateCreated'] . '-' . str_pad($row['hourCreated'], 2, '0', STR_PAD_LEFT);
         }
 
         return date($config['valueStringFormat'], $time);
@@ -339,31 +369,9 @@ class DateHelper
         $start->setTime(0, 0, 0);
 
         $end = $this->getCurrentDateTime();
-        $end->setTime(23, 59, 59);
+        $end->setTime(0, 0, 0)->modify('1 day');
 
         $start = $start->sub(new \DateInterval($interval));
-
-        return [$start, $end];
-    }
-
-    /**
-     * Gets previous date interval
-     *
-     * @param \DateTime $from
-     * @param \DateTime $to
-     *
-     * @return array
-     */
-    public function getPreviousDateTimeInterval(\DateTime $from, \DateTime $to)
-    {
-        $interval = $from->diff($to);
-        $start    = clone $from;
-        $start    = $start->sub($interval);
-        $start    = $start->sub(new \DateInterval('PT1S'));
-
-        $end = clone $to;
-        $end = $end->sub($interval);
-        $end = $end->sub(new \DateInterval('PT1S'));
 
         return [$start, $end];
     }

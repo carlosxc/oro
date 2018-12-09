@@ -4,7 +4,6 @@ namespace Oro\Bundle\DashboardBundle\Model;
 
 use Doctrine\Common\Collections\AbstractLazyCollection;
 use Doctrine\Common\Collections\ArrayCollection;
-
 use Oro\Bundle\DashboardBundle\Entity\Dashboard;
 use Oro\Bundle\DashboardBundle\Entity\Widget;
 
@@ -39,7 +38,10 @@ class WidgetCollection extends AbstractLazyCollection
 
         /** @var Widget $widget */
         foreach ($this->dashboard->getWidgets() as $widget) {
-            $widgets[] = $this->factory->createWidgetModel($widget);
+            $model = $this->factory->createVisibleWidgetModel($widget);
+            if ($model) {
+                $widgets[] = $model;
+            }
         }
 
         $this->collection = new ArrayCollection($widgets);

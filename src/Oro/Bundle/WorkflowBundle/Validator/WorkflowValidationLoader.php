@@ -2,15 +2,11 @@
 
 namespace Oro\Bundle\WorkflowBundle\Validator;
 
-use Doctrine\ORM\EntityManager;
-
+use Oro\Bundle\EntityBundle\Tools\DatabaseChecker;
+use Oro\Bundle\WorkflowBundle\Model\WorkflowPermissionRegistry;
+use Oro\Bundle\WorkflowBundle\Restriction\RestrictionManager;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 use Symfony\Component\Validator\Mapping\Loader\AbstractLoader;
-
-use Oro\Bundle\EntityBundle\Tools\SafeDatabaseChecker;
-use Oro\Component\DependencyInjection\ServiceLink;
-use Oro\Bundle\WorkflowBundle\Restriction\RestrictionManager;
-use Oro\Bundle\WorkflowBundle\Model\WorkflowPermissionRegistry;
 
 class WorkflowValidationLoader extends AbstractLoader
 {
@@ -20,32 +16,22 @@ class WorkflowValidationLoader extends AbstractLoader
     /** @var RestrictionManager */
     protected $restrictionManager;
 
-    /** @var ServiceLink */
-    protected $emLink;
-
-    protected $dbCheck;
-
-    /** @var string[] */
-    protected $requiredTables = [
-        'oro_workflow_entity_acl',
-        'oro_workflow_entity_acl_ident',
-        'oro_workflow_restriction',
-        'oro_workflow_restriction_ident'
-    ];
+    /** @var DatabaseChecker */
+    protected $databaseChecker;
 
     /**
      * @param WorkflowPermissionRegistry $permissionRegistry
      * @param RestrictionManager         $restrictionManager
-     * @param ServiceLink                $emLink A link to the EntityManager
+     * @param DatabaseChecker            $databaseChecker
      */
     public function __construct(
         WorkflowPermissionRegistry $permissionRegistry,
         RestrictionManager $restrictionManager,
-        ServiceLink $emLink
+        DatabaseChecker $databaseChecker
     ) {
         $this->permissionRegistry = $permissionRegistry;
         $this->restrictionManager = $restrictionManager;
-        $this->emLink             = $emLink;
+        $this->databaseChecker = $databaseChecker;
     }
 
     /**
@@ -53,7 +39,7 @@ class WorkflowValidationLoader extends AbstractLoader
      */
     public function loadClassMetadata(ClassMetadata $metadata)
     {
-        if (!$this->checkDatabase()) {
+        if (!$this->databaseChecker->checkDatabase()) {
             return false;
         }
 
@@ -70,30 +56,5 @@ class WorkflowValidationLoader extends AbstractLoader
         }
 
         return false;
-    }
-
-    /**
-     * @return bool
-     */
-    protected function checkDatabase()
-    {
-        if (null !== $this->dbCheck) {
-            return $this->dbCheck;
-        }
-
-        $this->dbCheck = SafeDatabaseChecker::tablesExist(
-            $this->getEntityManager()->getConnection(),
-            $this->requiredTables
-        );
-
-        return $this->dbCheck;
-    }
-
-    /**
-     * @return EntityManager
-     */
-    protected function getEntityManager()
-    {
-        return $this->emLink->getService();
     }
 }

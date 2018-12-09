@@ -5,7 +5,7 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Tools;
 use Oro\Bundle\EmailBundle\Tools\EmailBodyHelper;
 use Oro\Bundle\UIBundle\Tools\HtmlTagHelper;
 
-class EmailBodyHelperTest extends \PHPUnit_Framework_TestCase
+class EmailBodyHelperTest extends \PHPUnit\Framework\TestCase
 {
     /** @var HtmlTagHelper */
     protected $htmlTagHelper;
@@ -26,7 +26,7 @@ class EmailBodyHelperTest extends \PHPUnit_Framework_TestCase
      */
     public function testGetClearBody($bodyText, $expectedResult)
     {
-        $this->assertEquals($expectedResult, $this->bodyHelper->getClearBody($bodyText));
+        $this->assertEquals($expectedResult, $this->bodyHelper->getTrimmedClearText($bodyText));
     }
 
     public function bodyData()

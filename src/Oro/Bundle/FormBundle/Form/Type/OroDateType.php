@@ -2,11 +2,12 @@
 
 namespace Oro\Bundle\FormBundle\Form\Type;
 
-use Symfony\Component\OptionsResolver\Options;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\FormView;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\OptionsResolver\Options;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class OroDateType extends AbstractType
 {
@@ -25,12 +26,15 @@ class OroDateType extends AbstractType
         if (!empty($options['years'])) {
             $view->vars['years'] = sprintf('%d:%d', min($options['years']), max($options['years']));
         }
+
+        $view->vars['minDate'] = $options['minDate'];
+        $view->vars['maxDate'] = $options['maxDate'];
     }
 
     /**
      * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefaults(
             [
@@ -40,17 +44,21 @@ class OroDateType extends AbstractType
                 'widget'         => 'single_text',
                 'placeholder'    => 'oro.form.click_here_to_select',
                 'years'          => [],
+                'minDate'        => null,
+                'maxDate'        => null,
             ]
         );
 
         // remove buggy 'placeholder' normalizer. The placeholder must be a string if 'widget' === 'single_text'
-        $resolver->setNormalizers(
-            [
-                'placeholder' => function (Options $options, $placeholder) {
-                    return $placeholder;
-                }
-            ]
+        $resolver->setNormalizer(
+            'placeholder',
+            function (Options $options, $placeholder) {
+                return $placeholder;
+            }
         );
+
+        $resolver->setAllowedTypes('minDate', ['string', 'null']);
+        $resolver->setAllowedTypes('maxDate', ['string', 'null']);
     }
 
     /**
@@ -58,7 +66,7 @@ class OroDateType extends AbstractType
      */
     public function getParent()
     {
-        return 'date';
+        return DateType::class;
     }
 
     /**

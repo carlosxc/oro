@@ -4,15 +4,15 @@ namespace Oro\Bundle\NavigationBundle\Tests\Unit\Twig;
 
 use Oro\Bundle\NavigationBundle\Twig\TitleNode;
 
-class TitleNodeTest extends \PHPUnit_Framework_TestCase
+class TitleNodeTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $node;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $compiler;
 
@@ -26,7 +26,7 @@ class TitleNodeTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $this->node = $this->getMock('Twig_Node');
+        $this->node = $this->createMock('Twig_Node');
         $this->compiler = $this->getMockBuilder('Twig_Compiler')
             ->disableOriginalConstructor()
             ->getMock();

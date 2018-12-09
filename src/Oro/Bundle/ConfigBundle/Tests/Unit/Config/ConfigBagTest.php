@@ -5,14 +5,14 @@ namespace Oro\Bundle\ConfigBundle\Tests\Unit\Config;
 use Oro\Bundle\ConfigBundle\Config\ConfigBag;
 use Oro\Bundle\ConfigBundle\DependencyInjection\SystemConfiguration\ProcessorDecorator;
 
-class ConfigBagTest extends \PHPUnit_Framework_TestCase
+class ConfigBagTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $container;
 
     public function setUp()
     {
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
     }
 
     protected function tearDown()
@@ -46,7 +46,7 @@ class ConfigBagTest extends \PHPUnit_Framework_TestCase
 
     public function testGetDataTransformer()
     {
-        $transformer = $this->getMock('Oro\Bundle\ConfigBundle\Config\DataTransformerInterface');
+        $transformer = $this->createMock('Oro\Bundle\ConfigBundle\Config\DataTransformerInterface');
         $this->container->expects($this->once())
             ->method('get')
             ->with('test.service')

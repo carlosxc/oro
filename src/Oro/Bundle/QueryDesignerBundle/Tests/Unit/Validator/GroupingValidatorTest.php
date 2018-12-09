@@ -4,8 +4,9 @@ namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Validator;
 
 use Oro\Bundle\QueryDesignerBundle\Validator\Constraints\GroupingConstraint;
 use Oro\Bundle\QueryDesignerBundle\Validator\GroupingValidator;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
-class GroupingValidatorTest extends \PHPUnit_Framework_TestCase
+class GroupingValidatorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var GroupingValidator
@@ -13,12 +14,12 @@ class GroupingValidatorTest extends \PHPUnit_Framework_TestCase
     protected $validator;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $translator;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $context;
 
@@ -29,13 +30,13 @@ class GroupingValidatorTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $this->translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
 
         $this->validator = new GroupingValidator(
             $this->translator
         );
 
-        $this->context = $this->getMock('\Symfony\Component\Validator\ExecutionContextInterface');
+        $this->context = $this->createMock(ExecutionContextInterface::class);
         $this->validator->initialize($this->context);
 
         $this->constraint = new GroupingConstraint();

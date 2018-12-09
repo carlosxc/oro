@@ -2,20 +2,22 @@
 
 namespace Oro\Bundle\ImapBundle\Command\Cron;
 
+use Oro\Bundle\CronBundle\Command\CronCommandInterface;
+use Oro\Bundle\EmailBundle\Sync\Model\SynchronizationProcessorSettings;
+use Oro\Bundle\ImapBundle\Sync\ImapEmailSynchronizer;
+use Oro\Component\Log\OutputLogger;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use Oro\Component\Log\OutputLogger;
-
-use Oro\Bundle\CronBundle\Command\CronCommandInterface;
-use Oro\Bundle\CronBundle\Command\CronCommandConcurrentJobsInterface;
-use Oro\Bundle\EmailBundle\Sync\Model\SynchronizationProcessorSettings;
-use Oro\Bundle\ImapBundle\Sync\ImapEmailSynchronizer;
-
-class EmailSyncCommand extends ContainerAwareCommand implements CronCommandInterface, CronCommandConcurrentJobsInterface
+class EmailSyncCommand extends ContainerAwareCommand implements CronCommandInterface
 {
+    /**
+     * Command name
+     */
+    const COMMAND_NAME = 'oro:cron:imap-sync';
+
     /**
      * The maximum number of email origins which can be synchronized
      */
@@ -42,11 +44,21 @@ class EmailSyncCommand extends ContainerAwareCommand implements CronCommandInter
     const MAX_JOBS_COUNT = 3;
 
     /**
-     * {@internaldoc}
+     * @inheritdoc
      */
     public function getDefaultDefinition()
     {
         return '*/1 * * * *';
+    }
+
+    /**
+     * @return bool
+     */
+    public function isActive()
+    {
+        $featureChecker = $this->getContainer()->get('oro_featuretoggle.checker.feature_checker');
+
+        return $featureChecker->isResourceEnabled(self::COMMAND_NAME, 'cron_jobs');
     }
 
     /**
@@ -55,7 +67,7 @@ class EmailSyncCommand extends ContainerAwareCommand implements CronCommandInter
     protected function configure()
     {
         $this
-            ->setName('oro:cron:imap-sync')
+            ->setName(self::COMMAND_NAME)
             ->setDescription('Synchronization emails via IMAP')
             ->addOption(
                 'max-concurrent-tasks',
@@ -111,6 +123,13 @@ class EmailSyncCommand extends ContainerAwareCommand implements CronCommandInter
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $featureChecker = $this->getContainer()->get('oro_featuretoggle.checker.feature_checker');
+        if (!$featureChecker->isFeatureEnabled('email')) {
+            $output->writeln('The email feature is disabled. The command will not run.');
+
+            return 0;
+        }
+
         /** @var ImapEmailSynchronizer $synchronizer */
         $synchronizer = $this->getContainer()->get('oro_imap.email_synchronizer');
         $synchronizer->setLogger(new OutputLogger($output));

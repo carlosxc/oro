@@ -13,7 +13,7 @@ use Oro\Component\MessageQueue\Transport\SessionInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
-class DelayRedeliveredMessageExtensionTest extends \PHPUnit_Framework_TestCase
+class DelayRedeliveredMessageExtensionTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -55,15 +55,12 @@ class DelayRedeliveredMessageExtensionTest extends \PHPUnit_Framework_TestCase
         $logger
             ->expects($this->at(0))
             ->method('debug')
-            ->with('[DelayRedeliveredMessageExtension] Send delayed message')
+            ->with('Send delayed message')
         ;
         $logger
             ->expects($this->at(1))
             ->method('debug')
-            ->with(
-                '[DelayRedeliveredMessageExtension] '.
-                'Reject redelivered original message by setting reject status to context.'
-            )
+            ->with('Reject redelivered original message by setting reject status to context.')
         ;
 
         $context = new Context($session);
@@ -198,26 +195,26 @@ class DelayRedeliveredMessageExtensionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DriverInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|DriverInterface
      */
     private function createDriverMock()
     {
-        return $this->getMock(DriverInterface::class);
+        return $this->createMock(DriverInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|SessionInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|SessionInterface
      */
     private function createSessionMock()
     {
-        return $this->getMock(SessionInterface::class);
+        return $this->createMock(SessionInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|LoggerInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|LoggerInterface
      */
     private function createLoggerMock()
     {
-        return $this->getMock(LoggerInterface::class);
+        return $this->createMock(LoggerInterface::class);
     }
 }

@@ -2,25 +2,26 @@
 
 namespace Oro\Bundle\EmailBundle\Entity;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\ORM\Mapping as ORM;
 use JMS\Serializer\Annotation as JMS;
-
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\OrganizationBundle\Entity\OrganizationInterface;
 use Oro\Bundle\UserBundle\Entity\User;
 
 /**
- * EmailUser
+ * Entity that represents a emails that are accessible to a certain user
  *
  * @ORM\Table(
  *      name="oro_email_user",
  *      indexes={
- *        @ORM\Index(name="mailbox_seen_idx", columns={"mailbox_owner_id", "is_seen"})
+ *        @ORM\Index(name="seen_idx", columns={"is_seen", "mailbox_owner_id"}),
+ *        @ORM\Index(name="received_idx", columns={"received", "is_seen", "mailbox_owner_id"}),
+ *        @ORM\Index(
+ *          name="user_owner_id_mailbox_owner_id_organization_id",
+ *          columns={"user_owner_id", "mailbox_owner_id", "organization_id"}
+ *        )
  *     }
  * )
  * @ORM\HasLifecycleCallbacks
@@ -53,7 +54,6 @@ class EmailUser
      * @ORM\Column(name="id", type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
-     * @Soap\ComplexType("int")
      * @JMS\Type("integer")
      */
     protected $id;
@@ -103,7 +103,6 @@ class EmailUser
      * @var \DateTime
      *
      * @ORM\Column(name="received", type="datetime")
-     * @Soap\ComplexType("dateTime")
      * @JMS\Type("dateTime")
      */
     protected $receivedAt;
@@ -112,16 +111,15 @@ class EmailUser
      * @var bool
      *
      * @ORM\Column(name="is_seen", type="boolean", options={"default"=true})
-     * @Soap\ComplexType("boolean")
      * @JMS\Type("boolean")
      */
     protected $seen = false;
 
     /**
-     * @var EmailOrigin
+     * @var EmailOrigin|null
      *
      * @ORM\ManyToOne(targetEntity="EmailOrigin", inversedBy="emailUsers")
-     * @ORM\JoinColumn(name="origin_id", referencedColumnName="id")
+     * @ORM\JoinColumn(name="origin_id", referencedColumnName="id", onDelete="SET NULL", nullable=true)
      * @JMS\Exclude
      */
     protected $origin;
@@ -187,18 +185,6 @@ class EmailUser
      * @param EmailFolder $folder
      *
      * @return $this
-     *
-     * @deprecated since 1.9. Use EmailUser::addFolder instead
-     */
-    public function setFolder(EmailFolder $folder)
-    {
-        return $this->addFolder($folder);
-    }
-
-    /**
-     * @param EmailFolder $folder
-     *
-     * @return $this
      */
     public function removeFolder(EmailFolder $folder)
     {
@@ -243,7 +229,7 @@ class EmailUser
      * @param OrganizationInterface $organization
      * @return $this
      */
-    public function setOrganization(OrganizationInterface $organization)
+    public function setOrganization(OrganizationInterface $organization = null)
     {
         $this->organization = $organization;
 
@@ -379,7 +365,7 @@ class EmailUser
     /**
      * Get email user origin
      *
-     * @return EmailOrigin
+     * @return EmailOrigin|null
      */
     public function getOrigin()
     {
@@ -434,17 +420,23 @@ class EmailUser
     public function isOutgoing()
     {
         $directions = $this->getFolderDirections();
-        if (in_array(EmailFolder::DIRECTION_OUTGOING, $directions)) {
+        if (in_array(EmailFolder::DIRECTION_OUTGOING, $directions, true)) {
             return true;
         }
 
-        if (in_array(EmailFolder::DIRECTION_INCOMING, $directions)) {
+        if (in_array(EmailFolder::DIRECTION_INCOMING, $directions, true)) {
             return false;
         }
 
-        return $this->getEmail() &&
-            $this->getEmail()->getFromEmailAddress() &&
-            $this->getEmail()->getFromEmailAddress()->getOwner() === $this->getOwner();
+        $owner = $this->getOwner();
+        if ($owner instanceof User) {
+            $fromEmailAddressOwner = $this->getFromEmailAddressOwner();
+            if ($fromEmailAddressOwner instanceof User && $fromEmailAddressOwner->getId() === $owner->getId()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -453,17 +445,23 @@ class EmailUser
     public function isIncoming()
     {
         $directions = $this->getFolderDirections();
-        if (in_array(EmailFolder::DIRECTION_INCOMING, $directions)) {
+        if (in_array(EmailFolder::DIRECTION_INCOMING, $directions, true)) {
             return true;
         }
 
-        if (in_array(EmailFolder::DIRECTION_OUTGOING, $directions)) {
+        if (in_array(EmailFolder::DIRECTION_OUTGOING, $directions, true)) {
             return false;
         }
 
-        return $this->getEmail() &&
-            $this->getEmail()->getFromEmailAddress() &&
-            $this->getEmail()->getFromEmailAddress()->getOwner() !== $this->getOwner();
+        $owner = $this->getOwner();
+        if ($owner instanceof User) {
+            $fromEmailAddressOwner = $this->getFromEmailAddressOwner();
+            if ($fromEmailAddressOwner instanceof User && $fromEmailAddressOwner->getId() !== $owner->getId()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -484,5 +482,22 @@ class EmailUser
                 return $folder->getDirection();
             })->toArray()
         );
+    }
+
+    /**
+     * @return object|null
+     */
+    protected function getFromEmailAddressOwner()
+    {
+        $email = $this->getEmail();
+        if (null === $email) {
+            return null;
+        }
+        $fromEmailAddress = $email->getFromEmailAddress();
+        if (null === $fromEmailAddress) {
+            return null;
+        }
+
+        return $fromEmailAddress->getOwner();
     }
 }

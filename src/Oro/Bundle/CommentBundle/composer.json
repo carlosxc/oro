@@ -5,9 +5,10 @@
     "keywords": ["BAP", "UI", "Comment"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
-        "oro/ui-bundle": "dev-master"
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
+        "oro/ui-bundle": "dev-master",
+        "oro/calendar-bundle": "dev-master"
     },
     "autoload": {
         "psr-0": { "Oro\\Bundle\\CommentBundle": "" }

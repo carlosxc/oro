@@ -1,3 +1,4 @@
+/* global Window, HTMLDocument */
 define(['jquery'], function($) {
     'use strict';
 
@@ -10,7 +11,43 @@ define(['jquery'], function($) {
         return $(a).parents(m[3]).length < 1;
     };
 
+    $.Deferred.getStackHook = function() {
+        // Throw an error so we can extract the stack from the Error
+        try {
+            throw new Error('Exception in jQuery.Deferred');
+        } catch (err) {
+            return err.stack;
+        }
+    };
+
     $.fn.extend({
+        focus: (function(originalFocus) {
+            return function() {
+                var $elem = $(this);
+                if (!arguments.length && $elem.attr('data-focusable')) {
+                    // the element has own implementation to set focus
+                    $elem.triggerHandler('set-focus');
+                    return $elem;
+                } else {
+                    return originalFocus.apply(this, arguments);
+                }
+            };
+        })($.fn.focus),
+
+        offset: (function(originalOffset) {
+            return function() {
+                if (!arguments.length) {
+                    if (this[0] instanceof HTMLDocument) {
+                        return originalOffset.call($(this[0].documentElement));
+                    }
+                    if (this[0] instanceof Window) {
+                        return originalOffset.call($(this[0].document.documentElement));
+                    }
+                }
+                return originalOffset.apply(this, arguments);
+            };
+        })($.fn.offset),
+
         /**
          * Sets cursor to end of input
          */
@@ -39,25 +76,27 @@ define(['jquery'], function($) {
          */
         focusFirstInput: function() {
             var $input = this.find(':input:visible, [data-focusable]')
-                    .not(':checkbox, :radio, :button, :submit, :disabled, :file');
+                .not(':checkbox, :radio, :button, :submit, :disabled, :file');
             var $autoFocus = $input.filter('[autofocus]');
             if ($autoFocus.length || $input.length) {
-                ($autoFocus.length ? $autoFocus : $input).first().setCursorToEnd().focus();
+                var $element = ($autoFocus.length ? $autoFocus : $input).first();
+                if ($element.isInViewPort()) {
+                    $element.setCursorToEnd().focus();
+                }
             }
         },
 
-        focus: (function(orig) {
-            return function() {
-                var $elem = $(this);
-                if (!arguments.length && $elem.attr('data-focusable')) {
-                    // the element has own implementation to set focus
-                    $elem.triggerHandler('set-focus');
-                    return $elem;
-                } else {
-                    return orig.apply(this, arguments);
-                }
-            };
-        })($.fn.focus),
+        isInViewPort: function() {
+            var $element = $(this);
+            var elementTop = $element.offset().top;
+            var elementBottom = elementTop + $element.height();
+            var viewPortTop = $(window).scrollTop();
+            var viewPortBottom = viewPortTop + $(window).height();
+
+            return (
+                (elementTop >= viewPortTop) && (elementBottom <= viewPortBottom)
+            );
+        },
 
         /**
          * source http://stackoverflow.com/questions/13607252/getting-border-width-in-jquery
@@ -171,7 +210,7 @@ define(['jquery'], function($) {
                 data = {};
                 $.each(els, function() {
                     if (this.name && !this.disabled && (
-                            this.checked ||
+                        this.checked ||
                             /select|textarea/i.test(this.nodeName) ||
                             /text|hidden|password/i.test(this.type))
                     ) {
@@ -188,7 +227,7 @@ define(['jquery'], function($) {
                         var names = data[this.name];
                         var $this = $(this);
                         if (Object.prototype.toString.call(names) !== '[object Array]') {
-                            names = [names]; //backwards compat to old version of this code
+                            names = [names]; // backwards compat to old version of this code
                         }
                         if (this.type === 'checkbox' || this.type === 'radio') {
                             var val = $this.val();

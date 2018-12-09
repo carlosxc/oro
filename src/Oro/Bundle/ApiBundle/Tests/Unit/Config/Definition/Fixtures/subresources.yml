@@ -490,6 +490,44 @@ invalid_value_for_disable_fieldset:
     expected: []
     error: 'Invalid type for path "entity.subresources.testSubresource.actions.get_list.disable_fieldset". Expected boolean, but got integer'
 
+enable_meta_properties:
+    config:
+        subresources:
+            testSubresource:
+                actions:
+                    get_list:
+                        disable_meta_properties: false
+    expected:
+        subresources:
+            testSubresource:
+                actions:
+                    get_list:
+                        disable_meta_properties: false
+
+disable_meta_properties:
+    config:
+        subresources:
+            testSubresource:
+                actions:
+                    get_list:
+                        disable_meta_properties: true
+    expected:
+        subresources:
+            testSubresource:
+                actions:
+                    get_list:
+                        disable_meta_properties: true
+
+invalid_value_for_disable_meta_properties:
+    config:
+        subresources:
+            testSubresource:
+                actions:
+                    get_list:
+                        disable_meta_properties: 123
+    expected: []
+    error: 'Invalid type for path "entity.subresources.testSubresource.actions.get_list.disable_meta_properties". Expected boolean, but got integer'
+
 null_status_codes:
     config:
         subresources:
@@ -685,13 +723,13 @@ action_form_type:
             testSubresource:
                 actions:
                     create:
-                        form_type: integer
+                        form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
     expected:
         subresources:
             testSubresource:
                 actions:
                     create:
-                        form_type: integer
+                        form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
 
 action_null_form_options:
     config:
@@ -725,7 +763,7 @@ action_form:
             testSubresource:
                 actions:
                     create:
-                        form_type: integer
+                        form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                         form_options:
                             option1: value1
     expected:
@@ -733,7 +771,7 @@ action_form:
             testSubresource:
                 actions:
                     create:
-                        form_type: integer
+                        form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                         form_options:
                             option1: value1
 
@@ -785,15 +823,15 @@ action_field_form:
                             field2:
                                 form_type: ""
                             field3:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                             field4:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                                 form_options: ~
                             field5:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                                 form_options: []
                             field6:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                                 form_options:
                                     option1: value1
     expected:
@@ -805,13 +843,13 @@ action_field_form:
                             field1: []
                             field2: []
                             field3:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                             field4:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                             field5:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                             field6:
-                                form_type: integer
+                                form_type: Symfony\Component\Form\Extension\Core\Type\IntegerType
                                 form_options:
                                     option1: value1
 
@@ -938,11 +976,15 @@ filters:
                             property_path: path1
                             data_type: string
                             allow_array: true
+                            allow_range: true
                             description: description1
+                            operators: ['=', '!=', 'exists']
                         field4:
                             exclude: false
                         field5:
                             allow_array: false
+                        field6:
+                            allow_range: false
     expected:
         subresources:
             testSubresource:
@@ -956,11 +998,15 @@ filters:
                             property_path: path1
                             data_type: string
                             allow_array: true
+                            allow_range: true
                             description: description1
+                            operators: ['eq', 'neq', 'exists']
                         field4:
                             exclude: false
                         field5:
                             allow_array: false
+                        field6:
+                            allow_range: false
 
 invalid_filters_field_exclude:
     config:
@@ -1005,6 +1051,17 @@ invalid_filters_field_allow_array:
                             allow_array: 123
     expected: []
     error: 'Invalid type for path "entity.subresources.testSubresource.filters.fields.field1.allow_array". Expected boolean, but got integer.'
+
+invalid_filters_field_allow_range:
+    config:
+        subresources:
+            testSubresource:
+                filters:
+                    fields:
+                        field1:
+                            allow_range: 123
+    expected: []
+    error: 'Invalid type for path "entity.subresources.testSubresource.filters.fields.field1.allow_range". Expected boolean, but got integer.'
 
 null_filters_field_description:
     config:

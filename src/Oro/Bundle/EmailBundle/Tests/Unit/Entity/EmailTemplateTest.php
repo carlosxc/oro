@@ -3,11 +3,10 @@
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
 use Oro\Bundle\EmailBundle\Entity\EmailTemplate;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 
-class EmailTemplateTest extends \PHPUnit_Framework_TestCase
+class EmailTemplateTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var EmailTemplate
@@ -46,7 +45,7 @@ class EmailTemplateTest extends \PHPUnit_Framework_TestCase
             $this->emailTemplate->{'set'.ucfirst($field)}('abc');
             $this->assertEquals('abc', $this->emailTemplate->{'get'.ucfirst($field)}());
 
-            $translation = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailTemplateTranslation');
+            $translation = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailTemplateTranslation');
             $this->emailTemplate->setTranslations(new ArrayCollection(array($translation)));
             $this->assertInstanceOf(
                 'Doctrine\Common\Collections\ArrayCollection',
@@ -70,7 +69,7 @@ class EmailTemplateTest extends \PHPUnit_Framework_TestCase
      */
     public function testCloneAndToString()
     {
-        $translation = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailTemplateTranslation');
+        $translation = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailTemplateTranslation');
 
         $this->emailTemplate->getTranslations()->add($translation);
 

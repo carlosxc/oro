@@ -7,7 +7,7 @@ use Behat\Mink\Selector\SelectorsHandler;
 use Behat\Mink\Session;
 use Oro\Bundle\TestFrameworkBundle\Behat\Element\OroElementFactory;
 
-class OroElementFactoryTest extends \PHPUnit_Framework_TestCase
+class OroElementFactoryTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @expectedException \InvalidArgumentException
@@ -33,13 +33,13 @@ class OroElementFactoryTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param array $configuration
-     * @return \PHPUnit_Framework_MockObject_MockObject|OroElementFactory
+     * @return \PHPUnit\Framework\MockObject\MockObject|OroElementFactory
      */
     protected function getElementFactory(array $configuration = [])
     {
         $session = new Session(
-            $this->getMock('Behat\Mink\Driver\DriverInterface'),
-            $this->getMock('Behat\Mink\Selector\SelectorsHandler')
+            $this->createMock('Behat\Mink\Driver\DriverInterface'),
+            $this->createMock('Behat\Mink\Selector\SelectorsHandler')
         );
         $mink = new Mink(['default' => $session]);
         $mink->setDefaultSessionName('default');

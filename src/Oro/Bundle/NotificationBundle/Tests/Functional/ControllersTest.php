@@ -2,54 +2,34 @@
 
 namespace Oro\Bundle\NotificationBundle\Tests\Functional;
 
-use Oro\Component\Testing\ResponseExtension;
-use Symfony\Component\DomCrawler\Form;
-use Symfony\Component\DomCrawler\Field\ChoiceFormField;
-
+use Doctrine\Bundle\DoctrineBundle\Registry;
+use Oro\Bundle\EmailBundle\Entity\EmailTemplate;
+use Oro\Bundle\NotificationBundle\Entity\Event;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Oro\Component\Testing\ResponseExtension;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Form;
 
-/**
- * @dbIsolation
- */
 class ControllersTest extends WebTestCase
 {
     use ResponseExtension;
 
-    const ENTITY_NAME = 'Oro\Bundle\CalendarBundle\Entity\CalendarEvent';
+    const ENTITY_NAME = 'Oro\Bundle\UserBundle\Entity\User';
 
-    protected $eventUpdate;
-    protected $eventCreate;
-    protected $templateUpdate;
+    /** @var  Registry */
+    protected $doctrine;
 
     protected function setUp()
     {
-        $this->initClient(
-            array(),
-            array_merge($this->generateBasicAuthHeader(), array('HTTP_X-CSRF-Header' => 1))
-        );
+        $this->initClient([], array_merge($this->generateBasicAuthHeader(), ['HTTP_X-CSRF-Header' => 1]));
         $this->client->useHashNavigation(true);
-    }
-
-    protected function prepareData()
-    {
-        $notificationManager = $this->getContainer()->get('doctrine');
-        $this->eventUpdate  = $notificationManager
-            ->getRepository('OroNotificationBundle:Event')
-            ->findOneBy(array('name' => 'oro.notification.event.entity_post_update'));
-
-        $this->eventCreate  = $notificationManager
-            ->getRepository('OroNotificationBundle:Event')
-            ->findOneBy(array('name' => 'oro.notification.event.entity_post_persist'));
-
-        $this->templateUpdate  = $notificationManager
-            ->getRepository('OroEmailBundle:EmailTemplate')
-            ->findOneBy(array('entityName' => self::ENTITY_NAME));
+        $this->doctrine = $this->getContainer()->get('doctrine');
     }
 
     public function testIndex()
     {
         $this->client->request('GET', $this->getUrl('oro_notification_emailnotification_index'));
-        
+
         $this->assertLastResponseStatus(200);
         $this->assertLastResponseContentTypeHtml();
     }
@@ -63,26 +43,9 @@ class ControllersTest extends WebTestCase
         $this->assertLastResponseStatus(200);
         $this->assertLastResponseContentTypeHtml();
 
-        // prepare data for next tests
-        $this->prepareData();
+        $event = $this->getEvent('oro.notification.event.entity_post_persist');
 
-        /** @var Form $form */
-        $form = $crawler->selectButton('Save and Close')->form();
-        $form['emailnotification[entityName]'] = self::ENTITY_NAME;
-        $form['emailnotification[event]'] = $this->eventUpdate->getId();
-        $doc = $this->createSelectTemplate();
-        $field = new ChoiceFormField($doc->getElementsByTagName('select')->item(0));
-        $form->set($field);
-        $form['emailnotification[template]'] = $this->templateUpdate->getId();
-        $form['emailnotification[recipientList][users]'] = '1';
-        $form['emailnotification[recipientList][groups][0]'] = '1';
-        $form['emailnotification[recipientList][email]'] = 'admin@example.com';
-        $this->client->followRedirects(true);
-        $crawler = $this->client->submit($form);
-
-        $result = $this->client->getResponse();
-        $this->assertHtmlResponseStatusCodeEquals($result, 200);
-        $this->assertContains("Email notification rule saved", $crawler->html());
+        $this->assertFormSubmission($event, $crawler);
     }
 
     /**
@@ -92,10 +55,11 @@ class ControllersTest extends WebTestCase
     {
         $response = $this->client->requestGrid(
             'email-notification-grid',
-            array(
+            [
                 'email-notification-grid[_pager][_page]' => 1,
-                'email-notification-grid[_pager][_per_page]' => 1
-            )
+                'email-notification-grid[_pager][_per_page]' => 1,
+                'email-notification-grid[_filter][entityName][value][]' => self::ENTITY_NAME
+            ]
         );
 
         $result = $this->getJsonResponseContent($response, 200);
@@ -103,29 +67,14 @@ class ControllersTest extends WebTestCase
 
         $crawler = $this->client->request(
             'GET',
-            $this->getUrl('oro_notification_emailnotification_update', array('id' => $result['id']))
+            $this->getUrl('oro_notification_emailnotification_update', ['id' => $result['id']])
         );
+        $this->assertLastResponseStatus(200);
+        $this->assertLastResponseContentTypeHtml();
 
-        // prepare data for next tests
-        $this->prepareData();
+        $event = $this->getEvent('oro.notification.event.entity_post_update');
 
-        /** @var Form $form */
-        $form = $crawler->selectButton('Save and Close')->form();
-        $form['emailnotification[entityName]'] = self::ENTITY_NAME;
-        $form['emailnotification[event]'] = $this->eventCreate->getId();
-        $doc = $this->createSelectTemplate();
-        $field = new ChoiceFormField($doc->getElementsByTagName('select')->item(0));
-        $form->set($field);
-        $form['emailnotification[template]'] = $this->templateUpdate->getId();
-        $form['emailnotification[recipientList][users]'] = '1';
-        $form['emailnotification[recipientList][groups][0]'] = '1';
-        $form['emailnotification[recipientList][email]'] = 'admin@example.com';
-        $this->client->followRedirects(true);
-        $crawler = $this->client->submit($form);
-
-        $result = $this->client->getResponse();
-        $this->assertHtmlResponseStatusCodeEquals($result, 200);
-        $this->assertContains("Email notification rule saved", $crawler->html());
+        $this->assertFormSubmission($event, $crawler);
     }
 
     /**
@@ -135,10 +84,11 @@ class ControllersTest extends WebTestCase
     {
         $response = $this->client->requestGrid(
             'email-notification-grid',
-            array(
+            [
                 'email-notification-grid[_pager][_page]' => 1,
                 'email-notification-grid[_pager][_per_page]' => 1,
-            )
+                'email-notification-grid[_filter][entityName][value][]' => self::ENTITY_NAME
+            ]
         );
 
         $result = $this->getJsonResponseContent($response, 200);
@@ -146,24 +96,57 @@ class ControllersTest extends WebTestCase
 
         $this->client->request(
             'DELETE',
-            $this->getUrl('oro_api_delete_emailnotication', array('id' => $result['id']))
+            $this->getUrl('oro_api_delete_emailnotication', ['id' => $result['id']])
         );
 
         $result = $this->client->getResponse();
         $this->assertEmptyResponseStatusCodeEquals($result, 204);
     }
 
-    protected function createSelectTemplate()
+    /**
+     * @param $eventName
+     *
+     * @return null|object|Event
+     */
+    protected function getEvent($eventName)
     {
-        $doc = new \DOMDocument("1.0");
-        $doc->loadHTML(
-            '<select required="required" name="emailnotification[template]" id="emailnotification_template" ' .
-            'tabindex="-1" class="select2-offscreen"> ' .
-            '<option value="" selected="selected"></option> ' .
-            '<option value="' . $this->templateUpdate->getId() . '">' .
-            'EmailBundle:' . $this->templateUpdate->getName() .
-            '</option> </select>'
-        );
-        return $doc;
+        return $this->doctrine->getRepository(Event::class)
+            ->findOneBy(['name' => $eventName]);
+    }
+
+    /**
+     * @return null|object|EmailTemplate
+     */
+    protected function getTemplate()
+    {
+        return $this->doctrine
+            ->getRepository(EmailTemplate::class)
+            ->findOneBy(['entityName' => self::ENTITY_NAME]);
+    }
+
+    /**
+     * @param Event $event
+     * @param Crawler $crawler
+     */
+    protected function assertFormSubmission(Event $event, Crawler $crawler)
+    {
+        /** @var Form $form */
+        $form = $crawler->selectButton('Save and Close')->form();
+        $formValues = $form->getPhpValues();
+        $formValues['formSubmitMarker'] = true;
+        $formValues['emailnotification']['entityName'] = self::ENTITY_NAME;
+        $formValues['emailnotification']['event'] = $event->getId();
+        $formValues['emailnotification']['template'] = $this->getTemplate()->getId();
+        $formValues['emailnotification']['recipientList']['users'] = 1;
+        $formValues['emailnotification']['recipientList']['groups'][0] = 1;
+        $formValues['emailnotification']['recipientList']['email'] = 'admin@example.com';
+
+        $this->client->followRedirects(true);
+        $crawler = $this->client->request($form->getMethod(), $form->getUri(), $formValues);
+
+        $this->assertHtmlResponseStatusCodeEquals($this->client->getResponse(), 200);
+
+        $html = $crawler->html();
+        $this->assertContains("Email notification rule saved", $html);
     }
 }

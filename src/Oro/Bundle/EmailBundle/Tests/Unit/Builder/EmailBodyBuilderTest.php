@@ -5,7 +5,7 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Builder;
 use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EmailBundle\Builder\EmailBodyBuilder;
 
-class EmailBodyBuilderTest extends \PHPUnit_Framework_TestCase
+class EmailBodyBuilderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var EmailBodyBuilder
@@ -13,7 +13,7 @@ class EmailBodyBuilderTest extends \PHPUnit_Framework_TestCase
     protected $emailBodyBuilder;
 
     /**
-     * @var ConfigManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $configManager;
 
@@ -32,6 +32,7 @@ class EmailBodyBuilderTest extends \PHPUnit_Framework_TestCase
         $body = $this->emailBodyBuilder->getEmailBody();
         $this->assertEquals(true, $body->getBodyIsText());
         $this->assertEquals('test', $body->getBodyContent());
+        $this->assertEquals('test', $body->getTextBody());
     }
 
     /**

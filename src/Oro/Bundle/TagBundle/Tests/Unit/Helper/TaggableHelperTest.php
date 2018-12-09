@@ -7,12 +7,12 @@ use Oro\Bundle\TagBundle\Helper\TaggableHelper;
 use Oro\Bundle\TagBundle\Tests\Unit\Fixtures\Taggable;
 use Oro\Bundle\TagBundle\Tests\Unit\Fixtures\TestEntity;
 
-class TaggableHelperTest extends \PHPUnit_Framework_TestCase
+class TaggableHelperTest extends \PHPUnit\Framework\TestCase
 {
     /** @var TaggableHelper */
     protected $helper;
 
-    /** @var  \PHPUnit_Framework_MockObject_MockObject|ConfigProvider */
+    /** @var  \PHPUnit\Framework\MockObject\MockObject|ConfigProvider */
     protected $configProvider;
 
     protected function setUp()
@@ -118,6 +118,28 @@ class TaggableHelperTest extends \PHPUnit_Framework_TestCase
             $this->setConfigProvider($object, $hasConfig, $isEnableGridFilter);
         }
         $this->assertEquals($expected, $this->helper->isEnableGridColumn($object));
+    }
+
+    /**
+     * @dataProvider shouldRenderDefaultDataProvider
+     *
+     * @param object     $object
+     * @param bool       $expected
+     * @param bool|false $shouldRenderDefault
+     */
+    public function testShouldRenderDefault($object, $expected, $shouldRenderDefault)
+    {
+        $this->setConfigProvider($object, true, $shouldRenderDefault);
+        $this->assertEquals($expected, $this->helper->shouldRenderDefault($object));
+    }
+
+    public function shouldRenderDefaultDataProvider()
+    {
+        return [
+            'not implements Taggable' => [new \StdClass(), false, false],
+            'enable rendering' => [new Taggable(), true, true],
+            'disable rendering' => [new Taggable(), false, false],
+        ];
     }
 
     /** @return array */

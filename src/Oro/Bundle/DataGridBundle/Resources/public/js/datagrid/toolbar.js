@@ -52,8 +52,19 @@ define([
             sortingDropdown: '[data-grid-sorting]'
         },
 
+        /** @property */
         themeOptions: {
             optionPrefix: 'toolbar'
+        },
+
+        /** @property */
+        hideItemsCounter: true,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function Toolbar() {
+            Toolbar.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -73,13 +84,19 @@ define([
 
             this.collection = options.collection;
 
+            var optionsiIemsCounter = _.defaults({collection: this.collection}, options.itemsCounter);
+            options.columns.trigger('configureInitializeOptions', this.itemsCounter, optionsiIemsCounter);
+
             this.subviews = {
                 pagination: new this.pagination(_.defaults({collection: this.collection}, options.pagination)),
-                itemsCounter: new this.itemsCounter(_.defaults({collection: this.collection}, options.itemsCounter)),
-                pageSize: new this.pageSize(_.defaults({collection: this.collection}, options.pageSize)),
+                itemsCounter: new this.itemsCounter(optionsiIemsCounter),
                 actionsPanel: new this.actionsPanel(_.extend({className: ''}, options.actionsPanel)),
                 extraActionsPanel: new this.extraActionsPanel()
             };
+
+            if (_.result(options.pageSize, 'hide') !== true) {
+                this.subviews.pageSize = new this.pageSize(_.defaults({collection: this.collection}, options.pageSize));
+            }
 
             if (options.addSorting) {
                 this.subviews.sortingDropdown = new this.sortingDropdown({
@@ -104,8 +121,12 @@ define([
 
             if (_.isFunction(options.template)) {
                 this.template = options.template;
-            } else {
+            } else if (options.template || this.template) {
                 this.template = _.template($(options.template || this.template).html());
+            }
+
+            if (!_.isUndefined(options.hideItemsCounter)) {
+                this.hideItemsCounter = options.hideItemsCounter;
             }
 
             Toolbar.__super__.initialize.call(this, options);
@@ -117,10 +138,7 @@ define([
          * @return {*}
          */
         enable: function() {
-            this.subviews.pagination.enable();
-            this.subviews.pageSize.enable();
-            this.subviews.actionsPanel.enable();
-            this.subviews.extraActionsPanel.enable();
+            _.invoke(this.subviews, 'enable');
             return this;
         },
 
@@ -130,10 +148,7 @@ define([
          * @return {*}
          */
         disable: function() {
-            this.subviews.pagination.disable();
-            this.subviews.pageSize.disable();
-            this.subviews.actionsPanel.disable();
-            this.subviews.extraActionsPanel.disable();
+            _.invoke(this.subviews, 'disable');
             return this;
         },
 
@@ -153,17 +168,22 @@ define([
         render: function() {
             var $pagination;
             this.$el.empty();
-            this.$el.append(this.template());
+            this.$el.append(this.template({toolbarPosition: this.$el.data('gridToolbar')}));
 
             $pagination = this.subviews.pagination.render().$el;
             $pagination.attr('class', this.$(this.selector.pagination).attr('class'));
 
             this.$(this.selector.pagination).replaceWith($pagination);
-            this.$(this.selector.pagesize).append(this.subviews.pageSize.render().$el);
+            if (this.subviews.pageSize) {
+                this.$(this.selector.pagesize).append(this.subviews.pageSize.render().$el);
+            }
             this.$(this.selector.actionsPanel).append(this.subviews.actionsPanel.render().$el);
 
             this.$(this.selector.itemsCounter).replaceWith(this.subviews.itemsCounter.render().$el);
-            this.subviews.itemsCounter.$el.hide();
+
+            if (this.hideItemsCounter) {
+                this.subviews.itemsCounter.$el.hide();
+            }
 
             if (this.subviews.sortingDropdown) {
                 this.$(this.selector.sortingDropdown).append(this.subviews.sortingDropdown.render().$el);

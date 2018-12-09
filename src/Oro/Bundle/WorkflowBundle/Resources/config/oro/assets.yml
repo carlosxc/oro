@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+          - 'bundles/oroworkflow/css/scss/main.scss'

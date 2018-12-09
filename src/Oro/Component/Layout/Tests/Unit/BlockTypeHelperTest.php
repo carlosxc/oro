@@ -8,9 +8,9 @@ use Oro\Component\Layout\BlockTypeHelper;
 use Oro\Component\Layout\Tests\Unit\Fixtures\Layout\Block\Type\HeaderType;
 use Oro\Component\Layout\Tests\Unit\Fixtures\Layout\Block\Type\LogoType;
 
-class BlockTypeHelperTest extends \PHPUnit_Framework_TestCase
+class BlockTypeHelperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $registry;
 
     /** @var BlockTypeHelper */
@@ -18,7 +18,7 @@ class BlockTypeHelperTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->registry   = $this->getMock('Oro\Component\Layout\LayoutRegistryInterface');
+        $this->registry   = $this->createMock('Oro\Component\Layout\LayoutRegistryInterface');
         $this->typeHelper = new BlockTypeHelper($this->registry);
     }
 

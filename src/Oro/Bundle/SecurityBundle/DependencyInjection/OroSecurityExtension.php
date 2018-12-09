@@ -2,6 +2,9 @@
 
 namespace Oro\Bundle\SecurityBundle\DependencyInjection;
 
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
+use Oro\Component\DependencyInjection\ExtendedContainerBuilder;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -9,18 +12,12 @@ use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
-use Oro\Component\DependencyInjection\ExtendedContainerBuilder;
-use Oro\Component\Config\Dumper\CumulativeConfigMetadataDumper;
-use Oro\Bundle\SecurityBundle\Annotation\Loader\AclAnnotationLoader;
-use Oro\Bundle\SecurityBundle\Acl\Cache\AclCache;
-
 class OroSecurityExtension extends Extension implements PrependExtensionInterface
 {
     const DEFAULT_WSSE_NONCE_CACHE_SERVICE_ID = 'oro_security.wsse_nonce_cache';
     const DEFAULT_WSSE_NONCE_CACHE_CLASS = 'Oro\Bundle\SecurityBundle\Cache\WsseNoncePhpFileCache';
     const DEFAULT_WSSE_NONCE_CACHE_PATH = '%kernel.cache_dir%/security/nonces';
+    const ACLS_CONFIG_ROOT_NODE = 'acls';
 
     /**
      * {@inheritDoc}
@@ -34,8 +31,21 @@ class OroSecurityExtension extends Extension implements PrependExtensionInterfac
         $loader->load('layouts.yml');
         $loader->load('ownership.yml');
         $loader->load('services.yml');
+        $loader->load('commands.yml');
+
+        if ($container->getParameter('kernel.debug')) {
+            $loader->load('debug.yml');
+        }
 
         $this->addClassesToCompile(['Oro\Bundle\SecurityBundle\Http\Firewall\ContextListener']);
+
+        if ('test' === $container->getParameter('kernel.environment')) {
+            $loader = new Loader\YamlFileLoader(
+                $container,
+                new FileLocator(__DIR__ . '/../Tests/Functional/Environment')
+            );
+            $loader->load('services.yml');
+        }
     }
 
     /**
@@ -55,7 +65,7 @@ class OroSecurityExtension extends Extension implements PrependExtensionInterfac
     {
         return new CumulativeConfigLoader(
             'oro_acl_config',
-            new YamlCumulativeFileLoader('Resources/config/acl.yml')
+            new YamlCumulativeFileLoader('Resources/config/oro/acls.yml')
         );
     }
 

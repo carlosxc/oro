@@ -3,13 +3,13 @@
 namespace Oro\Bundle\EntityExtendBundle\Tools;
 
 use Doctrine\Common\Inflector\Inflector;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Extend\RelationType;
 
 /**
+ * Provides utility static methods to work with extended entities.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
 class ExtendHelper
@@ -84,6 +84,9 @@ class ExtendHelper
     }
 
     /**
+     * Returns a relation key used for extended relations.
+     * The result string is "relationType|entityClassName|targetEntityClassName|fieldName".
+     *
      * @param string $entityClassName
      * @param string $fieldName
      * @param string $relationType
@@ -97,13 +100,49 @@ class ExtendHelper
     }
 
     /**
+     * Returns a relation key for inverse side relation if the given relation key represents owning side relation,
+     * and vice versa.
+     * A valid relation key is
+     * either "relationType|entityClassName|targetEntityClassName|fieldName"
+     * or "relationType|entityClassName|targetEntityClassName|fieldName|inverse".
+     *
      * @param string $relationKey
      *
-     * @return string
+     * @return string|null
+     */
+    public static function toggleRelationKey($relationKey)
+    {
+        $parts = explode('|', $relationKey);
+        // toggle the relation key only if owning side entity equals to inverse side entity
+        $numberOfParts = count($parts);
+        if ($numberOfParts >= 4 && $parts[1] === $parts[2]) {
+            if (4 === $numberOfParts) {
+                $relationKey .= '|inverse';
+            } elseif (5 === $numberOfParts && 'inverse' === $parts[4]) {
+                $relationKey = substr($relationKey, 0, -8);
+            }
+        }
+
+        return $relationKey;
+    }
+
+    /**
+     * Extracts an extended relation type from its relation key.
+     * A valid relation key is
+     * either "relationType|entityClassName|targetEntityClassName|fieldName"
+     * or "relationType|entityClassName|targetEntityClassName|fieldName|inverse".
+     *
+     * @param string $relationKey
+     *
+     * @return string|null
      */
     public static function getRelationType($relationKey)
     {
         $parts = explode('|', $relationKey);
+        $numberOfParts = count($parts);
+        if ($numberOfParts < 4 || $numberOfParts > 5) {
+            return null;
+        }
 
         return reset($parts);
     }
@@ -128,7 +167,7 @@ class ExtendHelper
             throw new \InvalidArgumentException('$enumName must not be empty.');
         }
 
-        $result = self::convertName($enumName);
+        $result = self::convertEnumNameToCode($enumName);
 
         if (empty($result) && $throwExceptionIfInvalidName) {
             throw new \InvalidArgumentException(
@@ -211,7 +250,7 @@ class ExtendHelper
             throw new \InvalidArgumentException('$enumValueName must not be empty.');
         }
 
-        $result = self::convertName($enumValueName);
+        $result = self::convertEnumNameToCode($enumValueName);
 
         if (strlen($result) > self::MAX_ENUM_VALUE_ID_LENGTH) {
             $hash   = dechex(crc32($result));
@@ -228,17 +267,25 @@ class ExtendHelper
     }
 
     /**
-     * Convert enum code/value
+     * Converts enum name to enum code
      *
      * @param string $name
+     *
      * @return string
      */
-    public static function convertName($name)
+    private static function convertEnumNameToCode($name)
     {
         if ($name && function_exists('iconv')) {
             $originalName = $name;
             $name = @iconv('utf-8', 'ascii//TRANSLIT', $name);
-            if (!$name || strpos($name, '?') !== false) {
+            if (false === $name) {
+                throw new \RuntimeException(sprintf(
+                    "Can't convert the string '%s' with the 'iconv' function. " .
+                    "Please check that the 'iconv' extension is configured correctly.",
+                    $originalName
+                ));
+            }
+            if (strpos($name, '?') !== false) {
                 $name = hash('crc32', $originalName);
             }
         }
@@ -400,11 +447,12 @@ class ExtendHelper
             if ($extendConfig->is('is_deleted')) {
                 return false;
             }
-            if ($extendConfig->is('state', ExtendScope::STATE_NEW)) {
+            $state = $extendConfig->get('state');
+            if (ExtendScope::STATE_NEW === $state) {
                 return false;
             }
             // check if a new entity has been requested to be deleted before schema is updated
-            if ($extendConfig->is('state', ExtendScope::STATE_DELETE)
+            if (ExtendScope::STATE_DELETE === $state
                 && !class_exists($extendConfig->getId()->getClassName())
             ) {
                 return false;
@@ -445,11 +493,12 @@ class ExtendHelper
             if ($extendFieldConfig->is('is_deleted')) {
                 return false;
             }
-            if ($extendFieldConfig->is('state', ExtendScope::STATE_NEW)) {
+            $state = $extendFieldConfig->get('state');
+            if (ExtendScope::STATE_NEW === $state) {
                 return false;
             }
             // check if a new field has been requested to be deleted before schema is updated
-            if ($extendFieldConfig->is('state', ExtendScope::STATE_DELETE)) {
+            if (ExtendScope::STATE_DELETE === $state) {
                 /** @var FieldConfigId $fieldId */
                 $fieldId = $extendFieldConfig->getId();
                 if (!property_exists($fieldId->getClassName(), $fieldId->getFieldName())) {
@@ -469,7 +518,7 @@ class ExtendHelper
      */
     public static function updatedPendingValue($currentVal, array $changeSet)
     {
-        list ($oldVal, $newVal) = $changeSet;
+        list($oldVal, $newVal) = $changeSet;
         if (!is_array($oldVal) || !is_array($newVal) || !is_array($currentVal)) {
             return $newVal;
         }

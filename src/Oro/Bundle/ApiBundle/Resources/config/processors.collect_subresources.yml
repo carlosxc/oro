@@ -22,6 +22,8 @@ services:
         class: Oro\Bundle\ApiBundle\Processor\CollectSubresources\LoadFromConfigBag
         arguments:
             - '@oro_api.config_loader_factory'
-            - '@oro_api.config_bag'
+            - '@oro_api.config_bag_registry'
+            - '@oro_api.config_provider'
+            - '@oro_api.metadata_provider'
         tags:
             - { name: oro.api.processor, action: collect_subresources, priority: -10 }

@@ -3,15 +3,13 @@
 namespace Oro\Component\Action\Tests\Unit\Action;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
-
+use Oro\Component\Action\Action\FindEntities;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Component\Action\Action\FindEntities;
-use Oro\Component\Action\Model\ContextAccessor;
-use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ItemStub;
-
-class FindEntitiesTest extends \PHPUnit_Framework_TestCase
+class FindEntitiesTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var FindEntities
@@ -19,16 +17,16 @@ class FindEntitiesTest extends \PHPUnit_Framework_TestCase
     protected $function;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ManagerRegistry
+     * @var \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry
      */
     protected $registry;
 
     protected function setUp()
     {
-        $this->registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $this->registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
 
         /** @var EventDispatcherInterface $dispatcher */
-        $dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $dispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $this->function = new FindEntities(new ContextAccessor(), $this->registry);
         $this->function->setDispatcher($dispatcher);
@@ -40,7 +38,7 @@ class FindEntitiesTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|PropertyPath
+     * @return \PHPUnit\Framework\MockObject\MockObject|PropertyPath
      */
     protected function getPropertyPath()
     {
@@ -56,10 +54,8 @@ class FindEntitiesTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeException(array $options, $expectedMessage)
     {
-        $this->setExpectedException(
-            '\Oro\Component\Action\Exception\InvalidParameterException',
-            $expectedMessage
-        );
+        $this->expectException('\Oro\Component\Action\Exception\InvalidParameterException');
+        $this->expectExceptionMessage($expectedMessage);
 
         $this->function->initialize($options);
     }
@@ -212,7 +208,7 @@ class FindEntitiesTest extends \PHPUnit_Framework_TestCase
             ->willReturnSelf();
         $queryBuilder->expects($this->once())
             ->method('orderBy')
-            ->with('e.createdDate', $options['order_by']['createdDate'])
+            ->with('e.createdDate', strtoupper($options['order_by']['createdDate']))
             ->willReturnSelf();
         $queryBuilder->expects($this->once())
             ->method('getQuery')

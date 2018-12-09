@@ -1,10 +1,8 @@
-parameters:
-    oro_workflow.twig.extension.workflow.class: Oro\Bundle\WorkflowBundle\Twig\WorkflowExtension
-
 services:
     oro_workflow.twig.extension.workflow:
-        class: %oro_workflow.twig.extension.workflow.class%
+        class: 'Oro\Bundle\WorkflowBundle\Twig\WorkflowExtension'
+        public: false
         arguments:
-            - '@oro_workflow.manager'
+            - '@service_container'
         tags:
             - { name: twig.extension }

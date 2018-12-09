@@ -2,18 +2,18 @@
 
 namespace Oro\Bundle\IntegrationBundle\Command;
 
-use Doctrine\ORM\AbstractQuery;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
-
-use Oro\Bundle\BatchBundle\ORM\Query\DeletionQueryResultIterator;
-use Oro\Bundle\IntegrationBundle\Entity\Status;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
-
+use Oro\Bundle\BatchBundle\ORM\Query\BufferedIdentityQueryResultIterator;
 use Oro\Bundle\CronBundle\Command\CronCommandInterface;
+use Oro\Bundle\EntityBundle\ORM\NativeQueryExecutorHelper;
+use Oro\Bundle\IntegrationBundle\Entity\Status;
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Command to clean up old integration status records
@@ -31,6 +31,26 @@ class CleanupCommand extends ContainerAwareCommand implements CronCommandInterfa
     public function getDefaultDefinition()
     {
         return '0 1 * * *';
+    }
+
+    /**
+     * @return bool
+     */
+    public function isActive()
+    {
+        $completedInterval = new \DateTime('now', new \DateTimeZone('UTC'));
+        $completedInterval->sub(\DateInterval::createFromDateString(self::DEFAULT_COMPLETED_STATUSES_INTERVAL));
+
+        $failedInterval = new \DateTime('now', new \DateTimeZone('UTC'));
+        $failedInterval->sub(\DateInterval::createFromDateString(self::FAILED_STATUSES_INTERVAL));
+
+        $qb = $this->getOldIntegrationStatusesQueryBuilder($completedInterval, $failedInterval)
+            ->select('COUNT(status.id)')
+        ;
+
+        $count = $qb->getQuery()->getSingleScalarResult();
+
+        return ($count>0);
     }
 
     /**
@@ -64,9 +84,9 @@ class CleanupCommand extends ContainerAwareCommand implements CronCommandInterfa
         $failedInterval->sub(\DateInterval::createFromDateString(self::FAILED_STATUSES_INTERVAL));
 
         $integrationStatuses = $this->getOldIntegrationStatusesQueryBuilder($completedInterval, $failedInterval);
-        $iterator = new DeletionQueryResultIterator($integrationStatuses);
+        $iterator = new BufferedIdentityQueryResultIterator($integrationStatuses);
         $iterator->setBufferSize(self::BATCH_SIZE);
-        $iterator->setHydrationMode(AbstractQuery::HYDRATE_SCALAR);
+        $iterator->setHydrationMode(Query::HYDRATE_SCALAR);
 
         if (!count($iterator)) {
             $output->writeln('<info>There are no integration statuses eligible for clean up</info>');
@@ -83,13 +103,13 @@ class CleanupCommand extends ContainerAwareCommand implements CronCommandInterfa
     /**
      * Delete records using iterator
      *
-     * @param DeletionQueryResultIterator $iterator
+     * @param BufferedIdentityQueryResultIterator $iterator
      *
      * @param string                      $className Entity FQCN
      *
      * @throws \Exception
      */
-    protected function deleteRecords(DeletionQueryResultIterator $iterator, $className)
+    protected function deleteRecords(BufferedIdentityQueryResultIterator $iterator, $className)
     {
         $iteration = 0;
 
@@ -136,21 +156,26 @@ class CleanupCommand extends ContainerAwareCommand implements CronCommandInterfa
             ->createQueryBuilder('status');
 
         $expr = $queryBuilder->expr();
-
-        return $queryBuilder->resetDQLPart('select')
+        $excludes = $this->prepareExcludes();
+        $queryBuilder = $queryBuilder->resetDQLPart('select')
             ->select('status.id')
             ->where(
-                $expr->orX(
-                    $expr->andX(
-                        $expr->eq('status.code', "'" . Status::STATUS_COMPLETED . "'"),
-                        $expr->lt('status.date', "'{$completedInterval->format('Y-m-d H:i:s')}'")
+                $expr->andX(
+                    $expr->orX(
+                        $expr->andX(
+                            $expr->eq('status.code', "'" . Status::STATUS_COMPLETED . "'"),
+                            $expr->lt('status.date', "'{$completedInterval->format('Y-m-d H:i:s')}'")
+                        ),
+                        $expr->andX(
+                            $expr->eq('status.code', "'" . Status::STATUS_FAILED . "'"),
+                            $expr->lt('status.date', "'{$failedInterval->format('Y-m-d H:i:s')}'")
+                        )
                     ),
-                    $expr->andX(
-                        $expr->eq('status.code', "'" . Status::STATUS_FAILED . "'"),
-                        $expr->lt('status.date', "'{$failedInterval->format('Y-m-d H:i:s')}'")
-                    )
+                    $expr->notIn('status.id', $excludes)
                 )
             );
+
+        return $queryBuilder;
     }
 
     /**
@@ -159,5 +184,55 @@ class CleanupCommand extends ContainerAwareCommand implements CronCommandInterfa
     protected function getEntityManager()
     {
         return $this->getContainer()->get('doctrine')->getManager();
+    }
+
+    /**
+     * Exclude last connector status by date
+     *
+     * @return array
+     */
+    protected function prepareExcludes()
+    {
+        /** @var Connection $connection */
+        $connection = $this->getEntityManager()->getConnection();
+        /** @var NativeQueryExecutorHelper $nativeQueryExecutorHelper */
+        $nativeQueryExecutorHelper = $this->getContainer()->get('oro_entity.orm.native_query_executor_helper');
+        $tableName = $nativeQueryExecutorHelper->getTableName(Status::class);
+        $selectQuery = <<<SQL
+SELECT MAX(a.id) AS id
+FROM 
+    %s AS a
+    INNER JOIN
+        (
+            SELECT  connector, MAX(date) AS minDate
+            FROM %s AS b
+            WHERE b.code = '%s'
+            GROUP BY connector
+        ) b ON a.connector = b.connector AND
+                a.date = b.minDate
+WHERE a.code = '%s'
+GROUP BY 
+    a.connector
+SQL;
+        $selectQuery = sprintf(
+            $selectQuery,
+            $tableName,
+            $tableName,
+            Status::STATUS_COMPLETED,
+            Status::STATUS_COMPLETED
+        );
+        $data = $connection->fetchAll($selectQuery);
+        $excludes = array_map(
+            function ($item) {
+                return $item['id'];
+            },
+            $data
+        );
+
+        if (empty($excludes)) {
+            return [0];
+        }
+
+        return $excludes;
     }
 }

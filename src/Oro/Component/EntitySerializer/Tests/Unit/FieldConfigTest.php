@@ -5,7 +5,7 @@ namespace Oro\Component\EntitySerializer\Tests\Unit;
 use Oro\Component\EntitySerializer\EntityConfig;
 use Oro\Component\EntitySerializer\FieldConfig;
 
-class FieldConfigTest extends \PHPUnit_Framework_TestCase
+class FieldConfigTest extends \PHPUnit\Framework\TestCase
 {
     public function testToArray()
     {
@@ -36,6 +36,9 @@ class FieldConfigTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($fieldConfig->isEmpty());
 
         $fieldConfig->setExcluded(false);
+        $this->assertFalse($fieldConfig->isEmpty());
+
+        $fieldConfig->setExcluded(null);
         $this->assertTrue($fieldConfig->isEmpty());
 
         $targetEntity = new EntityConfig();
@@ -91,13 +94,16 @@ class FieldConfigTest extends \PHPUnit_Framework_TestCase
     {
         $fieldConfig = new FieldConfig();
         $this->assertNull($fieldConfig->getPropertyPath());
+        $this->assertEquals('default', $fieldConfig->getPropertyPath('default'));
 
         $fieldConfig->setPropertyPath('test');
         $this->assertEquals('test', $fieldConfig->getPropertyPath());
+        $this->assertEquals('test', $fieldConfig->getPropertyPath('default'));
         $this->assertEquals(['property_path' => 'test'], $fieldConfig->toArray());
 
         $fieldConfig->setPropertyPath();
         $this->assertNull($fieldConfig->getPropertyPath());
+        $this->assertEquals('default', $fieldConfig->getPropertyPath('default'));
         $this->assertEquals([], $fieldConfig->toArray());
     }
 

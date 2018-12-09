@@ -3,20 +3,18 @@
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\DataTransformer;
 
 use Doctrine\ORM\EntityManager;
-
-use Symfony\Component\Form\Exception\InvalidConfigurationException;
-
 use Oro\Bundle\FormBundle\Form\DataTransformer\EntityCreationTransformer;
 use Oro\Bundle\FormBundle\Tests\Unit\Fixtures\Entity\TestCreationEntity;
+use Symfony\Component\Form\Exception\InvalidConfigurationException;
 
-class EntityCreationTransformerTest extends \PHPUnit_Framework_TestCase
+class EntityCreationTransformerTest extends \PHPUnit\Framework\TestCase
 {
     const TEST_ENTITY_CLASS = 'Oro\Bundle\FormBundle\Tests\Unit\Fixtures\Entity\TestCreationEntity';
 
     /** @var EntityCreationTransformer */
     protected $transformer;
 
-    /** @var EntityManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var EntityManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
     protected function setUp()
@@ -41,7 +39,7 @@ class EntityCreationTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider testReverseTransformDataProvider
+     * @dataProvider reverseTransformDataProvider
      *
      * @param            $value
      * @param            $expected
@@ -64,7 +62,8 @@ class EntityCreationTransformerTest extends \PHPUnit_Framework_TestCase
         $this->transformer->setAllowEmptyProperty($allowEmptyProperty);
         $this->transformer->setNewEntityPropertyName($newEntityPropertyName);
         if (null !== $exception) {
-            $this->setExpectedException(get_class($exception), $exception->getMessage());
+            $this->expectException(get_class($exception));
+            $this->expectExceptionMessage($exception->getMessage());
         }
         if ($loadEntity) {
             /** @var TestCreationEntity $expected */
@@ -75,7 +74,7 @@ class EntityCreationTransformerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $entity);
     }
 
-    public function testReverseTransformDataProvider()
+    public function reverseTransformDataProvider()
     {
         return [
             'no value 1' => [null, null],

@@ -3,7 +3,6 @@
 namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Grid\DatagridConfigurationBuilder;
 
 use Doctrine\ORM\Query;
-
 use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\QueryDesignerModel;
 
 class EmptyNoFiltersNoJoinsCasesTest extends DatagridConfigurationBuilderTestCase
@@ -72,7 +71,7 @@ class EmptyNoFiltersNoJoinsCasesTest extends DatagridConfigurationBuilderTestCas
                 'hints' => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
             ],
@@ -88,6 +87,11 @@ class EmptyNoFiltersNoJoinsCasesTest extends DatagridConfigurationBuilderTestCas
             'filters' => [
                 'columns' => [
                     'c1' => ['data_name' => 'c1', 'type' => 'string', 'translatable' => false]
+                ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't1.column1']
                 ]
             ]
         ];
@@ -136,7 +140,7 @@ class EmptyNoFiltersNoJoinsCasesTest extends DatagridConfigurationBuilderTestCas
                 'hints' => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
             ],
@@ -152,6 +156,11 @@ class EmptyNoFiltersNoJoinsCasesTest extends DatagridConfigurationBuilderTestCas
             'filters' => [
                 'columns' => [
                     'c1' => ['data_name' => 'c1', 'type' => 'string', 'translatable' => false]
+                ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't1.column1']
                 ]
             ]
         ];

@@ -3,18 +3,18 @@
 namespace Oro\Bundle\EntityExtendBundle\Command;
 
 use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
+use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
+use Oro\Bundle\EntityExtendBundle\Tools\EnumSynchronizer;
+use Oro\Bundle\EntityExtendBundle\Tools\SaveSchemaTool;
+use Oro\Bundle\EntityExtendBundle\Tools\SchemaTrait;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use Oro\Bundle\EntityExtendBundle\Tools\SchemaTrait;
-use Oro\Bundle\EntityExtendBundle\Tools\SaveSchemaTool;
-use Oro\Bundle\EntityExtendBundle\Tools\EnumSynchronizer;
-use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
-
+/**
+ * The CLI command to update schema according to data stored in entity config caches
+ */
 class UpdateSchemaCommand extends ContainerAwareCommand
 {
     use SchemaTrait;
@@ -56,16 +56,8 @@ class UpdateSchemaCommand extends ContainerAwareCommand
 
         /** @var EntityManager $em */
         $em = $this->getContainer()->get('doctrine.orm.entity_manager');
-        /** @var ConfigManager $configManager */
-        $configManager = $this->getContainer()->get('oro_entity_config.config_manager');
 
-        $metadata = array_filter(
-            $em->getMetadataFactory()->getAllMetadata(),
-            function ($doctrineMetadata) use ($configManager) {
-                /** @var ClassMetadataInfo $doctrineMetadata */
-                return $this->isExtendEntity($doctrineMetadata->getReflectionClass()->getName(), $configManager);
-            }
-        );
+        $metadata = $this->getClassesMetadata($em);
 
         $schemaTool = new SaveSchemaTool($em);
         $sqls       = $schemaTool->getUpdateSchemaSql($metadata, true);
@@ -94,22 +86,23 @@ class UpdateSchemaCommand extends ContainerAwareCommand
     }
 
     /**
-     * @param string        $className
-     * @param ConfigManager $configManager
+     * @param EntityManager $em
      *
-     * @return bool
+     * @return array
      */
-    protected function isExtendEntity($className, ConfigManager $configManager)
+    protected function getClassesMetadata(EntityManager $em)
     {
-        $result = false;
+        $extendEntityConfigProvider = $this->getContainer()
+            ->get('oro_entity_config.provider.extend_entity_config_provider');
 
-        // check if an entity is marked as extended (both extended and custom entities are marked as extended)
-        if ($configManager->hasConfig($className)) {
-            $extendProvider = $configManager->getProvider('extend');
-
-            $result = $extendProvider->getConfig($className)->is('is_extend');
+        $extendConfigs = $extendEntityConfigProvider->getExtendEntityConfigs();
+        $metadata = [];
+        foreach ($extendConfigs as $extendConfig) {
+            if (!$extendConfig->in('state', [ExtendScope::STATE_NEW, ExtendScope::STATE_DELETE])) {
+                $metadata[] = $em->getClassMetadata($extendConfig->getId()->getClassName());
+            }
         }
 
-        return $result;
+        return $metadata;
     }
 }

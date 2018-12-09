@@ -8,7 +8,7 @@ use Oro\Bundle\MessageQueueBundle\Tests\Unit\DependencyInjection\Compiler\Mock\P
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 
-class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
+class BuildMessageProcessorRegistryPassTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithoutAnyArguments()
     {
@@ -26,8 +26,7 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
         ]);
         $container->setDefinition('processor-id', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();
@@ -42,8 +41,8 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionIfTopicNameIsNotSet()
     {
-        $this->setExpectedException(
-            \LogicException::class,
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(
             'Topic name is not set but it is required. service: "processor",'.
             ' tag: "oro_message_queue.client.message'
         );
@@ -54,8 +53,7 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
         $processor->addTag('oro_message_queue.client.message_processor');
         $container->setDefinition('processor', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();
@@ -72,8 +70,7 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
         ]);
         $container->setDefinition('processor-id', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();
@@ -94,8 +91,7 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
         $processor->addTag('oro_message_queue.client.message_processor');
         $container->setDefinition('processor-id', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();
@@ -116,8 +112,7 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
         $processor->addTag('oro_message_queue.client.message_processor');
         $container->setDefinition('processor-id', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();
@@ -132,16 +127,15 @@ class BuildMessageProcessorRegistryPassTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionWhenTopicSubscriberConfigurationIsInvalid()
     {
-        $this->setExpectedException(\LogicException::class, 'Topic subscriber configuration is invalid. "[12345]"');
-
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Topic subscriber configuration is invalid. "[12345]"');
         $container = new ContainerBuilder();
 
         $processor = new Definition(InvalidTopicSubscriber::class);
         $processor->addTag('oro_message_queue.client.message_processor');
         $container->setDefinition('processor-id', $processor);
 
-        $processorRegistry = new Definition();
-        $processorRegistry->setArguments([]);
+        $processorRegistry = new Definition('ProcessorRegistry', [[]]);
         $container->setDefinition('oro_message_queue.client.message_processor_registry', $processorRegistry);
 
         $pass = new BuildMessageProcessorRegistryPass();

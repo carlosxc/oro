@@ -2,27 +2,29 @@
 
 namespace Oro\Bundle\ActionBundle\Helper;
 
+use Oro\Bundle\ActionBundle\Provider\RouteProviderInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class DefaultOperationRequestHelper
 {
     const DATAGRID_ROUTE = 'oro_datagrid_index';
     const MASS_ACTION_ROUTE = 'oro_datagrid_mass_action';
+    const DATAGRID_WIDGET_ROUTE = 'oro_datagrid_widget';
 
     /** @var RequestStack */
     protected $requestStack;
 
-    /** @var ApplicationsHelper */
-    protected $applicationsHelper;
+    /** @var RouteProviderInterface */
+    protected $routeProvider;
 
     /**
      * @param RequestStack $requestStack
-     * @param ApplicationsHelper $applicationsHelper
+     * @param RouteProviderInterface $routeProvider
      */
-    public function __construct(RequestStack $requestStack, ApplicationsHelper $applicationsHelper)
+    public function __construct(RequestStack $requestStack, RouteProviderInterface $routeProvider)
     {
         $this->requestStack = $requestStack;
-        $this->applicationsHelper = $applicationsHelper;
+        $this->routeProvider = $routeProvider;
     }
 
     /**
@@ -36,7 +38,7 @@ class DefaultOperationRequestHelper
 
         $route = $request->get('_route');
 
-        if (in_array($route, [self::DATAGRID_ROUTE, self::MASS_ACTION_ROUTE], true)) {
+        if (in_array($route, [self::DATAGRID_ROUTE, self::MASS_ACTION_ROUTE, self::DATAGRID_WIDGET_ROUTE], true)) {
             $params = $request->query->get($request->get('gridName'));
 
             if (isset($params['originalRoute'])) {
@@ -44,7 +46,7 @@ class DefaultOperationRequestHelper
             }
         }
 
-        return $route !== $this->applicationsHelper->getExecutionRoute() ? $route : null;
+        return $route !== $this->routeProvider->getExecutionRoute() ? $route : null;
     }
 
     /**
@@ -58,6 +60,6 @@ class DefaultOperationRequestHelper
 
         $route = $request->get('_route');
 
-        return $route === $this->applicationsHelper->getExecutionRoute();
+        return $route === $this->routeProvider->getExecutionRoute();
     }
 }

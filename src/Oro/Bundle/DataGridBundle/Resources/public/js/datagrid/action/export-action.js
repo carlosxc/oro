@@ -2,8 +2,9 @@ define([
     'jquery',
     'underscore',
     './abstract-action',
-    'orotranslation/js/translator'
-], function($, _, AbstractAction, __) {
+    'orotranslation/js/translator',
+    'oroui/js/mediator'
+], function($, _, AbstractAction, __, mediator) {
     'use strict';
 
     var ExportAction;
@@ -23,6 +24,11 @@ define([
         /** @property {Boolean} */
         isModalBinded: false,
 
+        messages: {
+            success: 'oro.datagrid.export.success.message',
+            fail: 'oro.datagrid.export.fail.message'
+        },
+
         /** @property {Object} */
         defaultMessages: {
             confirm_title: 'Export Confirmation',
@@ -31,17 +37,23 @@ define([
         },
 
         /**
+         * @inheritDoc
+         */
+        constructor: function ExportAction() {
+            ExportAction.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
          * {@inheritdoc}
          */
         initialize: function(options) {
-            this.launcherOptions = {
-                runAction: false
-            };
             this.route = 'oro_datagrid_export_action';
             this.route_parameters = {
                 gridName: options.datagrid.name
             };
             this.collection = options.datagrid.collection;
+            this.reloadData = false;
+            this.frontend_handle = 'ajax';
 
             ExportAction.__super__.initialize.apply(this, arguments);
         },
@@ -67,6 +79,22 @@ define([
             return launcher;
         },
 
+        /**
+         * {@inheritdoc}
+         */
+        getActionParameters: function() {
+            return _.extend({format: this.actionKey}, this.collection.getFetchData());
+        },
+
+        /**
+         * {@inheritdoc}
+         */
+        _onAjaxError: function(jqXHR) {
+            mediator.execute('showFlashMessage', 'error', this.messages.fail);
+
+            ExportAction.__super__._onAjaxError.apply(this, arguments);
+        },
+
         createWarningModalForMaxRecords: function($el, launcher) {
             var linkData = _.findWhere(launcher.links, {key: $el.data('key')});
             var state = this.collection.state || {};
@@ -86,7 +114,7 @@ define([
                         content: __(
                             'oro.datagrid.export.max_limit_message',
                             {max_limit: linkData.max_export_records, total: totalRecords}
-                            ),
+                        ),
                         okText: __(self.messages.confirm_ok),
                         cancelText: __(self.messages.confirm_cancel),
                         allowOk: self.allowOk

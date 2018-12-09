@@ -2,63 +2,42 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Config\GetRelationConfig;
 
-use Symfony\Component\Config\Definition\Builder\TreeBuilder;
-
 use Oro\Bundle\ApiBundle\Config\ConfigExtensionRegistry;
 use Oro\Bundle\ApiBundle\Config\ConfigLoaderFactory;
-use Oro\Bundle\ApiBundle\Config\Definition\ApiConfiguration;
-use Oro\Bundle\ApiBundle\Config\Definition\EntityConfiguration;
-use Oro\Bundle\ApiBundle\Config\Definition\RelationDefinitionConfiguration;
+use Oro\Bundle\ApiBundle\Config\RelationConfigMerger;
 use Oro\Bundle\ApiBundle\Processor\Config\Shared\LoadFromConfigBag as BaseLoadFromConfigBag;
-use Oro\Bundle\ApiBundle\Provider\ConfigBag;
-use Oro\Bundle\EntityBundle\Provider\EntityHierarchyProviderInterface;
+use Oro\Bundle\ApiBundle\Provider\ConfigBagRegistry;
+use Oro\Bundle\ApiBundle\Request\RequestType;
 
 /**
  * Loads configuration from "Resources/config/oro/api.yml".
  */
 class LoadFromConfigBag extends BaseLoadFromConfigBag
 {
-    /** @var ConfigBag */
-    protected $configBag;
+    /** @var ConfigBagRegistry */
+    private $configBagRegistry;
 
     /**
-     * @param ConfigExtensionRegistry          $configExtensionRegistry
-     * @param ConfigLoaderFactory              $configLoaderFactory
-     * @param EntityHierarchyProviderInterface $entityHierarchyProvider
-     * @param ConfigBag                        $configBag
+     * @param ConfigExtensionRegistry $configExtensionRegistry
+     * @param ConfigLoaderFactory     $configLoaderFactory
+     * @param ConfigBagRegistry       $configBagRegistry
+     * @param RelationConfigMerger    $relationConfigMerger
      */
     public function __construct(
         ConfigExtensionRegistry $configExtensionRegistry,
         ConfigLoaderFactory $configLoaderFactory,
-        EntityHierarchyProviderInterface $entityHierarchyProvider,
-        ConfigBag $configBag
+        ConfigBagRegistry $configBagRegistry,
+        RelationConfigMerger $relationConfigMerger
     ) {
-        parent::__construct($configExtensionRegistry, $configLoaderFactory, $entityHierarchyProvider);
-        $this->configBag = $configBag;
+        parent::__construct($configExtensionRegistry, $configLoaderFactory, $relationConfigMerger);
+        $this->configBagRegistry = $configBagRegistry;
     }
 
     /**
      * {@inheritdoc}
      */
-    protected function getConfig($entityClass, $version)
+    protected function getConfig($entityClass, $version, RequestType $requestType)
     {
-        return $this->configBag->getRelationConfig($entityClass, $version);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function createConfigurationTree()
-    {
-        $configTreeBuilder = new TreeBuilder();
-        $configuration     = new EntityConfiguration(
-            ApiConfiguration::RELATIONS_SECTION,
-            new RelationDefinitionConfiguration(),
-            $this->configExtensionRegistry->getConfigurationSettings(),
-            $this->configExtensionRegistry->getMaxNestingLevel()
-        );
-        $configuration->configure($configTreeBuilder->root('related_entity')->children());
-
-        return $configTreeBuilder->buildTree();
+        return $this->configBagRegistry->getConfigBag($requestType)->getRelationConfig($entityClass, $version);
     }
 }

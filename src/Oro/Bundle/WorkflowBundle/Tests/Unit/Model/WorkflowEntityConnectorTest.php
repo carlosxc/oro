@@ -7,25 +7,24 @@ use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
 use Oro\Bundle\EntityBundle\Exception\NotManageableEntityException;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowEntityConnector;
 use Oro\Bundle\WorkflowBundle\Tests\Unit\Model\Stub\EntityStub;
 use Oro\Component\Testing\Unit\EntityTrait;
 
-class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
+class WorkflowEntityConnectorTest extends \PHPUnit\Framework\TestCase
 {
     use EntityTrait;
 
     /** @var WorkflowEntityConnector */
     protected $entityConnector;
 
-    /** @var ManagerRegistry|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ManagerRegistry|\PHPUnit\Framework\MockObject\MockObject */
     protected $registry;
 
     protected function setUp()
     {
-        $this->registry = $this->getMock(ManagerRegistry::class);
+        $this->registry = $this->createMock(ManagerRegistry::class);
 
         $this->entityConnector = new WorkflowEntityConnector($this->registry);
     }
@@ -43,7 +42,7 @@ class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
     {
         $this->registry->expects($this->never())->method('getManagerForClass');
 
-        $cache = $this->getMock(Cache::class);
+        $cache = $this->createMock(Cache::class);
 
         $this->setValue($this->entityConnector, 'cache', $cache);
 
@@ -60,7 +59,7 @@ class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
 
     public function testCacheStores()
     {
-        $cache = $this->getMock(Cache::class);
+        $cache = $this->createMock(Cache::class);
 
         $this->setValue($this->entityConnector, 'cache', $cache);
 
@@ -69,7 +68,7 @@ class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
         $cache->expects($this->once())->method('contains')->with($key)->willReturn(false);
 
         //routine
-        $om = $this->getMock(ObjectManager::class);
+        $om = $this->createMock(ObjectManager::class);
         $this->registry->expects($this->once())
             ->method('getManagerForClass')
             ->with(EntityStub::class)
@@ -93,14 +92,14 @@ class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
             ->with(EntityStub::class)
             ->willReturn(null);
 
-        $this->setExpectedException(NotManageableEntityException::class);
+        $this->expectException(NotManageableEntityException::class);
 
         $this->assertFalse($this->entityConnector->isApplicableEntity(new EntityStub(42)));
     }
 
     public function testIsApplicableEntityNotSupportCompositePrimaryKeys()
     {
-        $manager = $this->getMock(ObjectManager::class);
+        $manager = $this->createMock(ObjectManager::class);
         $this->registry->expects($this->once())->method('getManagerForClass')
             ->with(EntityStub::class)
             ->willReturn($manager);
@@ -119,7 +118,7 @@ class WorkflowEntityConnectorTest extends \PHPUnit_Framework_TestCase
      */
     public function testIsApplicableEntitySupportedTypes($type, $expected)
     {
-        $manager = $this->getMock(ObjectManager::class);
+        $manager = $this->createMock(ObjectManager::class);
         $this->registry->expects($this->once())->method('getManagerForClass')
             ->with(EntityStub::class)
             ->willReturn($manager);

@@ -2,15 +2,15 @@
 
 namespace Oro\Bundle\NotificationBundle\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
-
+use Oro\Bundle\NotificationBundle\Entity\MassNotification;
 use Oro\Bundle\SecurityBundle\Annotation\Acl;
 use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
-use Oro\Bundle\NotificationBundle\Entity\MassNotification;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 
 /**
+ * The controller for MassNotification entity.
  * @Route("/massnotification")
  */
 class MassNotificationController extends Controller
@@ -33,7 +33,7 @@ class MassNotificationController extends Controller
     public function indexAction()
     {
         return [
-            'entity_class' => $this->container->getParameter('oro_notification.massnotification.entity.class')
+            'entity_class' => MassNotification::class
         ];
     }
 

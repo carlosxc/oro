@@ -5,9 +5,11 @@ namespace Oro\Bundle\TagBundle\Grid;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\ResultsObject;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface;
-use Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
 use Oro\Bundle\EntityBundle\Tools\EntityRoutingHelper;
+use Oro\Bundle\QueryDesignerBundle\Grid\QueryDesignerQueryConfiguration;
 use Oro\Bundle\QueryDesignerBundle\QueryDesigner\JoinIdentifierHelper;
+use Oro\Bundle\TagBundle\Entity\Tag;
 use Oro\Bundle\TagBundle\Entity\TagManager;
 use Oro\Bundle\TagBundle\Helper\TaggableHelper;
 use Oro\Bundle\TagBundle\Provider\TagVirtualFieldProvider;
@@ -24,18 +26,18 @@ class TagsReportExtension extends AbstractTagsExtension
     protected $joinIdentifierHelper;
 
     /**
-     * @param TagManager              $tagManager
-     * @param GridConfigurationHelper $gridConfigurationHelper
-     * @param TaggableHelper          $helper
-     * @param EntityRoutingHelper     $entityRoutingHelper
+     * @param TagManager          $tagManager
+     * @param EntityClassResolver $entityClassResolver
+     * @param TaggableHelper      $helper
+     * @param EntityRoutingHelper $entityRoutingHelper
      */
     public function __construct(
         TagManager $tagManager,
-        GridConfigurationHelper $gridConfigurationHelper,
+        EntityClassResolver $entityClassResolver,
         TaggableHelper $helper,
         EntityRoutingHelper $entityRoutingHelper
     ) {
-        parent::__construct($tagManager, $gridConfigurationHelper);
+        parent::__construct($tagManager, $entityClassResolver);
 
         $this->taggableHelper      = $helper;
         $this->entityRoutingHelper = $entityRoutingHelper;
@@ -55,8 +57,9 @@ class TagsReportExtension extends AbstractTagsExtension
     public function isApplicable(DatagridConfiguration $config)
     {
         return
+            parent::isApplicable($config) &&
             $this->hasTagFields($config) &&
-            $this->isReportOrSegmentGrid($config);
+            $this->isUnsupportedGridPrefix($config);
     }
 
     /**
@@ -140,15 +143,15 @@ class TagsReportExtension extends AbstractTagsExtension
         $label   = isset($columns[$idAlias]['label']) ? $columns[$idAlias]['label'] : 'oro.tag.tags_label';
 
         return [
-            'type'      => 'tag',
+            'type' => 'tag',
             'data_name' => $idAlias,
-            'label'     => $label,
-            'enabled'   => true,
-            'options'   => [
-                'field_options' => [
-                    'entity_class' => $entityClass,
-                ]
-            ]
+            'class' => Tag::class,
+            'null_value' => ':empty:',
+            'populate_default' => true,
+            'default_value' => 'Any',
+            'label' => $label,
+            'enabled' => true,
+            'entity_class' => $entityClass
         ];
     }
 
@@ -161,12 +164,12 @@ class TagsReportExtension extends AbstractTagsExtension
      */
     protected function getTagColumnDefinitions(DatagridConfiguration $config)
     {
-        $aliases = $config->offsetGetByPath(self::GRID_COLUMN_ALIAS_PATH);
-        $tagColumns = [];
-
-        if (null === $aliases) {
-            return $tagColumns;
+        $aliases = $config->offsetGetByPath(QueryDesignerQueryConfiguration::COLUMN_ALIASES);
+        if (!$aliases) {
+            return [];
         }
+
+        $tagColumns = [];
         $joinIdentifierHelper = $this->getJoinIdentifierHelper();
         foreach ($aliases as $key => $alias) {
             $field = $joinIdentifierHelper->getFieldName($key);

@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/orodashboard/css/scss/main.scss'

@@ -2,19 +2,22 @@
 
 namespace Oro\Bundle\EntityExtendBundle\ORM;
 
+use Doctrine\Common\Inflector\Inflector;
+use Doctrine\ORM\Mapping\Builder\AssociationBuilder;
 use Doctrine\ORM\Mapping\Builder\ClassMetadataBuilder;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
-
+use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Exception\InvalidRelationEntityException;
 use Oro\Bundle\EntityExtendBundle\Extend\RelationType;
-
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendConfigDumper;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendDbIdentifierNameGenerator;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 
+/**
+ * Builds Doctrines metadata for relations.
+ */
 class RelationMetadataBuilder implements MetadataBuilderInterface
 {
     /** @var ConfigManager */
@@ -24,7 +27,9 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
     protected $nameGenerator;
 
     /**
-     * @param ConfigManager                   $configManager
+     * RelationMetadataBuilder constructor.
+     *
+     * @param ConfigManager $configManager
      * @param ExtendDbIdentifierNameGenerator $nameGenerator
      */
     public function __construct(
@@ -51,9 +56,14 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         $relations = $extendConfig->get('relation', false, []);
         $schema    = $extendConfig->get('schema', false, []);
         foreach ($relations as $relationKey => $relation) {
+            $configRelationEntity = $this->configManager->getEntityConfig('extend', $relation['target_entity']);
+
             /** @var FieldConfigId $fieldId */
             $fieldId = $relation['field_id'];
-            if ($fieldId && isset($schema['relation'][$fieldId->getFieldName()])) {
+            if ($fieldId
+                && isset($schema['relation'][$fieldId->getFieldName()])
+                && !$configRelationEntity->in('state', [ExtendScope::STATE_NEW, ExtendScope::STATE_DELETE])
+            ) {
                 switch ($fieldId->getFieldType()) {
                     case RelationType::MANY_TO_ONE:
                         $this->buildManyToOneRelation($metadataBuilder, $fieldId, $relation);
@@ -79,10 +89,10 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         FieldConfigId $fieldId,
         array $relation
     ) {
-        $targetEntity   = $relation['target_entity'];
+        $targetEntity = $relation['target_entity'];
         $targetIdColumn = $this->getSinglePrimaryKeyColumn($targetEntity);
-        $cascade        = !empty($relation['cascade']) ? $relation['cascade'] : [];
-        $cascade[]      = 'detach';
+        $cascade = $this->getCascadeOption($relation);
+        $cascade[] = 'detach';
 
         $builder = $metadataBuilder->createManyToOne($fieldId->getFieldName(), $targetEntity);
         if (!empty($relation['target_field_id'])) {
@@ -91,13 +101,12 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         $builder->addJoinColumn(
             $this->getManyToOneColumnName($fieldId, $targetIdColumn),
             $targetIdColumn,
-            true,
+            $this->getNullableOption($relation),
             false,
-            'SET NULL'
+            $this->getOnDeleteOption($relation)
         );
-        foreach ($cascade as $cascadeType) {
-            $builder->{'cascade' . ucfirst($cascadeType)}();
-        }
+        $this->setCascadeOptions($builder, $cascade);
+        $this->setFetchOption($builder, $this->getFetchOption($relation));
         $builder->build();
     }
 
@@ -114,17 +123,15 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         $relationKey
     ) {
         $targetEntity = $relation['target_entity'];
-
-        $cascade   = !empty($relation['cascade']) ? $relation['cascade'] : [];
+        $cascade = $this->getCascadeOption($relation);
         $cascade[] = 'detach';
 
         $builder = $metadataBuilder->createOneToMany($fieldId->getFieldName(), $targetEntity);
         if (!empty($relation['target_field_id'])) {
             $builder->mappedBy($relation['target_field_id']->getFieldName());
         }
-        foreach ($cascade as $cascadeType) {
-            $builder->{'cascade' . ucfirst($cascadeType)}();
-        }
+        $this->setCascadeOptions($builder, $cascade);
+        $this->setFetchOption($builder, $this->getFetchOption($relation));
         $builder->build();
 
         if (!$relation['owner']
@@ -157,7 +164,7 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
                 $metadataBuilder,
                 $fieldId,
                 $targetEntity,
-                $relation['target_field_id']
+                $relation
             );
         }
     }
@@ -174,8 +181,6 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
     ) {
         $targetEntity = $relation['target_entity'];
 
-        $cascade = !empty($relation['cascade']) ? $relation['cascade'] : [];
-
         $builder = $metadataBuilder->createManyToMany($fieldId->getFieldName(), $targetEntity);
         if (!empty($relation['target_field_id'])) {
             $builder->inversedBy($relation['target_field_id']->getFieldName());
@@ -188,36 +193,28 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         );
         $selfIdColumn = $this->getSinglePrimaryKeyColumn($entityClassName);
         $targetIdColumn = $this->getSinglePrimaryKeyColumn($targetEntity);
+        $selfJoinTableColumnNamePrefix = null;
+        $targetJoinTableColumnNamePrefix = null;
+        if ($entityClassName === $targetEntity) {
+            // fix the collision of names if owning side entity equals to inverse side entity
+            $selfJoinTableColumnNamePrefix = 'src_';
+            $targetJoinTableColumnNamePrefix = 'dest_';
+        }
+        $selfJoinTableColumnName = $this->nameGenerator->generateManyToManyJoinTableColumnName(
+            $entityClassName,
+            '_' . $selfIdColumn,
+            $selfJoinTableColumnNamePrefix
+        );
+        $targetJoinTableColumnName = $this->nameGenerator->generateManyToManyJoinTableColumnName(
+            $targetEntity,
+            '_' . $targetIdColumn,
+            $targetJoinTableColumnNamePrefix
+        );
         $builder->setJoinTable($joinTableName);
-
-        if ($selfIdColumn !== 'id') {
-            $builder->addJoinColumn(
-                $this->nameGenerator->generateManyToManyJoinTableColumnName(
-                    $entityClassName,
-                    '_' . $selfIdColumn
-                ),
-                $selfIdColumn,
-                false,
-                false,
-                'CASCADE'
-            );
-        }
-
-        if ($targetIdColumn !== 'id') {
-            $builder->addInverseJoinColumn(
-                $this->nameGenerator->generateManyToManyJoinTableColumnName(
-                    $relation['target_entity'],
-                    '_' . $targetIdColumn
-                ),
-                $targetIdColumn,
-                false,
-                false,
-                'CASCADE'
-            );
-        }
-        foreach ($cascade as $cascadeType) {
-            $builder->{'cascade' . ucfirst($cascadeType)}();
-        }
+        $builder->addJoinColumn($selfJoinTableColumnName, $selfIdColumn, false, false, 'CASCADE');
+        $builder->addInverseJoinColumn($targetJoinTableColumnName, $targetIdColumn, false, false, 'CASCADE');
+        $this->setCascadeOptions($builder, $this->getCascadeOption($relation));
+        $this->setFetchOption($builder, $this->getFetchOption($relation));
         $builder->build();
     }
 
@@ -225,19 +222,19 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
      * @param ClassMetadataBuilder $metadataBuilder
      * @param FieldConfigId        $fieldId
      * @param string               $targetEntity
-     * @param FieldConfigId        $targetFieldId
+     * @param array                $relation
      */
     protected function buildManyToManyTargetSideRelation(
         ClassMetadataBuilder $metadataBuilder,
         FieldConfigId $fieldId,
         $targetEntity,
-        FieldConfigId $targetFieldId
+        array $relation
     ) {
-        $metadataBuilder->addInverseManyToMany(
-            $fieldId->getFieldName(),
-            $targetEntity,
-            $targetFieldId->getFieldName()
-        );
+        $builder = $metadataBuilder->createManyToMany($fieldId->getFieldName(), $targetEntity);
+        $builder->mappedBy($relation['target_field_id']->getFieldName());
+        $this->setCascadeOptions($builder, $this->getCascadeOption($relation));
+        $this->setFetchOption($builder, $this->getFetchOption($relation));
+        $builder->build();
     }
 
     /**
@@ -327,7 +324,9 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
             $entityConfig = $this->configManager->getEntityConfig('extend', $entityName);
             $pkColumns = $entityConfig->get('pk_columns', false, $pkColumns);
             if (count($pkColumns) > 1) {
-                // TODO This restriction should be removed in scope of https://magecore.atlassian.net/browse/BAP-9815
+                // Currently we don't support composite primary keys.
+                // When support will be implemented, this restriction should be removed.
+                // Task id: BAP-9815
                 throw new InvalidRelationEntityException(
                     sprintf('Entity class %s has composite primary key.', $entityName)
                 );
@@ -335,5 +334,90 @@ class RelationMetadataBuilder implements MetadataBuilderInterface
         }
 
         return reset($pkColumns);
+    }
+
+    /**
+     * @param array $relation
+     *
+     * @return string
+     */
+    private function getOnDeleteOption(array $relation)
+    {
+        if (empty($relation['on_delete'])) {
+            return 'SET NULL';
+        }
+
+        return $relation['on_delete'];
+    }
+
+    /**
+     * @param array $relation
+     *
+     * @return bool
+     */
+    private function getNullableOption(array $relation)
+    {
+        if (!array_key_exists('nullable', $relation)) {
+            return true;
+        }
+
+        $nullable = $relation['nullable'];
+        if (null === $nullable) {
+            $nullable = true;
+        }
+
+        return $nullable;
+    }
+
+    /**
+     * @param array $relation
+     *
+     * @return string[]
+     */
+    private function getCascadeOption(array $relation)
+    {
+        if (empty($relation['cascade'])) {
+            return [];
+        }
+
+        return $relation['cascade'];
+    }
+
+    /**
+     * @param array $relation
+     *
+     * @return string
+     */
+    private function getFetchOption(array $relation)
+    {
+        if (empty($relation['fetch'])) {
+            return '';
+        }
+
+        return $relation['fetch'];
+    }
+
+    /**
+     * @param AssociationBuilder $builder
+     * @param string[]           $cascades
+     */
+    private function setCascadeOptions(AssociationBuilder $builder, array $cascades)
+    {
+        foreach ($cascades as $cascade) {
+            $builder->{'cascade' . ucfirst($cascade)}();
+        }
+    }
+
+    /**
+     * @param AssociationBuilder $builder
+     * @param string             $fetch
+     */
+    private function setFetchOption(AssociationBuilder $builder, string $fetch)
+    {
+        $method = Inflector::camelize('fetch_' . $fetch);
+
+        if (method_exists($builder, $method)) {
+            $builder->$method();
+        }
     }
 }

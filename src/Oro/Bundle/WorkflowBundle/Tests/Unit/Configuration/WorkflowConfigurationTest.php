@@ -2,11 +2,10 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration;
 
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
 use Symfony\Component\Yaml\Yaml;
 
-use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
-
-class WorkflowConfigurationTest extends \PHPUnit_Framework_TestCase
+class WorkflowConfigurationTest extends \PHPUnit\Framework\TestCase
 {
     public function testProcessConfiguration()
     {
@@ -27,7 +26,7 @@ class WorkflowConfigurationTest extends \PHPUnit_Framework_TestCase
      */
     protected function getInputConfiguration()
     {
-        $fileName = __DIR__ . '/Stub/CorrectConfiguration/Resources/config/workflow.yml';
+        $fileName = __DIR__ . '/Stub/CorrectConfiguration/Resources/config/oro/workflows.yml';
         $this->assertFileExists($fileName);
         $data = Yaml::parse(file_get_contents($fileName)) ? : [];
 
@@ -39,7 +38,7 @@ class WorkflowConfigurationTest extends \PHPUnit_Framework_TestCase
      */
     protected function getExpectedConfiguration()
     {
-        $fileName = __DIR__ . '/Stub/CorrectConfiguration/Resources/config/workflow.php';
+        $fileName = __DIR__ . '/Stub/CorrectConfiguration/Resources/config/oro/workflows.php';
         $this->assertFileExists($fileName);
 
         return include $fileName;

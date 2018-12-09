@@ -1,5 +1,3 @@
-/*jslint nomen:true*/
-/*global define*/
 define(function(require) {
     'use strict';
 
@@ -18,11 +16,18 @@ define(function(require) {
             _wid: '',
             success: false,
             deactivated: null,
-            workflow: '',
             selectors: {
                 form: null
             },
-            buttonName: ''
+            buttonName: 'activate',
+            error: null
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function DeactivateFormWidgetComponent() {
+            DeactivateFormWidgetComponent.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -37,6 +42,10 @@ define(function(require) {
                 this.options._wid,
                 function(widget) {
                     if (!self.options.success) {
+                        if (self.options.error) {
+                            mediator.execute('showMessage', 'error', self.options.error);
+                        }
+
                         widget.getAction(self.options.buttonName, 'adopted', function(action) {
                             action.on('click', _.bind(self.onClick, self));
                         });

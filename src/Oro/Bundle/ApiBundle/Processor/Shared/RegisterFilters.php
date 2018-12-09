@@ -2,22 +2,29 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
-use Oro\Component\ChainProcessor\ContextInterface;
-use Oro\Component\ChainProcessor\ProcessorInterface;
 use Oro\Bundle\ApiBundle\Config\FilterFieldConfig;
-use Oro\Bundle\ApiBundle\Exception\RuntimeException;
+use Oro\Bundle\ApiBundle\Filter\CollectionAwareFilterInterface;
 use Oro\Bundle\ApiBundle\Filter\ComparisonFilter;
+use Oro\Bundle\ApiBundle\Filter\FieldAwareFilterInterface;
 use Oro\Bundle\ApiBundle\Filter\FilterFactoryInterface;
+use Oro\Bundle\ApiBundle\Filter\MetadataAwareFilterInterface;
+use Oro\Bundle\ApiBundle\Filter\RequestAwareFilterInterface;
 use Oro\Bundle\ApiBundle\Filter\StandaloneFilter;
 use Oro\Bundle\ApiBundle\Processor\Context;
+use Oro\Component\ChainProcessor\ProcessorInterface;
 
 /**
- * Registers filters according to the "filters" configuration section.
+ * Abstract class for register filters processor.
  */
-class RegisterFilters implements ProcessorInterface
+abstract class RegisterFilters implements ProcessorInterface
 {
+    private const COLLECTION_ASSOCIATION_ADDITIONAL_OPERATORS = [
+        ComparisonFilter::CONTAINS,
+        ComparisonFilter::NOT_CONTAINS
+    ];
+
     /** @var FilterFactoryInterface */
-    protected $filterFactory;
+    private $filterFactory;
 
     /**
      * @param FilterFactoryInterface $filterFactory
@@ -28,55 +35,66 @@ class RegisterFilters implements ProcessorInterface
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function process(ContextInterface $context)
-    {
-        /** @var Context $context */
-
-        $configOfFilters = $context->getConfigOfFilters();
-        if (null === $configOfFilters || $configOfFilters->isEmpty()) {
-            // a filters' configuration does not contains any data
-            return;
-        }
-
-        if (!$configOfFilters->isExcludeAll()) {
-            // it seems that filters' configuration was not normalized
-            throw new RuntimeException(
-                sprintf(
-                    'Expected "all" exclusion policy for filters. Got: %s.',
-                    $configOfFilters->getExclusionPolicy()
-                )
-            );
-        }
-
-        $filters = $context->getFilters();
-        $fields  = $configOfFilters->getFields();
-        foreach ($fields as $fieldName => $field) {
-            if ($filters->has($fieldName)) {
-                continue;
-            }
-            $filter = $this->createFilter($fieldName, $field);
-            if (null !== $filter) {
-                $filters->add($fieldName, $filter);
-            }
-        }
-    }
-
-    /**
-     * @param string            $fieldName
-     * @param FilterFieldConfig $field
+     * @param FilterFieldConfig $filterConfig
+     * @param string            $propertyPath
+     * @param Context           $context
      *
      * @return StandaloneFilter|null
+     *
+     * @SuppressWarnings(PHPMD.NPathComplexity)
      */
-    protected function createFilter($fieldName, FilterFieldConfig $field)
+    protected function createFilter(FilterFieldConfig $filterConfig, $propertyPath, Context $context)
     {
-        $filter = $this->filterFactory->createFilter($field->getDataType());
+        $filterOptions = $filterConfig->getOptions();
+        if (null === $filterOptions) {
+            $filterOptions = [];
+        }
+        $filterType = $filterConfig->getType();
+        $dataType = $filterConfig->getDataType();
+        if (!$filterType) {
+            $filterType = $dataType;
+        } elseif ($filterType !== $dataType) {
+            $filterOptions[FilterFactoryInterface::DATA_TYPE_OPTION] = $dataType;
+        }
+        $filter = $this->filterFactory->createFilter($filterType, $filterOptions);
         if (null !== $filter) {
-            $filter->setArrayAllowed($field->isArrayAllowed());
-            $filter->setDescription($field->getDescription());
-            if ($filter instanceof ComparisonFilter) {
-                $filter->setField($field->getPropertyPath() ?: $fieldName);
+            $filter->setArrayAllowed($filterConfig->isArrayAllowed());
+            $filter->setRangeAllowed($filterConfig->isRangeAllowed());
+            $filter->setDescription($filterConfig->getDescription());
+            $operators = $filterConfig->getOperators();
+            if (!empty($operators)) {
+                $filter->setSupportedOperators($operators);
+            } elseif (!$filterConfig->hasType() && $filterConfig->isCollection()) {
+                $filter->setSupportedOperators(
+                    \array_merge($filter->getSupportedOperators(), self::COLLECTION_ASSOCIATION_ADDITIONAL_OPERATORS)
+                );
+            }
+            if ($filter instanceof FieldAwareFilterInterface) {
+                $filter->setField($propertyPath);
+            }
+            if ($filterConfig->isCollection()) {
+                if ($filter instanceof CollectionAwareFilterInterface) {
+                    $filter->setCollection(true);
+                } else {
+                    throw new \LogicException(\sprintf(
+                        'The filter by "%s" does not support the "collection" option',
+                        $propertyPath
+                    ));
+                }
+            }
+            if ($filter instanceof RequestAwareFilterInterface) {
+                $filter->setRequestType($context->getRequestType());
+            }
+            if ($filter instanceof MetadataAwareFilterInterface) {
+                $metadata = $context->getMetadata();
+                if (null === $metadata) {
+                    throw new \LogicException(\sprintf(
+                        'The metadata for class "%s" does not exist, but it required for the filter by "%s"',
+                        $context->getClassName(),
+                        $propertyPath
+                    ));
+                }
+                $filter->setMetadata($metadata);
             }
         }
 

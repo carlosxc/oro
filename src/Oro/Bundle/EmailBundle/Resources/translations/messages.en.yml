@@ -6,23 +6,28 @@ oro:
             sent:        Sent
             unread:      Unread Emails
             view_all:    View All
-            description: This widget allows you to see most recent additions to your inbox and outbox
+            view_email:  View Email
+            reply:       Reply
+            description: This widget enables you to see the most recent additions to your inbox and outbox
 
     email:
         imap.folder.checkAll: All
+        mailbox_name.personal: Personal
         autocomplete:
             recently_used: Recently used
             contexts: Contexts
         filter.inactive: inactive
         controller:
             emailtemplate.saved.message: "Template saved"
-            job_scheduled.message: "The job has been added to the queue %link%"
+            job_scheduled.message: "The job has been added to the queue"
             job_progress: Check progress
+        recent_emails_widget:
+            no_subject: "no subject"
         form:
-            choose_template:                     ""
+            choose_template:                     Choose a Template
             add_signature:                       Add Signature
-            attach_file:                         Attach file
-            from_record:                         From record
+            attach_file:                         Attach File
+            from_record:                         From Record
             upload:                              Upload
             attach:                              Attach
             no_attachments:                      No available attachments
@@ -31,14 +36,38 @@ oro:
 
             tooltip:
                 attachment_sync:
-                    enable: Enable load attachments on email sync.
+                    enable: Enable loading attachments on email sync.
                     max_size: Maximum sync attachment size, Mb. Attachments with exceeding size will not be downloaded. To unlimit size set to 0.
-                    preview_limit: Limit to show preview for attachments (thumbnail for images and big file icon for other files). Set to 0 to see a list with file names only.
+                    preview_limit: Limit to show preview for attachments (thumbnail for images and a big file icon for other files). Set to 0 to see a list with file names only.
 
         variable.not.found:                     N/A
 
         system_configuration:
             email_configuration: Email Configuration
+            email_settings: Email Settings
+            feature_enabled:
+                label: Enable User Emails
+
+            smtp_settings:
+                label: SMTP Settings
+                host:
+                    label: Host
+                port:
+                    label: Port
+                encryption:
+                    label: Encryption
+                    none:
+                        label: None
+                    ssl:
+                        label: SSL
+                    tls:
+                        label: TLS
+                username:
+                    label: Username
+                password:
+                    label: Password
+                check_connection:
+                  label: Check SMTP Connection
 
             signature_configuration:
                 label: Signature
@@ -51,6 +80,11 @@ oro:
 
             email_threads:
                 label: Email Threads
+                use_threads:
+                  label: Display email conversations as
+                  choices:
+                    non_threaded.label: Non-Threaded
+                    threaded.label: Threaded
 
             attachment_configuration:
                 label: Attachments
@@ -74,6 +108,9 @@ oro:
                 label: System Mailboxes
                 add_mailbox.label: Add Mailbox
 
+            template_configuration:
+                label: HTML in templates
+
             show_recent_emails_in_user_bar:
                 label: Show recent emails
 
@@ -85,9 +122,13 @@ oro:
                 preview_limit:
                     label: Attachments preview limit
 
+            sanitize_html:
+                label: Enable HTML purifier
+                tooltip: Disabling HTML purifier will allow users to paste any HTML code into template or email body editor without tag stripping.
+
         emailtemplate:
-            entity_label:        Template
-            entity_plural_label: Templates
+            entity_label:        Email Template
+            entity_plural_label: Email Templates
             edit_entity:         Edit email template "%name%"
             clone_entity:        Clone email template
             entity_description:  Represent email template
@@ -110,6 +151,11 @@ oro:
             variables:
                 system: 'System variables'
                 entity: 'Entity variables'
+                url:
+                    index.label: 'Entity Grid Page'
+                    view.label: 'Entity View Page'
+                    update.label: 'Entity Update Page'
+                    create.label: 'Entity Create Page'
 
             action:
                 preview: Preview
@@ -127,7 +173,10 @@ oro:
             current_datetime:    Current date & time
             current_date:        Current date
             current_time:        Current time
-            siganture:           Signature (|oro_tag_filter should be removed to allow usage of it's html view)
+            siganture:           Signature (|oro_html_strip_tags should be removed to allow usage of it's html view)
+
+            # errors
+            failed_to_compile: This email template can't be used
 
         attachment:
             copy_to_record: Copy to Record
@@ -137,10 +186,11 @@ oro:
             view: View
 
         menu:
+            emailtemplate.entity_plural_label: Templates
             emailtemplate_list.description: List of email templates
             user_emails: My Emails
             compose: Compose
-            shortcut_compose_email.label: Compose email
+            shortcut_compose_email.label: Compose Email
             shortcut_compose_email.description: Compose email
             mark_read.label: Mark read
             mark_unread.label: Mark unread
@@ -169,6 +219,7 @@ oro:
             emails:
                 action:
                     view: "View"
+                    reply: "Reply"
                     mark_as_read: "Mark As Read"
                     mark_as_unread: "Mark As Unread"
                     enable_to_change_status: "Enable to change status"
@@ -221,6 +272,7 @@ oro:
         received_at.label:        Received at
         recipients.label:         Recipients
         send_email:               Send email
+        the_email_was_sent:       The email was sent
         sent_at.label:            Sent at
         sent_by.label:            sent by {{ user }}
         subject:
@@ -240,6 +292,7 @@ oro:
         seen.label:               Is Seen
         thread_id.label:          Thread ID
         show_details.tooltip:     Show details
+        show_details.label:       Email details
         contexts:
             tooltip:              Context is any record or records that have meaningful relation to an email conversation. When you add context of a record to the email conversation, it will be displayed in the Activity list of that record.
         not_found:                Email with id "%id%" can not be found
@@ -313,7 +366,7 @@ oro:
             name.label:          Name
             active.label:        Active
             status.label:        Status
-            conditions.label:    Conditions
+            conditions.label:    Satisfy
             template.label:      Response Template
             action:
                 add.label:    Add Rule
@@ -332,7 +385,7 @@ oro:
             message:
                 success: Email sync completed.
                 error: Email sync failed.
-                processing: Email sync started, please wait, grid will updated on done...
+                processing: Email sync has started. Please wait, the grid will be updated after it is complete...
 
 "%subject% - Email": "%subject% - Email"
 "Subject": "Subject"

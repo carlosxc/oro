@@ -2,21 +2,27 @@
 
 namespace Oro\Bundle\IntegrationBundle\Provider;
 
-use Psr\Log\NullLogger;
-use Psr\Log\LoggerAwareTrait;
-use Psr\Log\LoggerAwareInterface;
-
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
-use Oro\Bundle\IntegrationBundle\Entity\Status;
+use Oro\Bundle\ImportExportBundle\Context\ContextInterface;
+use Oro\Bundle\ImportExportBundle\Job\JobResult;
+use Oro\Bundle\ImportExportBundle\Processor\ProcessorRegistry;
 use Oro\Bundle\IntegrationBundle\Entity\Channel as Integration;
+use Oro\Bundle\IntegrationBundle\Entity\Status;
+use Oro\Bundle\IntegrationBundle\Event\SyncEvent;
+use Oro\Bundle\IntegrationBundle\ImportExport\Job\Executor;
 use Oro\Bundle\IntegrationBundle\Logger\LoggerStrategy;
 use Oro\Bundle\IntegrationBundle\Manager\TypesRegistry;
-use Oro\Bundle\IntegrationBundle\ImportExport\Job\Executor;
-use Oro\Bundle\ImportExportBundle\Processor\ProcessorRegistry;
-use Oro\Bundle\ImportExportBundle\Context\ContextInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\NullLogger;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-abstract class AbstractSyncProcessor implements LoggerAwareInterface
+/**
+ * Sync processor default implementation
+ */
+abstract class AbstractSyncProcessor implements
+    SyncProcessorInterface,
+    LoggerAwareInterface,
+    LoggerStrategyAwareInterface
 {
     use LoggerAwareTrait;
 
@@ -54,9 +60,7 @@ abstract class AbstractSyncProcessor implements LoggerAwareInterface
     }
 
     /**
-     * Get logger strategy
-     *
-     * @return LoggerStrategy
+     * {@inheritdoc}
      */
     public function getLoggerStrategy()
     {
@@ -131,5 +135,22 @@ abstract class AbstractSyncProcessor implements LoggerAwareInterface
     protected function isIntegrationConnectorProcessSuccess(Status $status)
     {
         return $status->getCode() == Status::STATUS_COMPLETED;
+    }
+
+    /**
+     * @param string    $eventName
+     * @param string    $jobName
+     * @param array     $configuration
+     *
+     * @param JobResult $jobResult
+     *
+     * @return SyncEvent
+     */
+    protected function dispatchSyncEvent($eventName, $jobName, array $configuration, JobResult $jobResult = null)
+    {
+        $event = new SyncEvent($jobName, $configuration, $jobResult);
+        $this->eventDispatcher->dispatch($eventName, $event);
+
+        return $event;
     }
 }

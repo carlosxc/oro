@@ -6,13 +6,10 @@ use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
-
-use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
-
 use Oro\Bundle\SearchBundle\Engine\Indexer;
 use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 class SearchHandler implements SearchHandlerInterface
 {
@@ -156,6 +153,40 @@ class SearchHandler implements SearchHandlerInterface
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function convertItem($item)
+    {
+        $result = [];
+
+        if ($this->idFieldName) {
+            $result[$this->idFieldName] = $this->getPropertyValue($this->idFieldName, $item);
+        }
+
+        foreach ($this->getProperties() as $property) {
+            $result[$property] = (string)$this->getPropertyValue($property, $item);
+        }
+
+        return $result;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getEntityName()
+    {
+        return $this->entityName;
+    }
+
+    /**
+     * @param AclHelper $aclHelper
+     */
+    public function setAclHelper(AclHelper $aclHelper)
+    {
+        $this->aclHelper = $aclHelper;
+    }
+
+    /**
      * @throws \RuntimeException
      */
     protected function checkAllDependenciesInjected()
@@ -208,11 +239,20 @@ class SearchHandler implements SearchHandlerInterface
      */
     protected function getEntitiesByIds(array $entityIds)
     {
-        /** @var QueryBuilder $queryBuilder */
-        $queryBuilder = $this->entityRepository->createQueryBuilder('e');
-        $queryBuilder->where($queryBuilder->expr()->in('e.' . $this->idFieldName, $entityIds));
+        $entityIds = array_filter(
+            $entityIds,
+            function ($id) {
+                return $id !== null && $id !== '';
+            }
+        );
+        if ($entityIds) {
+            /** @var QueryBuilder $queryBuilder */
+            $queryBuilder = $this->entityRepository->createQueryBuilder('e');
+            $queryBuilder->where($queryBuilder->expr()->in('e.' . $this->idFieldName, $entityIds));
+            return $queryBuilder->getQuery()->getResult();
+        }
 
-        return $queryBuilder->getQuery()->getResult();
+        return [];
     }
 
     /**
@@ -243,7 +283,12 @@ class SearchHandler implements SearchHandlerInterface
      */
     protected function findById($query)
     {
-        return $this->getEntitiesByIds(explode(',', $query));
+        $ids = [];
+        if ($query) {
+            $ids = explode(',', $query);
+        }
+
+        return $this->getEntitiesByIds($ids);
     }
 
     /**
@@ -256,24 +301,6 @@ class SearchHandler implements SearchHandlerInterface
         foreach ($items as $item) {
             $result[] = $this->convertItem($item);
         }
-        return $result;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function convertItem($item)
-    {
-        $result = [];
-
-        if ($this->idFieldName) {
-            $result[$this->idFieldName] = $this->getPropertyValue($this->idFieldName, $item);
-        }
-
-        foreach ($this->properties as $property) {
-            $result[$property] = $this->getPropertyValue($property, $item);
-        }
-
         return $result;
     }
 
@@ -292,33 +319,16 @@ class SearchHandler implements SearchHandlerInterface
             $keys = array_map(
                 function ($key) {
                     return sprintf('[%s]', $key);
-
                 },
                 explode('.', $propertyPath)
             );
             $propertyPath = implode('', $keys);
         }
 
-        try {
-            return $this->propertyAccessor->getValue($item, $propertyPath);
-        } catch (NoSuchPropertyException $e) {
+        if (!$this->propertyAccessor->isReadable($item, $propertyPath)) {
             return null;
         }
-    }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getEntityName()
-    {
-        return $this->entityName;
-    }
-
-    /**
-     * @param AclHelper $aclHelper
-     */
-    public function setAclHelper(AclHelper $aclHelper)
-    {
-        $this->aclHelper = $aclHelper;
+        return $this->propertyAccessor->getValue($item, $propertyPath);
     }
 }

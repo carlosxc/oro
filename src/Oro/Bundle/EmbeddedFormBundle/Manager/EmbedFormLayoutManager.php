@@ -2,14 +2,12 @@
 
 namespace Oro\Bundle\EmbeddedFormBundle\Manager;
 
-use Symfony\Component\Form\FormInterface;
-
+use Oro\Bundle\EmbeddedFormBundle\Entity\EmbeddedForm;
+use Oro\Bundle\EmbeddedFormBundle\Layout\Form\FormAccessor;
 use Oro\Component\Layout\Layout;
 use Oro\Component\Layout\LayoutContext;
 use Oro\Component\Layout\LayoutManager;
-
-use Oro\Bundle\LayoutBundle\Layout\Form\FormAccessor;
-use Oro\Bundle\EmbeddedFormBundle\Entity\EmbeddedForm;
+use Symfony\Component\Form\FormInterface;
 
 class EmbedFormLayoutManager
 {
@@ -18,6 +16,12 @@ class EmbedFormLayoutManager
 
     /** @var EmbeddedFormManager */
     protected $formManager;
+
+    /** @var SessionIdProviderInterface */
+    protected $sessionIdProvider;
+
+    /** @var string */
+    protected $sessionIdFieldName;
 
     /**
      * Use inline layout
@@ -50,17 +54,27 @@ class EmbedFormLayoutManager
 
         $layoutContext = new LayoutContext();
 
+        $layoutContext->set('expressions_evaluate', true);
+        $layoutContext->set('expressions_evaluate_deferred', false);
+
         $layoutContext->getResolver()
-            ->setRequired(['embedded_form_type'])
-            ->setRequired(['embedded_form_inline'])
-            ->setOptional(['embedded_form', 'embedded_form_custom_layout']);
+            ->setRequired([
+                'embedded_form',
+                'embedded_form_type',
+                'embedded_form_inline',
+                'embedded_form_custom_layout'
+            ]);
 
         $layoutContext->set('theme', 'embedded_default');
         $layoutContext->set('embedded_form', null === $form ? null : new FormAccessor($form));
         $layoutContext->set('embedded_form_type', $formTypeName);
         $layoutContext->set('embedded_form_custom_layout', $customLayout);
         $layoutContext->set('embedded_form_inline', $this->inline);
-        $layoutContext->data()->set('embedded_form_entity', '', $formEntity);
+        $layoutContext->data()->set('embedded_form_entity', $formEntity);
+        if (null !== $form) {
+            $layoutContext->data()->set('embedded_form_session_id_field_name', $this->sessionIdFieldName);
+            $layoutContext->data()->set('embedded_form_session_id', $this->getSessionId());
+        }
 
         $layoutBuilder = $this->layoutManager->getLayoutBuilder();
         // TODO discuss adding root automatically
@@ -75,5 +89,34 @@ class EmbedFormLayoutManager
     public function setInline($inline)
     {
         $this->inline = (bool)$inline;
+    }
+
+    /**
+     * @param SessionIdProviderInterface $sessionIdProvider
+     */
+    public function setSessionIdProvider(SessionIdProviderInterface $sessionIdProvider)
+    {
+        $this->sessionIdProvider = $sessionIdProvider;
+    }
+
+    /**
+     * @param string $sessionIdFieldName
+     */
+    public function setSessionIdFieldName($sessionIdFieldName)
+    {
+        $this->sessionIdFieldName = $sessionIdFieldName;
+    }
+
+    /**
+     * @return string|null
+     */
+    protected function getSessionId()
+    {
+        $sessionId = null;
+        if ($this->sessionIdFieldName && null !== $this->sessionIdProvider) {
+            $sessionId = $this->sessionIdProvider->getSessionId();
+        }
+
+        return $sessionId;
     }
 }

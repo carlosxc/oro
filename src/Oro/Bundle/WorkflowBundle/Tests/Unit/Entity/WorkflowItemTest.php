@@ -13,9 +13,9 @@ use Oro\Bundle\WorkflowBundle\Entity\WorkflowTransitionRecord;
 use Oro\Bundle\WorkflowBundle\Model\WorkflowData;
 
 /**
- * @SuppressWarnings(PHPMD.TooManyMethods)
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  */
-class WorkflowItemTest extends \PHPUnit_Framework_TestCase
+class WorkflowItemTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var WorkflowItem
@@ -38,6 +38,27 @@ class WorkflowItemTest extends \PHPUnit_Framework_TestCase
         $value = 1;
         $this->workflowItem->setId($value);
         $this->assertEquals($value, $this->workflowItem->getId());
+    }
+
+    public function testMerge()
+    {
+        $object = (object)['prop1' => 'val1'];
+
+        $source = new WorkflowItem();
+        $source->getData()->add(['key11' => 'val11', 'obj' => $object]);
+        $source->getResult()->add(['key12' => 'val12', 'obj' => $object]);
+
+        $dest = new WorkflowItem();
+        $dest->getData()->add(['key21' => 'val21']);
+        $dest->getResult()->add(['key22' => 'val22']);
+
+        $exp = new WorkflowItem();
+        $exp->getData()->add(['key11' => 'val11', 'key21' => 'val21', 'obj' => $object]);
+        $exp->getResult()->add(['key12' => 'val12', 'key22' => 'val22', 'obj' => $object]);
+
+        $this->assertEquals($exp, $dest->merge($source));
+        $this->assertSame($object, $dest->getData()->get('obj'));
+        $this->assertSame($object, $dest->getResult()->get('obj'));
     }
 
     public function testWorkflowName()
@@ -90,7 +111,7 @@ class WorkflowItemTest extends \PHPUnit_Framework_TestCase
         $data = new WorkflowData();
         $data->set('foo', 'bar');
 
-        $serializer = $this->getMock('Oro\Bundle\WorkflowBundle\Serializer\WorkflowAwareSerializer');
+        $serializer = $this->createMock('Oro\Bundle\WorkflowBundle\Serializer\WorkflowAwareSerializer');
         $serializer->expects($this->once())->method('deserialize')
             ->with($serializedData, 'Oro\Bundle\WorkflowBundle\Model\WorkflowData', 'json')
             ->will($this->returnValue($data));
@@ -340,5 +361,25 @@ class WorkflowItemTest extends \PHPUnit_Framework_TestCase
     {
         $this->workflowItem->setEntityClass('stdClass');
         $this->workflowItem->setEntityClass('test');
+    }
+
+    public function testSetRedirectUrl()
+    {
+        $this->workflowItem->setRedirectUrl('test_url');
+
+        $this->assertEquals('test_url', $this->workflowItem->getResult()->get('redirectUrl'));
+    }
+
+    public function testToString()
+    {
+        $step = new WorkflowStep();
+        $step->setName('test_step');
+
+        $this->workflowItem->setWorkflowName('test_workflow')
+            ->setEntityClass('stdClass')
+            ->setEntityId('42')
+            ->setCurrentStep($step);
+
+        $this->assertEquals('[test_workflow] stdClass:42 test_step', (string)$this->workflowItem);
     }
 }

@@ -2,10 +2,9 @@
 
 namespace Oro\Component\ConfigExpression\Extension\DependencyInjection;
 
-use Symfony\Component\DependencyInjection\ContainerInterface;
-
 use Oro\Component\ConfigExpression\Exception;
 use Oro\Component\ConfigExpression\Extension\ExtensionInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class DependencyInjectionExtension implements ExtensionInterface
 {
@@ -45,5 +44,13 @@ class DependencyInjectionExtension implements ExtensionInterface
     public function hasExpression($name)
     {
         return isset($this->serviceIds[$name]);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getServiceIds()
+    {
+        return $this->serviceIds;
     }
 }

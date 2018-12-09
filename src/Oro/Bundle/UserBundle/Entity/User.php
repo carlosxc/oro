@@ -6,10 +6,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Mapping as ORM;
-
 use JMS\Serializer\Annotation as JMS;
-
-use Oro\Bundle\DataAuditBundle\Metadata\Annotation as Oro;
 use Oro\Bundle\EmailBundle\Entity\EmailOrigin;
 use Oro\Bundle\EmailBundle\Entity\EmailOwnerInterface;
 use Oro\Bundle\EmailBundle\Model\EmailHolderInterface;
@@ -20,28 +17,32 @@ use Oro\Bundle\ImapBundle\Form\Model\AccountTypeModel;
 use Oro\Bundle\LocaleBundle\Model\FullNameInterface;
 use Oro\Bundle\NotificationBundle\Entity\NotificationEmailInterface;
 use Oro\Bundle\OrganizationBundle\Entity\BusinessUnit;
+use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\OrganizationBundle\Entity\OrganizationInterface;
 use Oro\Bundle\UserBundle\Model\ExtendUser;
 use Oro\Bundle\UserBundle\Security\AdvancedApiUserInterface;
-use Sky\Bundle\UserBundle\Entity\JobPosition;
 
 /**
+ * This entity represents a user of a system
+ *
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)
+ * @SuppressWarnings(PHPMD.TooManyFields)
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  *
  * @ORM\Entity(repositoryClass="Oro\Bundle\UserBundle\Entity\Repository\UserRepository")
  * @ORM\Table(name="oro_user", indexes = {
- *      @ORM\Index("user_first_name_last_name_idx", columns = {"first_name", "last_name"})
+ *      @ORM\Index("user_first_name_last_name_idx", columns = {"first_name", "last_name"}),
+ *      @ORM\Index(name="idx_oro_user_email_lowercase", columns={"email_lowercase"}),
  * })
  * @ORM\HasLifecycleCallbacks()
- * @Oro\Loggable
  * @Config(
  *      routeName="oro_user_index",
  *      routeView="oro_user_view",
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-user"
+ *              "icon"="fa-user"
  *          },
  *          "grouping"={
  *              "groups"={"dictionary"}
@@ -66,7 +67,7 @@ use Sky\Bundle\UserBundle\Entity\JobPosition;
  *              "category"="account_management"
  *          },
  *          "form"={
- *              "form_type"="oro_user_select",
+ *              "form_type"="Oro\Bundle\UserBundle\Form\Type\UserSelectType",
  *              "grid_name"="users-select-grid"
  *          },
  *          "grid"={
@@ -85,6 +86,7 @@ class User extends ExtendUser implements
     EmailHolderInterface,
     FullNameInterface,
     NotificationEmailInterface,
+    OrganizationAwareUserInterface,
     AdvancedApiUserInterface
 {
     const ROLE_DEFAULT = 'ROLE_USER';
@@ -106,15 +108,13 @@ class User extends ExtendUser implements
      * @ORM\Column(type="string", length=255, unique=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
      *          },
      *          "importexport"={
-     *              "identity"=false,
-     *              "excluded"=true
+     *              "identity"=true
      *          }
      *      }
      * )
@@ -127,19 +127,33 @@ class User extends ExtendUser implements
      * @ORM\Column(type="string", length=255, unique=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "identity"=true
      *          }
      *      }
      * )
      */
     protected $email;
+
+    /**
+     * @var string
+     *
+     * @ORM\Column(name="email_lowercase", type="string", length=255)
+     * @ConfigField(
+     *      defaultValues={
+     *          "dataaudit"={
+     *              "auditable"=false
+     *          },
+     *          "importexport"={
+     *              "excluded"=true
+     *          }
+     *      },
+     *      mode="hidden"
+     * )
+     */
+    protected $emailLowercase;
 
     /**
      * Name prefix
@@ -149,15 +163,10 @@ class User extends ExtendUser implements
      * @ORM\Column(name="name_prefix", type="string", length=255, nullable=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
-     *              "auditable"=true,
-     *              "excluded"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
+     *              "auditable"=true
      *          }
      *      }
      * )
@@ -172,14 +181,10 @@ class User extends ExtendUser implements
      * @ORM\Column(name="first_name", type="string", length=255, nullable=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=false
      *          }
      *      }
      * )
@@ -194,15 +199,10 @@ class User extends ExtendUser implements
      * @ORM\Column(name="middle_name", type="string", length=255, nullable=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
-     *              "auditable"=true,
-     *          },
-     *          "importexport"={
-     *              "identity"=true,
-     *              "excluded"=true
+     *              "auditable"=true
      *          }
      *      }
      * )
@@ -217,7 +217,6 @@ class User extends ExtendUser implements
      * @ORM\Column(name="last_name", type="string", length=255, nullable=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
@@ -236,14 +235,10 @@ class User extends ExtendUser implements
      * @ORM\Column(name="name_suffix", type="string", length=255, nullable=true)
      * @JMS\Type("string")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -258,14 +253,10 @@ class User extends ExtendUser implements
      *      joinColumns={@ORM\JoinColumn(name="user_id", referencedColumnName="id", onDelete="CASCADE")},
      *      inverseJoinColumns={@ORM\JoinColumn(name="group_id", referencedColumnName="id", onDelete="CASCADE")}
      * )
-     * @Oro\Versioned("getName")
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -278,14 +269,10 @@ class User extends ExtendUser implements
      * @ORM\Column(name="birthday", type="date", nullable=true)
      * @JMS\Type("DateTime")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -298,7 +285,6 @@ class User extends ExtendUser implements
      * @ORM\Column(type="boolean")
      * @JMS\Type("boolean")
      * @JMS\Expose
-     * @Oro\Versioned
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
@@ -332,7 +318,7 @@ class User extends ExtendUser implements
      * @ConfigField(
      *      defaultValues={
      *          "importexport"={
-     *              "excluded"=false
+     *              "excluded"=true
      *          }
      *      }
      * )
@@ -360,13 +346,7 @@ class User extends ExtendUser implements
 
     /**
      * @var Status[]|Collection
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\OneToMany(targetEntity="Status", mappedBy="user")
      * @ORM\OrderBy({"createdAt" = "DESC"})
      */
@@ -388,9 +368,6 @@ class User extends ExtendUser implements
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -405,14 +382,10 @@ class User extends ExtendUser implements
      *      joinColumns={@ORM\JoinColumn(name="user_id", referencedColumnName="id", onDelete="CASCADE")},
      *      inverseJoinColumns={@ORM\JoinColumn(name="business_unit_id", referencedColumnName="id", onDelete="CASCADE")}
      * )
-     * @Oro\Versioned("getName")
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -421,13 +394,7 @@ class User extends ExtendUser implements
 
     /**
      * @var EmailOrigin[]|Collection
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\OneToMany(
      *      targetEntity="Oro\Bundle\EmailBundle\Entity\EmailOrigin", mappedBy="owner", cascade={"persist", "remove"}
      * )
@@ -442,9 +409,6 @@ class User extends ExtendUser implements
      *      defaultValues={
      *          "entity"={
      *              "label"="oro.ui.created_at"
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -464,9 +428,6 @@ class User extends ExtendUser implements
      *      defaultValues={
      *          "entity"={
      *              "label"="oro.ui.updated_at"
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
@@ -480,28 +441,23 @@ class User extends ExtendUser implements
      */
     protected $currentOrganization;
 
-
     /**
-     * @var JobPosition[]|Collection
+     * @var Collection|Organization[]
      *
-     * @ORM\ManyToMany(targetEntity="Sky\Bundle\UserBundle\Entity\JobPosition")
-     * @ORM\JoinTable(name="leme_user_jobposition",
+     * @ORM\ManyToMany(targetEntity="Oro\Bundle\OrganizationBundle\Entity\Organization", inversedBy="users")
+     * @ORM\JoinTable(name="oro_user_organization",
      *      joinColumns={@ORM\JoinColumn(name="user_id", referencedColumnName="id", onDelete="CASCADE")},
-     *      inverseJoinColumns={@ORM\JoinColumn(name="leme_jobposition_id", referencedColumnName="id", onDelete="CASCADE")}
+     *      inverseJoinColumns={@ORM\JoinColumn(name="organization_id", referencedColumnName="id", onDelete="CASCADE")}
      * )
      * @ConfigField(
      *      defaultValues={
      *          "dataaudit"={
      *              "auditable"=true
-     *          },
-     *          "importexport"={
-     *              "excluded"=true
      *          }
      *      }
      * )
      */
-    protected $jobPositions;
-
+    protected $organizations;
 
     public function __construct()
     {
@@ -513,7 +469,6 @@ class User extends ExtendUser implements
         $this->emailOrigins = new ArrayCollection();
         $this->apiKeys = new ArrayCollection();
         $this->groups = new ArrayCollection();
-        $this->jobPositions = new ArrayCollection();
     }
 
     /**
@@ -672,11 +627,11 @@ class User extends ExtendUser implements
     }
 
     /**
-     * @param \DateTime $createdAt
+     * @param \DateTime|null $createdAt
      *
      * @return User
      */
-    public function setCreatedAt(\DateTime $createdAt)
+    public function setCreatedAt(\DateTime $createdAt = null)
     {
         $this->createdAt = $createdAt;
 
@@ -694,11 +649,11 @@ class User extends ExtendUser implements
     }
 
     /**
-     * @param \DateTime $updatedAt
+     * @param \DateTime|null $updatedAt
      *
      * @return User
      */
-    public function setUpdatedAt(\DateTime $updatedAt)
+    public function setUpdatedAt(\DateTime $updatedAt = null)
     {
         $this->updatedAt = $updatedAt;
 
@@ -742,40 +697,6 @@ class User extends ExtendUser implements
         if ($this->apiKeys->contains($api)) {
             $this->apiKeys->removeElement($api);
         }
-
-        return $this;
-    }
-
-    /**
-     * Returns the true Collection of Roles.
-     *
-     * @deprecated since 1.8
-     *
-     * @return Collection
-     */
-    public function getRolesCollection()
-    {
-        return $this->roles;
-    }
-
-    /**
-     * Directly set the Collection of Roles.
-     *
-     * @deprecated since 1.8
-     *
-     * @param Collection $collection
-     *
-     * @return User
-     * @throws \InvalidArgumentException
-     */
-    public function setRolesCollection($collection)
-    {
-        if (!$collection instanceof Collection) {
-            throw new \InvalidArgumentException(
-                '$collection must be an instance of Doctrine\Common\Collections\Collection'
-            );
-        }
-        $this->roles = $collection;
 
         return $this;
     }
@@ -902,14 +823,6 @@ class User extends ExtendUser implements
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
-
-    /**
      * @param int $id
      *
      * @return User
@@ -1015,8 +928,17 @@ class User extends ExtendUser implements
     public function setEmail($email)
     {
         $this->email = $email;
+        $this->emailLowercase = mb_strtolower($email);
 
         return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getEmailLowercase(): string
+    {
+        return $this->emailLowercase;
     }
 
     /**
@@ -1260,51 +1182,70 @@ class User extends ExtendUser implements
     }
 
     /**
-     * @param Collection|JobPosition[] $jobPositions
-     */
-    public function setJobPositions(Collection $jobPositions)
-    {
-        $this->jobPositions = $jobPositions;
-    }
-
-
-    /**
-     * @param Group $group
+     * Add Organization to User
      *
-     * @return User
+     * @param Organization $organization
+     * @return AbstractUser
      */
-    public function addJobposition(Group $group)
+    public function addOrganization(Organization $organization)
     {
-        if (!$this->getJobpositions()->contains($group)) {
-            $this->getJobpositions()->add($group);
+        if (!$this->hasOrganization($organization)) {
+            $this->getOrganizations()->add($organization);
         }
 
         return $this;
     }
 
     /**
-     * @param Group $group
+     * Whether user in specified organization
      *
-     * @return User
+     * @param Organization $organization
+     * @return bool
      */
-    public function removeJobposition(Group $group)
+    public function hasOrganization(Organization $organization)
     {
-        if ($this->getJobpositions()->contains($group)) {
-            $this->getJobpositions()->removeElement($group);
+        return $this->getOrganizations()->contains($organization);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getOrganizations($onlyActive = false)
+    {
+        if ($onlyActive) {
+            return $this->organizations->filter(
+                function (Organization $organization) {
+                    return $organization->isEnabled() === true;
+                }
+            );
         }
+
+        return $this->organizations;
+    }
+
+    /**
+     * @param Collection $organizations
+     * @return AbstractUser
+     */
+    public function setOrganizations(Collection $organizations)
+    {
+        $this->organizations = $organizations;
 
         return $this;
     }
 
     /**
-     * @return Collection|JobPosition[]
+     * Delete Organization from User
+     *
+     * @param Organization $organization
+     * @return AbstractUser
      */
-    public function getJobPositions()
+    public function removeOrganization(Organization $organization)
     {
+        if ($this->hasOrganization($organization)) {
+            $this->getOrganizations()->removeElement($organization);
+        }
 
-        $this->jobPositions = $this->jobPositions ?: new ArrayCollection();
-
-        return $this->jobPositions;
+        return $this;
     }
-
 }

@@ -8,12 +8,12 @@ define(function(require) {
      */
     return {
         getNameByString: function(str, prefix) {
-            str = (prefix || '') + str;         //Add prefix to string
+            str = (prefix || '') + str; // Add prefix to string
             str = str
-                .toLowerCase()                   //Convert to lowercase
-                .replace(/[^A-Za-z\s_-]+/g, '') //Remove all non latin symbols
-                .replace(/\s+|\-+/g, '_')        //Replace spaces and - with underscore
-                .replace(/__+/g, '_');           //Remove duplicated underscores;
+                .toLowerCase() // Convert to lowercase
+                .replace(/[^A-Za-z\s_-]+/g, '') // Remove all non latin symbols
+                .replace(/\s+|\-+/g, '_') // Replace spaces and - with underscore
+                .replace(/__+/g, '_'); // Remove duplicated underscores;
 
             return str + '_' + this.getRandomId();
         },
@@ -28,10 +28,25 @@ define(function(require) {
             for (var i = 0; i < data.length; i++) {
                 var field = data[i];
                 var name = field.name;
+
                 var fieldNameParts = name.match(/\[(\w+)\]$/);
                 if (fieldNameParts) {
                     name = fieldNameParts[1];
+                    result[name] = field.value;
+                    continue;
                 }
+
+                fieldNameParts = name.match(/\[(\w+)\]\[\]$/);
+                if (fieldNameParts) {
+                    name = fieldNameParts[1];
+                    if (typeof result[name] === 'undefined') {
+                        result[name] = [];
+                    }
+
+                    result[name].push(field.value);
+                    continue;
+                }
+
                 result[name] = field.value;
             }
             return result;

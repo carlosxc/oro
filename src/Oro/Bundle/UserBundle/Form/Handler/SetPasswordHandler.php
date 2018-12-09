@@ -2,16 +2,16 @@
 
 namespace Oro\Bundle\UserBundle\Form\Handler;
 
-use Psr\Log\LoggerInterface;
-
-use Symfony\Component\Form\FormError;
-use Symfony\Component\Form\FormInterface;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Translation\TranslatorInterface;
-
+use Oro\Bundle\FormBundle\Form\Handler\RequestHandlerTrait;
 use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Bundle\UserBundle\Entity\UserManager;
 use Oro\Bundle\UserBundle\Mailer\Processor;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Class SetPasswordHandler
@@ -22,11 +22,13 @@ use Oro\Bundle\UserBundle\Mailer\Processor;
  */
 class SetPasswordHandler
 {
+    use RequestHandlerTrait;
+
     /** @var LoggerInterface */
     protected $logger;
 
-    /** @var Request */
-    protected $request;
+    /** @var RequestStack */
+    protected $requestStack;
 
     /** @var TranslatorInterface */
     protected $translator;
@@ -40,28 +42,34 @@ class SetPasswordHandler
     /** @var UserManager */
     protected $userManager;
 
+    /** @var ValidatorInterface */
+    protected $validator;
+
     /**
-     * @param LoggerInterface     $logger
-     * @param Request             $request
+     * @param LoggerInterface $logger
+     * @param RequestStack $requestStack
      * @param TranslatorInterface $translator
-     * @param FormInterface       $form
-     * @param Processor           $mailerProcessor
-     * @param UserManager         $userManager
+     * @param FormInterface $form
+     * @param Processor $mailerProcessor
+     * @param UserManager $userManager
+     * @param ValidatorInterface $validator
      */
     public function __construct(
         LoggerInterface $logger,
-        Request         $request,
+        RequestStack    $requestStack,
         TranslatorInterface $translator,
         FormInterface   $form,
         Processor       $mailerProcessor,
-        UserManager     $userManager
+        UserManager     $userManager,
+        ValidatorInterface $validator
     ) {
         $this->logger          = $logger;
-        $this->request         = $request;
+        $this->requestStack    = $requestStack;
         $this->translator      = $translator;
         $this->form            = $form;
         $this->mailerProcessor = $mailerProcessor;
         $this->userManager     = $userManager;
+        $this->validator       = $validator;
     }
 
     /**
@@ -73,11 +81,22 @@ class SetPasswordHandler
      */
     public function process(User $entity)
     {
-        if (in_array($this->request->getMethod(), ['POST', 'PUT'])) {
-            $this->form->submit($this->request);
+        $request = $this->requestStack->getCurrentRequest();
+        if (in_array($request->getMethod(), ['POST', 'PUT'], true)) {
+            $this->submitPostPutRequest($this->form, $request);
             if ($this->form->isValid()) {
                 $entity->setPlainPassword($this->form->get('password')->getData());
                 $entity->setPasswordChangedAt(new \DateTime());
+
+                $errors = $this->validator->validate($entity, null, ['security']);
+                if (count($errors) > 0) {
+                    foreach ($errors as $error) {
+                        $this->form->addError(new FormError($error->getMessage()));
+                    }
+
+                    return false;
+                }
+
                 try {
                     $this->mailerProcessor->sendChangePasswordEmail($entity);
                 } catch (\Exception $e) {

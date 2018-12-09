@@ -2,22 +2,21 @@
 
 namespace Oro\Component\Action\Tests\Unit\Action;
 
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
+use Oro\Component\Action\Action\AbstractAction;
 use Oro\Component\Action\Event\ExecuteActionEvent;
 use Oro\Component\Action\Event\ExecuteActionEvents;
-use Oro\Component\Action\Action\AbstractAction;
-use Oro\Component\Action\Model\ContextAccessor;
 use Oro\Component\Action\Tests\Unit\Action\Stub\ArrayCondition;
+use Oro\Component\ConfigExpression\ContextAccessor;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-class AbstractActionTest extends \PHPUnit_Framework_TestCase
+class AbstractActionTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var AbstractAction|\PHPUnit_Framework_MockObject_MockObject
+     * @var AbstractAction|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $action;
 
-    /** @var EventDispatcherInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $dispatcher;
 
     protected function setUp()
@@ -62,7 +61,7 @@ class AbstractActionTest extends \PHPUnit_Framework_TestCase
             $this->dispatcher->expects($this->at(0))
                 ->method('dispatch')
                 ->with(ExecuteActionEvents::HANDLE_BEFORE, new ExecuteActionEvent($context, $this->action));
-            $this->dispatcher->expects($this->at(2))
+            $this->dispatcher->expects($this->at(1))
                 ->method('dispatch')
                 ->with(ExecuteActionEvents::HANDLE_AFTER, new ExecuteActionEvent($context, $this->action));
         } else {

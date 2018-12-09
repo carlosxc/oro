@@ -2,8 +2,9 @@
 
 namespace Oro\Bundle\UIBundle\Placeholder;
 
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureChecker;
 use Oro\Component\Config\Resolver\ResolverInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 class PlaceholderProvider
 {
@@ -15,19 +16,28 @@ class PlaceholderProvider
     /** @var ResolverInterface */
     protected $resolver;
 
-    /** @var SecurityFacade */
-    protected $securityFacade;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
+
+    /** @var FeatureChecker */
+    protected $featureChecker;
 
     /**
-     * @param array             $placeholders
-     * @param ResolverInterface $resolver
-     * @param SecurityFacade    $securityFacade
+     * @param array                         $placeholders
+     * @param ResolverInterface             $resolver
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param FeatureChecker                $featureChecker
      */
-    public function __construct(array $placeholders, ResolverInterface $resolver, SecurityFacade $securityFacade)
-    {
-        $this->placeholders   = $placeholders;
-        $this->resolver       = $resolver;
-        $this->securityFacade = $securityFacade;
+    public function __construct(
+        array $placeholders,
+        ResolverInterface $resolver,
+        AuthorizationCheckerInterface $authorizationChecker,
+        FeatureChecker $featureChecker
+    ) {
+        $this->placeholders = $placeholders;
+        $this->resolver = $resolver;
+        $this->authorizationChecker = $authorizationChecker;
+        $this->featureChecker = $featureChecker;
     }
 
     /**
@@ -72,6 +82,9 @@ class PlaceholderProvider
         }
 
         $item = $this->placeholders['items'][$itemName];
+        if (!$this->featureChecker->isResourceEnabled($itemName, 'placeholder_items')) {
+            return null;
+        }
         if (isset($item['acl'])) {
             if ($this->isGranted($item['acl'])) {
                 // remove 'acl' attribute as it is not needed anymore
@@ -128,12 +141,12 @@ class PlaceholderProvider
     protected function isGranted($acl)
     {
         if (!is_array($acl)) {
-            return $this->securityFacade->isGranted($acl);
+            return $this->authorizationChecker->isGranted($acl);
         }
 
         $result = true;
         foreach ($acl as $val) {
-            if (!$this->securityFacade->isGranted($val)) {
+            if (!$this->authorizationChecker->isGranted($val)) {
                 $result = false;
                 break;
             }

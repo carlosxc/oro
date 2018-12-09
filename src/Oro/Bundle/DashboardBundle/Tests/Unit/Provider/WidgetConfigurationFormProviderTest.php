@@ -10,11 +10,8 @@ use Symfony\Component\Form\Forms;
 use Symfony\Component\Form\Test\FormIntegrationTestCase;
 use Symfony\Component\Yaml\Yaml;
 
-class DashboardConfigurationFormProviderTest extends FormIntegrationTestCase
+class WidgetConfigurationFormProviderTest extends FormIntegrationTestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $securityFacade;
-
     protected function setUp()
     {
         parent::setUp();
@@ -30,7 +27,6 @@ class DashboardConfigurationFormProviderTest extends FormIntegrationTestCase
     protected function tearDown()
     {
         parent::tearDown();
-        unset($this->securityFacade);
     }
 
     /**
@@ -77,11 +73,11 @@ class DashboardConfigurationFormProviderTest extends FormIntegrationTestCase
      */
     protected function getProviderWithConfigLoaded($configPath)
     {
-        $eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $config = $this->getConfig($configPath);
         $provider = new WidgetConfigurationFormProvider(
-            new ConfigProvider($config['oro_dashboard_config'], $eventDispatcher),
+            new ConfigProvider($config['dashboards'], $eventDispatcher),
             $this->factory
         );
 

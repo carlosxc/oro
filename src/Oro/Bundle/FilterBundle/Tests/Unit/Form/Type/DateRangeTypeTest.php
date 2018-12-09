@@ -3,6 +3,8 @@
 namespace Oro\Bundle\FilterBundle\Tests\Unit\Form\Type;
 
 use Oro\Bundle\FilterBundle\Form\Type\DateRangeType;
+use Oro\Component\Testing\Unit\PreloadedExtension;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 
 class DateRangeTypeTest extends AbstractTypeTestCase
 {
@@ -12,11 +14,25 @@ class DateRangeTypeTest extends AbstractTypeTestCase
     /** @var string */
     protected $defaultLocale = 'en';
 
+    /**
+     * @var string
+     */
+    protected $defaultTimezone = 'Pacific/Honolulu';
+
     protected function setUp()
     {
-        parent::setUp();
+        $localeSettings = $this->getMockBuilder('Oro\Bundle\LocaleBundle\Model\LocaleSettings')
+            ->disableOriginalConstructor()
+            ->setMethods(array('getTimezone'))
+            ->getMock();
 
-        $this->type = new DateRangeType();
+        $localeSettings->expects($this->any())
+            ->method('getTimezone')
+            ->will($this->returnValue($this->defaultTimezone));
+
+        $this->type = new DateRangeType($localeSettings);
+        $this->formExtensions[] = new PreloadedExtension([$this->type], []);
+        parent::setUp();
     }
 
     /**
@@ -27,20 +43,15 @@ class DateRangeTypeTest extends AbstractTypeTestCase
         return $this->type;
     }
 
-    public function testGetName()
-    {
-        $this->assertEquals(DateRangeType::NAME, $this->type->getName());
-    }
-
     /**
      * {@inheritDoc}
      */
-    public function setDefaultOptionsDataProvider()
+    public function configureOptionsDataProvider()
     {
         return array(
             array(
                 'defaultOptions' => array(
-                    'field_type' => 'date',
+                    'field_type' => DateType::class,
                     'field_options' => array(),
                     'start_field_options' => array(),
                     'end_field_options' => array(),
@@ -66,7 +77,9 @@ class DateRangeTypeTest extends AbstractTypeTestCase
                 ),
                 'customOptions' => array(
                     'field_options' => array(
-                        'format' => \IntlDateFormatter::MEDIUM
+                    'model_timezone' => 'UTC',
+                    'view_timezone' => 'UTC',
+                    'format' => \IntlDateFormatter::MEDIUM
                     )
                 )
             )

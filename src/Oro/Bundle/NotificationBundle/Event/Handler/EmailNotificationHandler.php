@@ -2,68 +2,80 @@
 
 namespace Oro\Bundle\NotificationBundle\Event\Handler;
 
-use Doctrine\ORM\EntityManager;
-
-use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
-use Oro\Bundle\NotificationBundle\Event\NotificationEvent;
+use Doctrine\Common\Persistence\ManagerRegistry;
 use Oro\Bundle\NotificationBundle\Entity\EmailNotification;
-use Oro\Bundle\NotificationBundle\Processor\EmailNotificationProcessor;
+use Oro\Bundle\NotificationBundle\Event\NotificationEvent;
+use Oro\Bundle\NotificationBundle\Manager\EmailNotificationManager;
+use Oro\Bundle\NotificationBundle\Model\TemplateEmailNotificationInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\PropertyAccess\PropertyAccessor;
 
+/**
+ * Email handler sends emails for notification events defined by notification rules.
+ */
 class EmailNotificationHandler implements EventHandlerInterface
 {
-    /**
-     * @var EmailNotificationProcessor
-     */
-    protected $processor;
+    /** @var EmailNotificationManager */
+    protected $manager;
+
+    /** @var ManagerRegistry */
+    protected $doctrine;
+
+    /** @var PropertyAccessor */
+    protected $propertyAccessor;
+
+    /** @var EventDispatcherInterface */
+    protected $eventDispatcher;
 
     /**
-     * @var EntityManager
-     */
-    protected $em;
-
-    /** @var ConfigProvider */
-    protected $configProvider;
-
-    /**
-     * Constructor
-     *
-     * @param EmailNotificationProcessor $processor
-     * @param EntityManager              $em
-     * @param ConfigProvider             $configProvider
+     * @param EmailNotificationManager $manager
+     * @param ManagerRegistry          $doctrine
+     * @param PropertyAccessor         $propertyAccessor
+     * @param EventDispatcherInterface $eventDispatcher
      */
     public function __construct(
-        EmailNotificationProcessor $processor,
-        EntityManager $em,
-        ConfigProvider $configProvider
+        EmailNotificationManager $manager,
+        ManagerRegistry $doctrine,
+        PropertyAccessor $propertyAccessor,
+        EventDispatcherInterface $eventDispatcher
     ) {
-        $this->processor      = $processor;
-        $this->em             = $em;
-        $this->configProvider = $configProvider;
+        $this->manager = $manager;
+        $this->doctrine = $doctrine;
+        $this->propertyAccessor = $propertyAccessor;
+        $this->eventDispatcher = $eventDispatcher;
     }
 
     /**
-     * Handle event
-     *
-     * @param NotificationEvent   $event
-     * @param EmailNotification[] $matchedNotifications
-     * @return mixed
+     * {@inheritdoc}
      */
-    public function handle(NotificationEvent $event, $matchedNotifications)
+    public function handle(NotificationEvent $event, array $matchedNotifications)
     {
-        $entity = $event->getEntity();
-
         // convert notification rules to a list of EmailNotificationInterface
-        $notifications = array();
+        $notifications = [];
         foreach ($matchedNotifications as $notification) {
-            $notifications[] = new EmailNotificationAdapter(
-                $entity,
-                $notification,
-                $this->em,
-                $this->configProvider
-            );
+            $notifications[] = $this->getEmailNotificationAdapter($event, $notification);
         }
 
         // send notifications
-        $this->processor->process($entity, $notifications);
+        $this->manager->process($notifications);
+    }
+
+    /**
+     * @param NotificationEvent $event
+     * @param EmailNotification $notification
+     *
+     * @return TemplateEmailNotificationInterface
+     */
+    protected function getEmailNotificationAdapter(
+        NotificationEvent $event,
+        EmailNotification $notification
+    ): TemplateEmailNotificationInterface {
+        return new TemplateEmailNotificationAdapter(
+            $event->getEntity(),
+            $notification,
+            $this->doctrine->getManager(),
+            $this->propertyAccessor,
+            $this->eventDispatcher
+        );
     }
 }

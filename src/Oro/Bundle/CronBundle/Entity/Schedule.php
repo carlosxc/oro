@@ -3,18 +3,17 @@
 namespace Oro\Bundle\CronBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 
 /**
  * @ORM\Table(name="oro_cron_schedule", uniqueConstraints={
  *      @ORM\UniqueConstraint(name="UQ_COMMAND", columns={"command", "args_hash", "definition"})
  * })
- * @ORM\Entity
+ * @ORM\Entity(repositoryClass="Oro\Bundle\CronBundle\Entity\Repository\ScheduleRepository")
  * @Config(
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-tasks"
+ *              "icon"="fa-tasks"
  *          },
  *          "security"={
  *              "type"="ACL",

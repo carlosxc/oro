@@ -5,7 +5,7 @@ namespace Oro\Bundle\EntityMergeBundle\Tests\Unit\Data;
 use Oro\Bundle\EntityMergeBundle\Data\EntityDataFactory;
 use Oro\Bundle\EntityMergeBundle\MergeEvents;
 
-class EntityDataFactoryTest extends \PHPUnit_Framework_TestCase
+class EntityDataFactoryTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var EntityDataFactory
@@ -13,22 +13,22 @@ class EntityDataFactoryTest extends \PHPUnit_Framework_TestCase
     private $factory;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $metadataRegistry;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $doctrineHelper;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $metadata;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject[]
+     * @var \PHPUnit\Framework\MockObject\MockObject[]
      */
     private $entities = array();
 
@@ -38,7 +38,7 @@ class EntityDataFactoryTest extends \PHPUnit_Framework_TestCase
     private $fieldsMetadata = array();
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $eventDispatcher;
 
@@ -90,7 +90,7 @@ class EntityDataFactoryTest extends \PHPUnit_Framework_TestCase
             ->with($this->entitiesClassName)
             ->will($this->returnValue($this->metadata));
 
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $this->factory = new EntityDataFactory(
             $this->metadataRegistry,

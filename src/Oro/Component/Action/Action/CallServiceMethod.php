@@ -2,11 +2,10 @@
 
 namespace Oro\Component\Action\Action;
 
+use Oro\Component\Action\Exception\InvalidParameterException;
+use Oro\Component\ConfigExpression\ContextAccessor;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\PropertyAccess\PropertyPathInterface;
-
-use Oro\Component\Action\Exception\InvalidParameterException;
-use Oro\Component\Action\Model\ContextAccessor;
 
 class CallServiceMethod extends AbstractAction
 {
@@ -36,32 +35,31 @@ class CallServiceMethod extends AbstractAction
             throw new InvalidParameterException('Service name parameter is required');
         }
 
-        if (!$this->container->has($options['service'])) {
-            throw new InvalidParameterException(sprintf('Undefined service with name "%s"', $options['service']));
-        }
-
         if (empty($options['method'])) {
             throw new InvalidParameterException('Method name parameter is required');
         }
 
         $this->options = $options;
 
-        if (!method_exists($this->getService(), $this->getMethod())) {
-            throw new InvalidParameterException(
-                sprintf('Could not found public method "%s" in service "%s"', $this->getMethod(), $options['service'])
-            );
-        }
-
         return $this;
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @throws InvalidParameterException
      */
     protected function executeAction($context)
     {
-        $service = $this->getService();
+        $service = $this->getService($context);
         $method = $this->getMethod();
+
+        if (!method_exists($service, $method)) {
+            throw new InvalidParameterException(
+                sprintf('Could not found public method "%s" in service "%s"', $method, $this->options['service'])
+            );
+        }
+
         $callback = [$service, $method];
         $parameters = $this->getMethodParameters($context);
 
@@ -82,11 +80,21 @@ class CallServiceMethod extends AbstractAction
     }
 
     /**
+     * @param mixed $context
+     *
      * @return object
+     *
+     * @throws InvalidParameterException
      */
-    protected function getService()
+    protected function getService($context)
     {
-        return $this->container->get($this->options['service']);
+        $service = $this->contextAccessor->getValue($context, $this->options['service']);
+
+        if (!$this->container->has($service)) {
+            throw new InvalidParameterException(sprintf('Undefined service with name "%s"', $service));
+        }
+
+        return $this->container->get($service);
     }
 
     /**
@@ -105,9 +113,9 @@ class CallServiceMethod extends AbstractAction
     {
         $parameters = $this->getOption($this->options, 'method_parameters', []);
 
-        foreach ($parameters as $name => $value) {
-            $parameters[$name] = $this->contextAccessor->getValue($context, $value);
-        }
+        array_walk_recursive($parameters, function (&$value) use ($context) {
+            $value = $this->contextAccessor->getValue($context, $value);
+        });
 
         return $parameters;
     }

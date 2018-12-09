@@ -5,9 +5,8 @@ namespace Oro\Bundle\LayoutBundle\Layout\Block\Extension;
 use Oro\Component\Layout\Block\Extension\ClassAttributeExtension as BaseClassAttributeExtension;
 use Oro\Component\Layout\BlockInterface;
 use Oro\Component\Layout\BlockView;
+use Oro\Component\Layout\ExpressionLanguage\Encoder\ExpressionEncoderRegistry;
 use Oro\Component\Layout\OptionValueBag;
-
-use Oro\Bundle\LayoutBundle\Layout\Encoder\ExpressionEncoderRegistry;
 
 /**
  * This extension normalizes 'class' attribute and allows to use [append/subtract/replace]Option methods
@@ -30,11 +29,11 @@ class ClassAttributeExtension extends BaseClassAttributeExtension
     /**
      * {@inheritdoc}
      */
-    public function finishView(BlockView $view, BlockInterface $block, array $options)
+    public function finishView(BlockView $view, BlockInterface $block)
     {
         $context = $block->getContext();
         if ($context->getOr('expressions_evaluate')) {
-            parent::finishView($view, $block, $options);
+            parent::finishView($view, $block);
         } else {
             $encoding = $context->getOr('expressions_encoding');
             if ($encoding !== null) {
@@ -58,7 +57,7 @@ class ClassAttributeExtension extends BaseClassAttributeExtension
         if (isset($view->vars[$attrKey]['class']) || array_key_exists('class', $view->vars[$attrKey])) {
             $class = $view->vars[$attrKey]['class'];
             if ($class instanceof OptionValueBag) {
-                $class = $this->encoderRegistry->getEncoder($encoding)->encodeActions($class->all());
+                $class = $this->encoderRegistry->get($encoding)->encodeActions($class->all());
             }
             if (!empty($class)) {
                 $view->vars[$attrKey]['class'] = $class;

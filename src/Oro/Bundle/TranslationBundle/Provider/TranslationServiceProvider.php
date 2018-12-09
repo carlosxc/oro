@@ -2,16 +2,17 @@
 
 namespace Oro\Bundle\TranslationBundle\Provider;
 
+use Oro\Bundle\TranslationBundle\Translation\DatabasePersister;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use Symfony\Component\Translation\MessageCatalogue;
-use Symfony\Bundle\FrameworkBundle\Translation\TranslationLoader;
+use Symfony\Component\Translation\Reader\TranslationReader;
 
-use Oro\Bundle\TranslationBundle\Translation\DatabasePersister;
-
+/**
+ * Merges generated files over downloaded and upload result back to remoter
+ */
 class TranslationServiceProvider
 {
     const FILE_NAME_SUFFIX      = '.zip';
@@ -26,8 +27,8 @@ class TranslationServiceProvider
     /** @var NullLogger */
     protected $logger;
 
-    /** @var TranslationLoader */
-    protected $translationLoader;
+    /** @var TranslationReader */
+    protected $translationReader;
 
     /** @var DatabasePersister  */
     protected $databasePersister;
@@ -38,20 +39,20 @@ class TranslationServiceProvider
     /**
      * @param AbstractAPIAdapter  $adapter
      * @param JsTranslationDumper $jsTranslationDumper
-     * @param TranslationLoader   $translationLoader
+     * @param TranslationReader   $translationReader
      * @param DatabasePersister   $databasePersister
      * @param string              $cacheDir
      */
     public function __construct(
         AbstractAPIAdapter $adapter,
         JsTranslationDumper $jsTranslationDumper,
-        TranslationLoader $translationLoader,
+        TranslationReader $translationReader,
         DatabasePersister $databasePersister,
         $cacheDir
     ) {
         $this->adapter             = $adapter;
         $this->jsTranslationDumper = $jsTranslationDumper;
-        $this->translationLoader   = $translationLoader;
+        $this->translationReader   = $translationReader;
         $this->databasePersister   = $databasePersister;
         $this->cacheDir            = $cacheDir;
 
@@ -63,14 +64,16 @@ class TranslationServiceProvider
      * merge generated files over downloaded and upload result back to remote
      *
      * @param array|string[] $dirs
+     * @return bool
      */
     public function update($dirs)
     {
+        $dirs       = $this->processDirs($dirs);
         $targetDir  = $this->getTmpDir('oro-trans');
         $pathToSave = $targetDir . DIRECTORY_SEPARATOR . 'update';
         $targetDir  = $targetDir . DIRECTORY_SEPARATOR . self::DEFAULT_SOURCE_LOCALE . DIRECTORY_SEPARATOR;
 
-        $isDownloaded = $this->download($pathToSave, [], self::DEFAULT_SOURCE_LOCALE, false);
+        $isDownloaded = $this->download($pathToSave, [], self::DEFAULT_SOURCE_LOCALE);
         if (!$isDownloaded) {
             return false;
         }
@@ -104,25 +107,38 @@ class TranslationServiceProvider
 
         $this->upload($targetDir, 'update');
         $this->cleanup($targetDir);
+
+        return true;
     }
 
     /**
      * Upload translations
      *
-     * @param string $dir
+     * @param string|array $dirs
      * @param string $mode
      *
      * @return mixed
      */
-    public function upload($dir, $mode = 'add')
+    public function upload($dirs, $mode = 'add')
     {
-        $finder = Finder::create()->files()->name('*.yml')->in($dir);
+        $dirs = $this->processDirs($dirs);
+
+        $finder = Finder::create()->files()->name('*.yml')->in($dirs);
 
         /** $file \SplFileInfo */
         $files = [];
         foreach ($finder->files() as $file) {
+            $apiPath = (string)$file;
+            foreach ($dirs as $dir) {
+                if (strpos($apiPath, $dir) !== false) {
+                    $apiPath = str_replace($dir, '', $apiPath);
+                    break;
+                }
+            }
+
             // crowdin understand only "/" as directory separator :)
-            $apiPath         = str_replace([$dir, DIRECTORY_SEPARATOR], ['', '/'], (string)$file);
+            $apiPath = str_replace(DIRECTORY_SEPARATOR, '/', $apiPath);
+
             $files[$apiPath] = (string)$file;
         }
 
@@ -133,40 +149,67 @@ class TranslationServiceProvider
      * @param string      $pathToSave path to save translations
      * @param array       $projects   project names
      * @param null|string $locale
-     * @param bool        $toApply    whether apply download packs or not
      *
      * @throws \RuntimeException
      * @return bool
      */
-    public function download($pathToSave, array $projects, $locale = null, $toApply = true)
+    public function download($pathToSave, array $projects, $locale = null)
     {
-        $pathToSave = $pathToSave . self::FILE_NAME_SUFFIX;
+        $pathToSave .= self::FILE_NAME_SUFFIX;
         $targetDir  = dirname($pathToSave);
         $this->cleanup($targetDir);
 
-        $isDownloaded = $this->adapter->download($pathToSave, $projects, $locale);
+        return $this->adapter->download($pathToSave, $projects, $locale);
+    }
+
+    /**
+     * @param string      $pathToSave path to save translations
+     * @param null|string $locale
+     *
+     * @throws \RuntimeException
+     * @return bool
+     */
+    public function loadTranslatesFromFile($pathToSave, $locale = null)
+    {
+        $pathToSave .= self::FILE_NAME_SUFFIX;
+        $targetDir = dirname($pathToSave);
+
         $isExtracted  = $this->unzip(
             $pathToSave,
             is_null($locale) ? $targetDir : rtrim($targetDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $locale
         );
 
-        if ($locale == 'en') {
+        if ($locale === 'en') {
             // check and fix exported file names, replace $locale_XX locale in file names to $locale
             $this->renameFiles('.en_US.', '.en.', $targetDir);
         }
 
         if ($isExtracted) {
             unlink($pathToSave);
-        }
 
-        if ($toApply && $isExtracted) {
             $this->apply($locale, $targetDir);
 
             $this->cleanup($targetDir);
             $this->jsTranslationDumper->dumpTranslations([$locale]);
         }
 
-        return $isExtracted && $isDownloaded;
+        return $isExtracted;
+    }
+
+    /**
+     * @param string|array $dirs
+     * @return array
+     */
+    protected function processDirs($dirs)
+    {
+        $dirs = is_array($dirs) ? $dirs : [$dirs];
+
+        return array_map(
+            function ($path) {
+                return rtrim($path, DIRECTORY_SEPARATOR);
+            },
+            $dirs
+        );
     }
 
     /**
@@ -272,7 +315,7 @@ class TranslationServiceProvider
             YamlFixer::fixStrings($fileInfo->getPathname());
         }
 
-        $this->translationLoader->loadMessages($sourceDir, $catalog);
+        $this->translationReader->read($sourceDir, $catalog);
         $this->databasePersister->persist($locale, $catalog->all());
     }
 

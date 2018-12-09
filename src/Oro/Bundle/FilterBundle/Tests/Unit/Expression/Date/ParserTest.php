@@ -3,11 +3,10 @@
 namespace Oro\Bundle\FilterBundle\Tests\Unit\Expression\Date;
 
 use Carbon\Carbon;
-
 use Oro\Bundle\FilterBundle\Expression\Date\Parser;
 use Oro\Bundle\FilterBundle\Expression\Date\Token;
 
-class ParserTest extends \PHPUnit_Framework_TestCase
+class ParserTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Parser */
     protected $parser;
@@ -37,7 +36,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
     public function testParse($tokens, $expectedResult, $expectedException = null)
     {
         if (null !== $expectedException) {
-            $this->setExpectedException($expectedException);
+            $this->expectException($expectedException);
         }
 
         $result = $this->parser->parse($tokens);

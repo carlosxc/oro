@@ -2,16 +2,14 @@
 
 namespace Oro\Bundle\OrganizationBundle\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\ORM\Mapping as ORM;
 use Oro\Bundle\EmailBundle\Model\EmailHolderInterface;
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\NotificationBundle\Entity\NotificationEmailInterface;
 use Oro\Bundle\OrganizationBundle\Model\ExtendBusinessUnit;
 use Oro\Bundle\UserBundle\Entity\User;
-use Oro\Bundle\DataAuditBundle\Metadata\Annotation as Oro;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 
 /**
  * BusinessUnit
@@ -19,7 +17,6 @@ use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
  * @ORM\Table("oro_business_unit")
  * @ORM\Entity(repositoryClass="Oro\Bundle\OrganizationBundle\Entity\Repository\BusinessUnitRepository")
  * @ORM\HasLifecycleCallbacks()
- * @Oro\Loggable
  * @Config(
  *      routeName="oro_business_unit_index",
  *      routeView="oro_business_unit_view",
@@ -34,7 +31,7 @@ use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
  *              "activity_support"="true"
  *          },
  *          "entity"={
- *              "icon"="icon-building"
+ *              "icon"="fa-building-o"
  *          },
  *          "ownership"={
  *              "owner_type"="BUSINESS_UNIT",
@@ -72,7 +69,6 @@ class BusinessUnit extends ExtendBusinessUnit implements
      * @var string
      *
      * @ORM\Column(name="name", type="string", length=255)
-     * @Oro\Versioned
      * @ConfigField(
      *  defaultValues={
      *    "importexport"={
@@ -85,13 +81,7 @@ class BusinessUnit extends ExtendBusinessUnit implements
 
     /**
      * @var Organization
-     * @ConfigField(
-     *  defaultValues={
-     *    "importexport"={
-     *       "excluded"=true
-     *    }
-     *   }
-     * )
+     *
      * @ORM\ManyToOne(targetEntity="Organization", inversedBy="businessUnits")
      * @ORM\JoinColumn(name="organization_id", referencedColumnName="id", nullable=false, onDelete="CASCADE")
      */
@@ -99,57 +89,29 @@ class BusinessUnit extends ExtendBusinessUnit implements
 
     /**
      * @var string
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\Column(name="phone", type="string", length=100, nullable=true)
-     * @Oro\Versioned
      */
     protected $phone;
 
     /**
      * @var string
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\Column(name="website", type="string", length=255, nullable=true)
-     * @Oro\Versioned
      */
     protected $website;
 
     /**
      * @var string
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\Column(name="email", type="string", length=255, nullable=true)
-     * @Oro\Versioned
      */
     protected $email;
 
     /**
      * @var string
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *              "excluded"=true
-     *          }
-     *      }
-     * )
+     *
      * @ORM\Column(name="fax", type="string", length=255, nullable=true)
-     * @Oro\Versioned
      */
     protected $fax;
 
@@ -161,9 +123,6 @@ class BusinessUnit extends ExtendBusinessUnit implements
      *      defaultValues={
      *          "entity"={
      *              "label"="oro.ui.created_at"
-     *          },
-     *          "importexport"={
-     *               "excluded"=true
      *          }
      *      }
      * )
@@ -178,9 +137,6 @@ class BusinessUnit extends ExtendBusinessUnit implements
      *      defaultValues={
      *          "entity"={
      *              "label"="oro.ui.updated_at"
-     *          },
-     *          "importexport"={
-     *               "excluded"=true
      *          }
      *      }
      * )
@@ -188,20 +144,11 @@ class BusinessUnit extends ExtendBusinessUnit implements
     protected $updatedAt;
 
     /**
-     *
-     * @ConfigField(
-     *      defaultValues={
-     *          "importexport"={
-     *               "excluded"=true
-     *          }
-     *      }
-     * )
      * @ORM\ManyToMany(targetEntity="Oro\Bundle\UserBundle\Entity\User", mappedBy="businessUnits")
      */
     protected $users;
 
     /**
-     *
      * @var BusinessUnit
      * @ORM\ManyToOne(targetEntity="BusinessUnit")
      * @ORM\JoinColumn(name="business_unit_owner_id", referencedColumnName="id", onDelete="SET NULL")

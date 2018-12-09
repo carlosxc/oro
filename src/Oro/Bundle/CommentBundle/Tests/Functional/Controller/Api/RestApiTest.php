@@ -4,9 +4,6 @@ namespace Oro\Bundle\CommentBundle\Tests\Functional\Controller\Api;
 
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 
-/**
- * @dbIsolation
- */
 class RestApiTest extends WebTestCase
 {
     protected function setUp()
@@ -15,9 +12,6 @@ class RestApiTest extends WebTestCase
         $this->loadFixtures(['Oro\Bundle\CommentBundle\Tests\Functional\DataFixtures\LoadCommentData']);
     }
 
-    /**
-     * @return array
-     */
     public function testCget()
     {
         $this->client->request(
@@ -25,7 +19,7 @@ class RestApiTest extends WebTestCase
             $this->getUrl(
                 'oro_api_comment_get_items',
                 [
-                    'relationClass' => 'Oro_Bundle_CalendarBundle_Entity_CalendarEvent',
+                    'relationClass' => 'Oro_Bundle_EmailBundle_Entity_Email',
                     'relationId'    => $this->getReference('default_activity')->getId()
                 ]
             )
@@ -35,6 +29,15 @@ class RestApiTest extends WebTestCase
 
         $this->assertEquals(3, $result['count']);
         $this->assertCount(3, $result['data']);
+
+        $actualMessages = [];
+        foreach ($result['data'] as $comment) {
+            $this->assertArrayHasKey('message', $comment);
+            $actualMessages[] = $comment['message'];
+        }
+        $this->assertContains('First comment', $actualMessages);
+        $this->assertContains('Second comment', $actualMessages);
+        $this->assertContains('Third comment', $actualMessages);
     }
 
     public function testCgetCreatedDateFiltering()
@@ -46,7 +49,7 @@ class RestApiTest extends WebTestCase
             $this->getUrl(
                 'oro_api_comment_get_items',
                 [
-                    'relationClass' => 'Oro_Bundle_CalendarBundle_Entity_CalendarEvent',
+                    'relationClass' => 'Oro_Bundle_EmailBundle_Entity_Email',
                     'relationId'    => $this->getReference('default_activity')->getId()
                 ]
             ) . '?createdAt<' . urlencode($date->format('c'))
@@ -67,7 +70,7 @@ class RestApiTest extends WebTestCase
             $this->getUrl(
                 'oro_api_comment_get_items',
                 [
-                    'relationClass' => 'Oro_Bundle_CalendarBundle_Entity_CalendarEvent',
+                    'relationClass' => 'Oro_Bundle_EmailBundle_Entity_Email',
                     'relationId'    => $this->getReference('default_activity')->getId()
                 ]
             ) . '?updatedAt>' . urlencode($date->format('c'))
@@ -101,7 +104,7 @@ class RestApiTest extends WebTestCase
             $this->getUrl(
                 'oro_api_comment_create_item',
                 [
-                    'relationClass' => 'Oro_Bundle_CalendarBundle_Entity_CalendarEvent',
+                    'relationClass' => 'Oro_Bundle_EmailBundle_Entity_Email',
                     'relationId'    => $this->getReference('default_activity')->getId()
                 ]
             ),

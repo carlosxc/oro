@@ -13,6 +13,7 @@ define([
         },
 
         data: null,
+
         pageItems: [],
 
         /**
@@ -20,6 +21,13 @@ define([
          * helps to notify environment that the view has updated its content
          */
         deferredRender: null,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function PageRegionView() {
+            PageRegionView.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * Handles page load event
@@ -41,7 +49,7 @@ define([
             this.actionArgs = null;
             if (this.deferredRender) {
                 // collects initialization promises
-                promises.push(this.deferredRender.promise(this));
+                promises.push(this.getDeferredRenderPromise());
             }
         },
 
@@ -54,25 +62,17 @@ define([
          * @override
          */
         render: function() {
-            var data;
-            data = this.getTemplateData();
+            var data = this.getTemplateData();
 
             if (!data) {
                 // no data, it is initial auto render, skip rendering
                 return this;
-
             } else if (!_.isEmpty(data)) {
                 // data object is not empty, dispose old content and render new
                 this.disposePageComponents();
                 mediator.execute('layout:dispose', this.$el);
                 PageRegionView.__super__.render.call(this);
             }
-
-            // starts deferred initialization
-            this._deferredRender();
-            // initialize components in view's markup
-            this.initLayout()
-                .done(_.bind(this._resolveDeferredRender, this));
 
             return this;
         },

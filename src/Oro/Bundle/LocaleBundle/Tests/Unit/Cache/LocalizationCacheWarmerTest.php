@@ -5,9 +5,9 @@ namespace Oro\Bundle\LocaleBundle\Tests\Unit\Cache;
 use Oro\Bundle\LocaleBundle\Cache\LocalizationCacheWarmer;
 use Oro\Bundle\LocaleBundle\Manager\LocalizationManager;
 
-class LocalizationCacheWarmerTest extends \PHPUnit_Framework_TestCase
+class LocalizationCacheWarmerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var LocalizationManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LocalizationManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $manager;
 
     /** @var LocalizationCacheWarmer */
@@ -18,11 +18,6 @@ class LocalizationCacheWarmerTest extends \PHPUnit_Framework_TestCase
         $this->manager = $this->getMockBuilder(LocalizationManager::class)->disableOriginalConstructor()->getMock();
 
         $this->warmer = new LocalizationCacheWarmer($this->manager);
-    }
-
-    protected function tearDown()
-    {
-        unset($this->warmer, $this->manager);
     }
 
     public function testClear()

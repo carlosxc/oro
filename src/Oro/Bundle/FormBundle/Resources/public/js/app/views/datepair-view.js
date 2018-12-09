@@ -3,8 +3,8 @@ define([
     'underscore',
     'moment',
     'oroui/js/app/views/base/view',
-    'oroui/lib/jquery.timepicker-1.4.13/jquery.timepicker',
-    'oroui/lib/jquery.datepair-0.4.4/jquery.datepair.min'
+    'jquery.timepicker',
+    'jquery.datepair'
 ], function($, _, moment, BaseView) {
     'use strict';
 
@@ -41,6 +41,13 @@ define([
 
         events: {
             rangeError: 'handleRangeError'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function DatepairView() {
+            DatepairView.__super__.constructor.apply(this, arguments);
         },
 
         /**

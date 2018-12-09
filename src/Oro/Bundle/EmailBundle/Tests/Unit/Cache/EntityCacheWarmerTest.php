@@ -4,21 +4,21 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Cache;
 
 use Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderStorage;
 
-class EntityCacheWarmerTest extends \PHPUnit_Framework_TestCase
+class EntityCacheWarmerTest extends \PHPUnit\Framework\TestCase
 {
     public function testWarmUpAndIsOptional()
     {
-        $oroProvider = $this->getMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
+        $oroProvider = $this->createMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
         $oroProvider->expects($this->any())
             ->method('getEmailOwnerClass')
             ->will($this->returnValue('Oro\TestUser'));
 
-        $oroCrmProvider = $this->getMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
+        $oroCrmProvider = $this->createMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
         $oroCrmProvider->expects($this->any())
             ->method('getEmailOwnerClass')
-            ->will($this->returnValue('OroCRM\TestContact'));
+            ->will($this->returnValue('Oro\TestContact'));
 
-        $acmeProvider = $this->getMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
+        $acmeProvider = $this->createMock('Oro\Bundle\EmailBundle\Entity\Provider\EmailOwnerProviderInterface');
         $acmeProvider->expects($this->any())
             ->method('getEmailOwnerClass')
             ->will($this->returnValue('Acme\TestUser'));
@@ -28,7 +28,7 @@ class EntityCacheWarmerTest extends \PHPUnit_Framework_TestCase
         $storage->addProvider($oroCrmProvider);
         $storage->addProvider($acmeProvider);
 
-        $kernel = $this->getMock('Symfony\Component\HttpKernel\KernelInterface');
+        $kernel = $this->createMock('Symfony\Component\HttpKernel\KernelInterface');
 
         $warmer = $this->getMockBuilder('Oro\Bundle\EmailBundle\Cache\EntityCacheWarmer')
             ->setConstructorArgs(array($storage, 'SomeDir', 'Test\SomeNamespace', 'Test%sProxy', $kernel))
@@ -67,8 +67,8 @@ class EntityCacheWarmerTest extends \PHPUnit_Framework_TestCase
     }
 
     private function setTwigAndSaveExpectations(
-        \PHPUnit_Framework_MockObject_MockObject $twig,
-        \PHPUnit_Framework_MockObject_MockObject $warmer,
+        \PHPUnit\Framework\MockObject\MockObject $twig,
+        \PHPUnit\Framework\MockObject\MockObject $warmer,
         $ext,
         $at
     ) {
@@ -87,7 +87,7 @@ class EntityCacheWarmerTest extends \PHPUnit_Framework_TestCase
                                 'fieldName'    => 'owner1'
                             ),
                             array(
-                                'targetEntity' => 'OroCRM\TestContact',
+                                'targetEntity' => 'Oro\TestContact',
                                 'columnName'   => 'owner_testcontact_id',
                                 'fieldName'    => 'owner2'
                             ),

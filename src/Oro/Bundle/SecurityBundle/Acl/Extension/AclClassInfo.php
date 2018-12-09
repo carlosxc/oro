@@ -47,16 +47,4 @@ interface AclClassInfo
      * @return array|FieldSecurityMetadata[]
      */
     public function getFields();
-    /**
-     * Gets the category
-     *
-     * @return string
-     */
-    public function getIsLeme();
-    /**
-     * Gets the category
-     *
-     * @return string
-     */
-    public function getPluralLabel();
 }

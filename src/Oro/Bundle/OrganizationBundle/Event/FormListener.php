@@ -3,7 +3,6 @@
 namespace Oro\Bundle\OrganizationBundle\Event;
 
 use Doctrine\Common\Util\ClassUtils;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\UIBundle\Event\BeforeFormRenderEvent;
 
@@ -54,11 +53,13 @@ class FormListener
          * Setting owner field as first field in first data block
          */
         if (!empty($data['dataBlocks'])) {
-            if (isset($data['dataBlocks'][0]['subblocks'])) {
-                if (!isset($data['dataBlocks'][0]['subblocks'][0])) {
-                    $data['dataBlocks'][0]['subblocks'][0] = ['data' => []];
+            reset($data['dataBlocks']);
+            $firstBlockId = key($data['dataBlocks']);
+            if (isset($data['dataBlocks'][$firstBlockId]['subblocks'])) {
+                if (!isset($data['dataBlocks'][$firstBlockId]['subblocks'][0])) {
+                    $data['dataBlocks'][$firstBlockId]['subblocks'][0] = ['data' => []];
                 }
-                array_unshift($data['dataBlocks'][0]['subblocks'][0]['data'], $ownerField);
+                array_unshift($data['dataBlocks'][$firstBlockId]['subblocks'][0]['data'], $ownerField);
             }
         }
 

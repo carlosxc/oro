@@ -3,8 +3,9 @@
 namespace Oro\Bundle\ImapBundle\Tests\Unit\Sync;
 
 use Oro\Bundle\ImapBundle\Sync\ImapEmailSynchronizationProcessorFactory;
+use Psr\Log\LoggerInterface;
 
-class ImapEmailSynchronizationProcessorFactoryTest extends \PHPUnit_Framework_TestCase
+class ImapEmailSynchronizationProcessorFactoryTest extends \PHPUnit\Framework\TestCase
 {
     public function testCreate()
     {
@@ -23,7 +24,8 @@ class ImapEmailSynchronizationProcessorFactoryTest extends \PHPUnit_Framework_Te
         $removeManager = $this->getMockBuilder('Oro\Bundle\ImapBundle\Sync\ImapEmailRemoveManager')
             ->disableOriginalConstructor()
             ->getMock();
-        $knownEmailAddressChecker = $this->getMock('Oro\Bundle\EmailBundle\Sync\KnownEmailAddressCheckerInterface');
+        $knownEmailAddressChecker = $this->createMock('Oro\Bundle\EmailBundle\Sync\KnownEmailAddressCheckerInterface');
+        $logger = $this->createMock(LoggerInterface::class);
 
 
         $doctrine->expects($this->exactly(2))
@@ -36,7 +38,13 @@ class ImapEmailSynchronizationProcessorFactoryTest extends \PHPUnit_Framework_Te
         $doctrine->expects($this->once())
             ->method('resetManager');
 
-        $factory = new ImapEmailSynchronizationProcessorFactory($doctrine, $emailEntityBuilder, $removeManager);
+        $factory = new ImapEmailSynchronizationProcessorFactory(
+            $doctrine,
+            $emailEntityBuilder,
+            $removeManager
+        );
+
+        $factory->setLogger($logger);
 
         $result = $factory->create($emailManager, $knownEmailAddressChecker);
         $this->assertInstanceOf('Oro\Bundle\ImapBundle\Sync\ImapEmailSynchronizationProcessor', $result);

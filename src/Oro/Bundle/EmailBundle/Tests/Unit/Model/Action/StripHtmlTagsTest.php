@@ -4,10 +4,9 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Model\Action;
 
 use Oro\Bundle\EmailBundle\Model\Action\StripHtmlTags;
 use Oro\Bundle\UIBundle\Tools\HtmlTagHelper;
+use Oro\Component\ConfigExpression\ContextAccessor;
 
-use Oro\Component\Action\Model\ContextAccessor;
-
-class StripHtmlTagsTest extends \PHPUnit_Framework_TestCase
+class StripHtmlTagsTest extends \PHPUnit\Framework\TestCase
 {
     /** @var StripHtmlTags */
     protected $action;
@@ -20,7 +19,7 @@ class StripHtmlTagsTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->contextAccessor = $this->getMock('Oro\Component\Action\Model\ContextAccessor');
+        $this->contextAccessor = $this->createMock('Oro\Component\ConfigExpression\ContextAccessor');
 
         $this->helper = $this->getMockBuilder('Oro\Bundle\UIBundle\Tools\HtmlTagHelper')
             ->disableOriginalConstructor()
@@ -28,7 +27,7 @@ class StripHtmlTagsTest extends \PHPUnit_Framework_TestCase
 
         $this->action = new StripHtmlTags($this->contextAccessor, $this->helper);
 
-        $this->action->setDispatcher($this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
+        $this->action->setDispatcher($this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'));
     }
 
     public function testInitializeWithNamedOptions()

@@ -3,6 +3,7 @@
 namespace Oro\Component\Layout;
 
 use Oro\Component\Layout\Block\OptionsResolver\OptionsResolver;
+use Oro\Component\Layout\Block\Type\Options;
 
 interface BlockTypeExtensionInterface
 {
@@ -15,9 +16,9 @@ interface BlockTypeExtensionInterface
      * @see BlockTypeInterface::buildForm()
      *
      * @param BlockBuilderInterface $builder
-     * @param array                 $options
+     * @param Options               $options
      */
-    public function buildBlock(BlockBuilderInterface $builder, array $options);
+    public function buildBlock(BlockBuilderInterface $builder, Options $options);
 
     /**
      * Builds the block view.
@@ -29,9 +30,9 @@ interface BlockTypeExtensionInterface
      *
      * @param BlockView      $view
      * @param BlockInterface $block
-     * @param array          $options
+     * @param Options        $options
      */
-    public function buildView(BlockView $view, BlockInterface $block, array $options);
+    public function buildView(BlockView $view, BlockInterface $block, Options $options);
 
     /**
      * Finishes the block view.
@@ -43,9 +44,8 @@ interface BlockTypeExtensionInterface
      *
      * @param BlockView      $view
      * @param BlockInterface $block
-     * @param array          $options
      */
-    public function finishView(BlockView $view, BlockInterface $block, array $options);
+    public function finishView(BlockView $view, BlockInterface $block);
 
     /**
      * Overrides the default options from the extended type.
@@ -53,16 +53,6 @@ interface BlockTypeExtensionInterface
      * @param OptionsResolver $resolver The resolver for the options.
      */
     public function configureOptions(OptionsResolver $resolver);
-
-    /**
-     * Normalize options after they was resolved.
-     * You can implement this function to manipulate block options before build.
-     *
-     * @param array $options
-     * @param ContextInterface $context
-     * @param DataAccessorInterface $data
-     */
-    public function normalizeOptions(array &$options, ContextInterface $context, DataAccessorInterface $data);
 
     /**
      * Returns the name of the block type being extended.

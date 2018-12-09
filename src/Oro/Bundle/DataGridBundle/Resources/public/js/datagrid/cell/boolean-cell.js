@@ -20,14 +20,25 @@ define([
         /**
          * @inheritDoc
          */
+        constructor: function BooleanCell() {
+            BooleanCell.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         render: function() {
-            if (this.column.get('editable')) {
+            if (this.isEditableColumn()) {
                 // render a checkbox for editable cell
                 BooleanCell.__super__.render.apply(this, arguments);
             } else {
                 // render a yes/no text for non editable cell
                 this.$el.empty();
-                var text = this.formatter.fromRaw(this.model.get(this.column.get('name'))) ? __('Yes') : __('No');
+                var text = '';
+                var columnData = this.model.get(this.column.get('name'));
+                if (columnData !== null) {
+                    text = this.formatter.fromRaw(columnData) ? __('Yes') : __('No');
+                }
                 this.$el.append('<span>').text(text);
                 this.delegateEvents();
             }
@@ -40,10 +51,13 @@ define([
          */
         enterEditMode: function(e) {
             BooleanCell.__super__.enterEditMode.apply(this, arguments);
-            if (this.column.get('editable')) {
+            if (this.isEditableColumn()) {
                 var $editor = this.currentEditor.$el;
                 $editor.prop('checked', !$editor.prop('checked')).change();
                 e.stopPropagation();
+                $editor.inputWidget('isInitialized')
+                    ? $editor.inputWidget('refresh')
+                    : $editor.inputWidget('create');
             }
         },
 

@@ -3,21 +3,18 @@
 namespace Oro\Bundle\UserBundle\Migrations\Schema\v1_2;
 
 use Doctrine\DBAL\Schema\Schema;
-
+use Oro\Bundle\AttachmentBundle\Migration\Extension\AttachmentExtension;
+use Oro\Bundle\AttachmentBundle\Migration\Extension\AttachmentExtensionAwareInterface;
+use Oro\Bundle\AttachmentBundle\Migration\Extension\AttachmentExtensionAwareTrait;
+use Oro\Bundle\MigrationBundle\Migration\Migration;
+use Oro\Bundle\MigrationBundle\Migration\QueryBag;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\File\File as SymfonyFile;
 
-use Oro\Bundle\MigrationBundle\Migration\Migration;
-use Oro\Bundle\MigrationBundle\Migration\QueryBag;
-
-use Oro\Bundle\AttachmentBundle\Migration\Extension\AttachmentExtension;
-use Oro\Bundle\AttachmentBundle\Migration\Extension\AttachmentExtensionAwareInterface;
-
 class OroUserBundle implements Migration, AttachmentExtensionAwareInterface, ContainerAwareInterface
 {
-    /** @var AttachmentExtension */
-    protected $attachmentExtension;
+    use AttachmentExtensionAwareTrait;
 
     /**
      * @var ContainerInterface
@@ -30,14 +27,6 @@ class OroUserBundle implements Migration, AttachmentExtensionAwareInterface, Con
     public function setContainer(ContainerInterface $container = null)
     {
         $this->container = $container;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function setAttachmentExtension(AttachmentExtension $attachmentExtension)
-    {
-        $this->attachmentExtension = $attachmentExtension;
     }
 
     /**
@@ -160,8 +149,8 @@ class OroUserBundle implements Migration, AttachmentExtensionAwareInterface, Con
         $ds         = DIRECTORY_SEPARATOR;
         $dateObject = new \DateTime($userData['createdAt']);
         $suffix     = $dateObject->format('Y-m');
-        $path       = $this->container->getParameter('kernel.root_dir')
-            . '/../web/uploads' . $ds . 'users' . $ds . $suffix . $ds . $userData['image'];
+        $path       = $this->container->getParameter('kernel.project_dir')
+            . '/public/uploads' . $ds . 'users' . $ds . $suffix . $ds . $userData['image'];
 
         return realpath($path);
     }

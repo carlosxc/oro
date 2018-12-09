@@ -5,7 +5,7 @@ namespace Oro\Bundle\HelpBundle\Tests\Unit\DependencyInjection;
 use Oro\Bundle\HelpBundle\DependencyInjection\ApplicationConfiguration;
 use Symfony\Component\Config\Definition\Processor;
 
-class ApplicationConfigurationTest extends \PHPUnit_Framework_TestCase
+class ApplicationConfigurationTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider processConfigurationDataProvider
@@ -121,7 +121,8 @@ class ApplicationConfigurationTest extends \PHPUnit_Framework_TestCase
         $processor = new Processor();
         $configuration = new ApplicationConfiguration();
 
-        $this->setExpectedException($expectedException, $expectedExceptionMessage);
+        $this->expectException($expectedException);
+        $this->expectExceptionMessage($expectedExceptionMessage);
 
         $processor->processConfiguration($configuration, array($options));
     }

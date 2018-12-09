@@ -4,27 +4,22 @@ namespace Oro\Bundle\DataGridBundle\Extension\Totals;
 
 use Doctrine\ORM\Query\Expr;
 use Doctrine\ORM\QueryBuilder;
-
-use Symfony\Component\Translation\TranslatorInterface;
-
-use Oro\Component\DoctrineUtils\ORM\QueryUtils;
-use Oro\Component\PhpUtils\ArrayUtil;
-
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\ResultsObject;
 use Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface;
-use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Exception\LogicException;
 use Oro\Bundle\DataGridBundle\Extension\AbstractExtension;
 use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
-
 use Oro\Bundle\LocaleBundle\Formatter\DateTimeFormatter;
 use Oro\Bundle\LocaleBundle\Formatter\NumberFormatter;
-
 use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
+use Symfony\Component\Translation\TranslatorInterface;
 
 /**
+ * Provides totals aggregation, which will be shown in grid's footer.
+ *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
 class OrmTotalsExtension extends AbstractExtension
@@ -70,7 +65,7 @@ class OrmTotalsExtension extends AbstractExtension
      */
     public function isApplicable(DatagridConfiguration $config)
     {
-        return $config->getDatasourceType() === OrmDatasource::TYPE;
+        return parent::isApplicable($config) && $config->isOrmDatasource();
     }
 
     /**
@@ -178,7 +173,6 @@ class OrmTotalsExtension extends AbstractExtension
         }
 
         return $this->groupParts;
-
     }
 
     /**
@@ -199,6 +193,12 @@ class OrmTotalsExtension extends AbstractExtension
             $column = [];
             if (isset($data[$field])) {
                 $totalValue = $data[$field];
+                if (isset($total[Configuration::TOTALS_DIVISOR_KEY])) {
+                    $divisor = (int) $total[Configuration::TOTALS_DIVISOR_KEY];
+                    if ($divisor != 0) {
+                        $totalValue = $totalValue / $divisor;
+                    }
+                }
                 if (isset($total[Configuration::TOTALS_FORMATTER_KEY])) {
                     $totalValue = $this->applyFrontendFormatting(
                         $totalValue,
@@ -285,8 +285,7 @@ class OrmTotalsExtension extends AbstractExtension
      */
     protected function getData(ResultsObject $pageData, $columnsConfig, $perPage = false, $skipAclWalkerCheck = false)
     {
-        // todo: Need refactor this method. If query has not order by part and doesn't have id's in select, result
-        //       can be unexpected
+        // this method requires refactoring, see BAP-17427 for details
         $totalQueries = [];
         foreach ($columnsConfig as $field => $totalData) {
             if (isset($totalData[Configuration::TOTALS_SQL_EXPRESSION_KEY])
@@ -299,16 +298,11 @@ class OrmTotalsExtension extends AbstractExtension
         $queryBuilder = clone $this->masterQB;
         $queryBuilder
             ->select($totalQueries)
-            ->resetDQLPart('groupBy');
-
-        $parameters = $queryBuilder->getParameters();
-        if ($parameters->count()) {
-            $queryBuilder->resetDQLPart('where')
-                ->resetDQLPart('having');
-            QueryUtils::removeUnusedParameters($queryBuilder);
-        }
+            ->resetDQLParts(['groupBy', 'having']);
 
         $this->addPageLimits($queryBuilder, $pageData, $perPage);
+
+        QueryBuilderUtil::removeUnusedParameters($queryBuilder);
 
         $query = $queryBuilder->getQuery();
 
@@ -346,7 +340,7 @@ class OrmTotalsExtension extends AbstractExtension
             $data = $pageData->getData();
         }
         foreach ($rootIdentifiers as $identifier) {
-            $ids = ArrayUtil::arrayColumn($data, $identifier['alias']);
+            $ids = \array_column($data, $identifier['alias']);
 
             $field = isset($identifier['entityAlias'])
                 ? $identifier['entityAlias'] . '.' . $identifier['fieldAlias']
@@ -359,7 +353,6 @@ class OrmTotalsExtension extends AbstractExtension
 
             $dataQueryBuilder->andWhere($dataQueryBuilder->expr()->in($field, $ids));
         }
-
     }
 
     /**
@@ -437,7 +430,6 @@ class OrmTotalsExtension extends AbstractExtension
             unset($totalRows[$rowName][Configuration::TOTALS_EXTEND_KEY]);
 
             $totalRows[$rowName] = $rowConfig;
-
         }
 
         return $rowConfig;

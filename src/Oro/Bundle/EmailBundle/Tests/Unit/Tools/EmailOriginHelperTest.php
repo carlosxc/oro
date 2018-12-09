@@ -3,38 +3,35 @@
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Tools;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
 use Oro\Bundle\EmailBundle\Entity\EmailFolder;
 use Oro\Bundle\EmailBundle\Entity\InternalEmailOrigin;
 use Oro\Bundle\EmailBundle\Model\FolderType;
 use Oro\Bundle\EmailBundle\Tools\EmailAddressHelper;
 use Oro\Bundle\EmailBundle\Tools\EmailOriginHelper;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
 
-class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
+class EmailOriginHelperTest extends \PHPUnit\Framework\TestCase
 {
     /** @var EmailOriginHelper */
     protected $emailOriginHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $doctrineHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $emailModel;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $emailOwnerProvider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $securityFacadeLink;
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $tokenAccessor;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $securityFacade;
-
-    /** @var  EmailAddressHelper|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var  EmailAddressHelper|\PHPUnit\Framework\MockObject\MockObject */
     protected $emailAddressHelper;
 
     protected function setUp()
@@ -61,22 +58,8 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->securityFacadeLink = $this
-            ->getMockBuilder('Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink')
-            ->setMethods(['getService'])
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->securityFacade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->setMethods(['getLoggedUser', 'getOrganization'])
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->securityFacadeLink->expects($this->any())
-            ->method('getService')
-            ->will($this->returnValue($this->securityFacade));
-
-        $this->securityFacade->expects($this->any())
+        $this->tokenAccessor = $this->createMock(TokenAccessorInterface::class);
+        $this->tokenAccessor->expects($this->any())
             ->method('getOrganization')
             ->will($this->returnValue($this->getTestOrganization()));
 
@@ -84,7 +67,7 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
 
         $this->emailOriginHelper = new EmailOriginHelper(
             $this->doctrineHelper,
-            $this->securityFacadeLink,
+            $this->tokenAccessor,
             $this->emailOwnerProvider,
             $this->emailAddressHelper
         );
@@ -100,7 +83,7 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
         $owner = new \stdClass();
 
         $this->emailOwnerProvider->expects($this->once())
-            ->method('findEmailOwner')
+            ->method('findEmailOwners')
             ->willReturn($owner);
         $entityRepository = $this->getMockBuilder('Doctrine\ORM\EntityRepository')
             ->disableOriginalConstructor()
@@ -118,16 +101,51 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expectedOrigin, $origin);
     }
 
+    public function testGetEmailOriginCache()
+    {
+        $email = 'test';
+        $organization = null;
+        $originName = InternalEmailOrigin::BAP;
+        $enableUseUserEmailOrigin = true;
+        $expectedOrigin = new \stdClass();
+        $owner = new \stdClass();
+
+        $this->emailOwnerProvider->expects($this->exactly(2))
+            ->method('findEmailOwners')
+            ->willReturn($owner);
+        $entityRepository = $this->getMockBuilder('Doctrine\ORM\EntityRepository')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $entityRepository->expects($this->at(0))
+            ->method('findOneBy')
+            ->willReturn($expectedOrigin);
+        $entityRepository->expects($this->at(1))
+            ->method('findOneBy')
+            ->willReturn(null);
+        $this->em->expects($this->exactly(2))
+            ->method('getRepository')
+            ->willReturn($entityRepository);
+
+        $origin =
+            $this->emailOriginHelper->getEmailOrigin($email, $organization, $originName, $enableUseUserEmailOrigin);
+
+        $this->assertEquals($expectedOrigin, $origin);
+
+        $origin = $this->emailOriginHelper->getEmailOrigin($email, $organization, $originName, false);
+
+        $this->assertNull($origin);
+    }
+
     /**
      * @dataProvider findEmailOriginDataProvider
      *
      * @param bool                                               $expected
-     * @param \PHPUnit_Framework_MockObject_Matcher_InvokedCount $mailModelExpects
+     * @param \PHPUnit\Framework\MockObject\Matcher\InvokedCount $mailModelExpects
      * @param string                                             $emailOwner
      * @param bool                                               $enableUseUserEmailOrigin
      * @param bool                                               $isOriginsNotEmpty
-     * @param \PHPUnit_Framework_MockObject_MockObject           $origin
-     * @param \PHPUnit_Framework_MockObject_Matcher_InvokedCount $emailOriginsTimes
+     * @param \PHPUnit\Framework\MockObject\MockObject           $origin
+     * @param \PHPUnit\Framework\MockObject\Matcher\InvokedCount $emailOriginsTimes
      */
     public function testFindEmailOrigin(
         $expected,
@@ -135,11 +153,11 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
         $emailOwner,
         $enableUseUserEmailOrigin,
         $isOriginsNotEmpty,
-        \PHPUnit_Framework_MockObject_MockObject $origin,
+        \PHPUnit\Framework\MockObject\MockObject $origin,
         $emailOriginsTimes,
         $exactly
     ) {
-        $organization  = $this->getMock('Oro\Bundle\OrganizationBundle\Entity\OrganizationInterface');
+        $organization  = $this->createMock('Oro\Bundle\OrganizationBundle\Entity\OrganizationInterface');
         $collection    = new ArrayCollection([$origin]);
         $originName    = 'origin name';
         $campaignOwner = null;
@@ -297,7 +315,7 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function getEmailOwnerMailBoxMock()
     {
@@ -307,7 +325,7 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function getUserEmailOriginMock()
     {
@@ -317,7 +335,7 @@ class EmailOriginHelperTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function getInternalEmailOriginMock()
     {

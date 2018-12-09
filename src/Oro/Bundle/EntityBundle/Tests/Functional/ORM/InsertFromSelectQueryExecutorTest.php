@@ -4,16 +4,12 @@ namespace Oro\Bundle\EntityBundle\Tests\Functional\ORM;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\EntityBundle\ORM\InsertFromSelectQueryExecutor;
 use Oro\Bundle\EntityBundle\ORM\NativeQueryExecutorHelper;
 use Oro\Bundle\TestFrameworkBundle\Entity\Item;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 use Oro\Bundle\UserBundle\Entity\User;
 
-/**
- * @dbIsolation
- */
 class InsertFromSelectQueryExecutorTest extends WebTestCase
 {
     /**
@@ -69,7 +65,7 @@ class InsertFromSelectQueryExecutorTest extends WebTestCase
             ->setParameter('group', $group)
         ;
 
-        $this->queryExecutor->execute(
+        $affectedRecords = $this->queryExecutor->execute(
             'OroTestFrameworkBundle:Item',
             [
                 'stringValue',
@@ -82,14 +78,18 @@ class InsertFromSelectQueryExecutorTest extends WebTestCase
             ],
             $queryBuilder
         );
+        $this->assertEquals(1, $affectedRecords);
 
-        /** @var User[] $result */
-        $users = $this->registry->getManagerForClass('OroUserBundle:User')
-            ->getRepository('OroUserBundle:User')->findAll();
+        /** @var User[] $users */
+        $users = $this->registry
+            ->getManagerForClass(User::class)
+            ->getRepository(User::class)
+            ->findAll();
 
         /** @var Item[] $items */
-        $items = $this->registry->getManagerForClass('OroTestFrameworkBundle:Item')
-            ->getRepository('OroTestFrameworkBundle:Item')->findAll();
+        $items = $this->registry->getManagerForClass(Item::class)
+            ->getRepository(Item::class)
+            ->findAll();
 
         $this->assertNotEmpty($items);
         $this->assertCount(count($users), $items);

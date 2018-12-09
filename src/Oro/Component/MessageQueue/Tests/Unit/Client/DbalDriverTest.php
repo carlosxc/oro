@@ -10,7 +10,7 @@ use Oro\Component\MessageQueue\Transport\Dbal\DbalMessage;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalMessageProducer;
 use Oro\Component\MessageQueue\Transport\Dbal\DbalSession;
 
-class DbalDriverTest extends \PHPUnit_Framework_TestCase
+class DbalDriverTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -96,8 +96,8 @@ class DbalDriverTest extends \PHPUnit_Framework_TestCase
         $session = $this->createSessionStub($transportMessage, $producer);
 
         $driver = new DbalDriver($session, $config);
-
-        $this->setExpectedException(\LogicException::class, 'Expire is not supported by the transport');
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Expire is not supported by the transport');
         $driver->send($queue, $message);
     }
 
@@ -167,11 +167,6 @@ class DbalDriverTest extends \PHPUnit_Framework_TestCase
             ->with('queue')
             ->will($this->returnValue($queue))
         ;
-        $session
-            ->expects($this->once())
-            ->method('declareQueue')
-            ->with($this->identicalTo($queue))
-        ;
         $driver = new DbalDriver($session, new Config('', '', '', ''));
         $this->assertSame($queue, $driver->createQueue('queue'));
     }
@@ -213,11 +208,11 @@ class DbalDriverTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DbalSession
+     * @return \PHPUnit\Framework\MockObject\MockObject|DbalSession
      */
     private function createSessionStub($message = null, $messageProducer = null)
     {
-        $sessionMock = $this->getMock(DbalSession::class, [], [], '', false);
+        $sessionMock = $this->createMock(DbalSession::class);
         $sessionMock
             ->expects($this->any())
             ->method('createMessage')
@@ -240,18 +235,18 @@ class DbalDriverTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DbalMessageProducer
+     * @return \PHPUnit\Framework\MockObject\MockObject|DbalMessageProducer
      */
     private function createMessageProducer()
     {
-        return $this->getMock(DbalMessageProducer::class, [], [], '', false);
+        return $this->createMock(DbalMessageProducer::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|DbalSession
+     * @return \PHPUnit\Framework\MockObject\MockObject|DbalSession
      */
     private function createSessionMock()
     {
-        return $this->getMock(DbalSession::class, [], [], '', false);
+        return $this->createMock(DbalSession::class);
     }
 }

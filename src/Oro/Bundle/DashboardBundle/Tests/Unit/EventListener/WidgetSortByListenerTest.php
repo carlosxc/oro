@@ -4,7 +4,6 @@ namespace Oro\Bundle\DashboardBundle\Tests\Unit\EventListener;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
-
 use Oro\Bundle\DashboardBundle\EventListener\WidgetSortByListener;
 use Oro\Bundle\DashboardBundle\Model\WidgetOptionBag;
 use Oro\Bundle\DataGridBundle\Event\OrmResultBeforeQuery;
@@ -32,7 +31,7 @@ class WidgetSortByListenerTest extends OrmTestCase
             )
         );
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $qb = $em->createQueryBuilder();
         $originalDQL = $qb->getQuery()->getDQL();
@@ -89,7 +88,7 @@ class WidgetSortByListenerTest extends OrmTestCase
             ->from('Oro\Bundle\DashboardBundle\Tests\Unit\Fixtures\Entity\TestClass', 'tc')
             ->orderBy('tc.id', 'DESC');
 
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
 
         $widgetSortByListener = new WidgetSortByListener($widgetConfigs);
         $widgetSortByListener->onResultBeforeQuery(new OrmResultBeforeQuery($datagrid, $qb));

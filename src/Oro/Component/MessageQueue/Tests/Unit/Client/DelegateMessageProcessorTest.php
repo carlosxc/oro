@@ -1,14 +1,14 @@
 <?php
 namespace Oro\Component\MessageQueue\Tests\Unit\Client;
 
+use Oro\Component\MessageQueue\Client\Config;
+use Oro\Component\MessageQueue\Client\DelegateMessageProcessor;
+use Oro\Component\MessageQueue\Client\MessageProcessorRegistryInterface;
 use Oro\Component\MessageQueue\Consumption\MessageProcessorInterface;
 use Oro\Component\MessageQueue\Transport\Null\NullMessage;
 use Oro\Component\MessageQueue\Transport\SessionInterface;
-use Oro\Component\MessageQueue\Client\Config;
-use Oro\Component\MessageQueue\Client\MessageProcessorRegistryInterface;
-use Oro\Component\MessageQueue\Client\DelegateMessageProcessor;
 
-class DelegateMessageProcessorTest extends \PHPUnit_Framework_TestCase
+class DelegateMessageProcessorTest extends \PHPUnit\Framework\TestCase
 {
     public function testCouldBeConstructedWithRequiredArguments()
     {
@@ -17,8 +17,8 @@ class DelegateMessageProcessorTest extends \PHPUnit_Framework_TestCase
 
     public function testShouldThrowExceptionIfProcessorNameIsNotSet()
     {
-        $this->setExpectedException(
-            \LogicException::class,
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(
             'Got message without required parameter: "oro.message_queue.client.processor_name"'
         );
 
@@ -57,26 +57,26 @@ class DelegateMessageProcessorTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProcessorRegistryInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProcessorRegistryInterface
      */
     protected function createMessageProcessorRegistryMock()
     {
-        return $this->getMock(MessageProcessorRegistryInterface::class);
+        return $this->createMock(MessageProcessorRegistryInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|SessionInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|SessionInterface
      */
     protected function createTransportSessionMock()
     {
-        return $this->getMock(SessionInterface::class);
+        return $this->createMock(SessionInterface::class);
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|MessageProcessorInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|MessageProcessorInterface
      */
     protected function createMessageProcessorMock()
     {
-        return $this->getMock(MessageProcessorInterface::class);
+        return $this->createMock(MessageProcessorInterface::class);
     }
 }

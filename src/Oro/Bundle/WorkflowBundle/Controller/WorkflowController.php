@@ -2,17 +2,13 @@
 
 namespace Oro\Bundle\WorkflowBundle\Controller;
 
-use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowItem;
-use Oro\Bundle\WorkflowBundle\Event\StartTransitionEvent;
-use Oro\Bundle\WorkflowBundle\Event\StartTransitionEvents;
-use Oro\Bundle\WorkflowBundle\Model\WorkflowManager;
-
+use Oro\Bundle\WorkflowBundle\Model\Transition;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
-
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @Route("/workflow")
@@ -20,51 +16,24 @@ use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 class WorkflowController extends Controller
 {
     const DEFAULT_TRANSITION_TEMPLATE = 'OroWorkflowBundle:Workflow:transitionForm.html.twig';
+
     /**
      * @Route(
      *      "/start/{workflowName}/{transitionName}",
      *      name="oro_workflow_start_transition_form"
      * )
-     * @AclAncestor("oro_workflow")
      * @param string $workflowName
      * @param string $transitionName
-     * @return array
+     * @param Request $request
+     *
+     * @return Response
      */
-    public function startTransitionAction($workflowName, $transitionName)
+    public function startTransitionAction($workflowName, $transitionName, Request $request)
     {
-        /** @var WorkflowManager $workflowManager */
-        $workflowManager = $this->get('oro_workflow.manager');
-        $workflow = $workflowManager->getWorkflow($workflowName);
-        $transition = $workflow->getTransitionManager()->getTransition($transitionName);
+        $presenter = $this->get('oro_workflow.provider.page_data.start_transition');
 
-        $routeParams = [
-            'workflowName' => $workflow->getName(),
-            'transitionName' => $transition->getName(),
-            'entityId' => $this->getRequest()->get('entityId', 0)
-        ];
-
-        // dispatch oro_workflow.start_transition.handle_before_render event
-        $event = new StartTransitionEvent($workflow, $transition, $routeParams);
-        $this->get('event_dispatcher')->dispatch(
-            StartTransitionEvents::HANDLE_BEFORE_RENDER,
-            $event
-        );
-        $routeParams = $event->getRouteParameters();
-
-        return $this->render(
-            $transition->getPageTemplate() ?: self::DEFAULT_TRANSITION_TEMPLATE,
-            [
-                'transition' => $transition,
-                'workflow' => $workflow,
-                'transitionUrl' => $this->generateUrl(
-                    'oro_api_workflow_start',
-                    $routeParams
-                ),
-                'transitionFormUrl' => $this->generateUrl(
-                    'oro_workflow_widget_start_transition_form',
-                    $routeParams
-                )
-            ]
+        return $this->buildResponse(
+            $presenter->getData($workflowName, $transitionName, $request->get('entityId', 0))
         );
     }
 
@@ -74,37 +43,36 @@ class WorkflowController extends Controller
      *      name="oro_workflow_transition_form"
      * )
      * @ParamConverter("workflowItem", options={"id"="workflowItemId"})
-     * @AclAncestor("oro_workflow")
+     *
      * @param string $transitionName
      * @param WorkflowItem $workflowItem
-     * @return array
+     *
+     * @return Response
+     *
+     * @throws \LogicException
+     * @throws \Oro\Bundle\WorkflowBundle\Exception\WorkflowException
      */
     public function transitionAction($transitionName, WorkflowItem $workflowItem)
     {
-        /** @var WorkflowManager $workflowManager */
-        $workflowManager = $this->get('oro_workflow.manager');
-        $workflow = $workflowManager->getWorkflow($workflowItem);
-        $transition = $workflow->getTransitionManager()->getTransition($transitionName);
+        $presenter = $this->get('oro_workflow.provider.page_data.transition');
 
-        $routeParams = [
-            'transitionName' => $transition->getName(),
-            'workflowItemId' => $workflowItem->getId(),
-        ];
+        return $this->buildResponse(
+            $presenter->getData($transitionName, $workflowItem)
+        );
+    }
+
+    /**
+     * @param array $data
+     * @return Response
+     */
+    private function buildResponse(array $data)
+    {
+        /** @var Transition $transition */
+        $transition = $data['transition'];
 
         return $this->render(
             $transition->getPageTemplate() ?: self::DEFAULT_TRANSITION_TEMPLATE,
-            [
-                'transition' => $transition,
-                'workflow' => $workflow,
-                'transitionUrl' => $this->generateUrl(
-                    'oro_api_workflow_transit',
-                    $routeParams
-                ),
-                'transitionFormUrl' => $this->generateUrl(
-                    'oro_workflow_widget_transition_form',
-                    $routeParams
-                )
-            ]
+            $data
         );
     }
 }

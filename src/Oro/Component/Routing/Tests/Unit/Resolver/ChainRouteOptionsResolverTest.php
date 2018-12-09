@@ -4,7 +4,7 @@ namespace Oro\Component\Routing\Tests\Unit\Resolver;
 
 use Oro\Component\Routing\Resolver\ChainRouteOptionsResolver;
 
-class ChainRouteOptionsResolverTest extends \PHPUnit_Framework_TestCase
+class ChainRouteOptionsResolverTest extends \PHPUnit\Framework\TestCase
 {
     public function testEmptyChainResolver()
     {
@@ -30,8 +30,8 @@ class ChainRouteOptionsResolverTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $resolver1 = $this->getMock('Oro\Component\Routing\Resolver\RouteOptionsResolverInterface');
-        $resolver2 = $this->getMock('Oro\Component\Routing\Resolver\RouteOptionsResolverInterface');
+        $resolver1 = $this->createMock('Oro\Component\Routing\Resolver\RouteOptionsResolverInterface');
+        $resolver2 = $this->createMock('Oro\Component\Routing\Resolver\RouteOptionsResolverInterface');
 
         $chainResolver = new ChainRouteOptionsResolver();
         $chainResolver->addResolver($resolver1);

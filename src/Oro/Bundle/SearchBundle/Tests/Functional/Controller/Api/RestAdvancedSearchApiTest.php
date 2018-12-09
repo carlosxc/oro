@@ -2,18 +2,29 @@
 
 namespace Oro\Bundle\SearchBundle\Tests\Functional\Controller\Api;
 
-use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Oro\Bundle\SearchBundle\Tests\Functional\Controller\DataFixtures\LoadSearchItemData;
+use Oro\Bundle\SearchBundle\Tests\Functional\Controller\SearchBundleWebTestCase;
+use Oro\Bundle\TestFrameworkBundle\Entity\Item;
 
 /**
- * @dbIsolation
- * @dbReindex
+ * @dbIsolationPerTest
+ * @group search
  */
-class RestAdvancedSearchApiTest extends WebTestCase
+class RestAdvancedSearchApiTest extends SearchBundleWebTestCase
 {
     protected function setUp()
     {
+        parent::setUp();
+
         $this->initClient([], $this->generateWsseAuthHeader());
-        $this->loadFixtures(['Oro\Bundle\SearchBundle\Tests\Functional\Controller\DataFixtures\LoadSearchItemData']);
+
+        $alias = $this->getSearchObjectMapper()->getEntityAlias(Item::class);
+        $this->getSearchIndexer()->resetIndex(Item::class);
+        $this->ensureItemsLoaded($alias, 0);
+
+        $this->loadFixtures([LoadSearchItemData::class]);
+        $this->getSearchIndexer()->reindex(Item::class);
+        $this->ensureItemsLoaded($alias, LoadSearchItemData::COUNT);
     }
 
     /**
@@ -24,11 +35,12 @@ class RestAdvancedSearchApiTest extends WebTestCase
      */
     public function testAdvancedSearch(array $request, array $response)
     {
-        $requestUrl = $request['query'];
+        $this->addOroDefaultPrefixToUrlInParameterArray($response['rest']['data'], 'record_url');
+        $queryString = $request['query'];
         $this->client->request(
             'GET',
             $this->getUrl('oro_api_get_search_advanced'),
-            ['query' => $requestUrl]
+            ['query' => $queryString]
         );
 
         $result = $this->client->getResponse();
@@ -39,6 +51,7 @@ class RestAdvancedSearchApiTest extends WebTestCase
         //compare result
         $this->assertEquals($response['records_count'], $result['records_count']);
         $this->assertEquals($response['count'], $result['count']);
+
         $this->assertSameSize($response['rest']['data'], $result['data']);
 
         // remove ID references
@@ -50,12 +63,44 @@ class RestAdvancedSearchApiTest extends WebTestCase
     }
 
     /**
+     * @param array $request
+     * @param array $response
+     *
+     * @dataProvider advancedSearchBadRequestDataProvider
+     */
+    public function testAdvancedSearchBadRequest(array $request, array $response)
+    {
+        $this->client->request(
+            'GET',
+            $this->getUrl('oro_api_get_search_advanced'),
+            ['query' => $request['query']]
+        );
+
+        $result = $this->client->getResponse();
+
+        $this->assertJsonResponseStatusCodeEquals($result, 400);
+        $result = json_decode($result->getContent(), true);
+        $this->assertEquals($response['code'], $result['code']);
+        $this->assertEquals($response['message'], $result['message']);
+    }
+
+    /**
      * @return array
      */
     public function advancedSearchDataProvider()
     {
         return $this->getApiRequestsData(
             __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'advanced_requests'
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public function advancedSearchBadRequestDataProvider()
+    {
+        return $this->getApiRequestsData(
+            __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'advanced_search_bad_requests'
         );
     }
 }

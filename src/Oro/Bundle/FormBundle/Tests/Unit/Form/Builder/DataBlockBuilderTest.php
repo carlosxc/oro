@@ -2,14 +2,14 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Builder;
 
+use Oro\Bundle\FormBundle\Form\Builder\DataBlockBuilder;
+use Oro\Bundle\FormBundle\Form\Extension\DataBlockExtension;
+use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormFactory;
 use Symfony\Component\Form\Forms;
 
-use Oro\Bundle\FormBundle\Form\Builder\DataBlockBuilder;
-use Oro\Bundle\FormBundle\Form\Extension\DataBlockExtension;
-
-class DataBlockBuilderTest extends \PHPUnit_Framework_TestCase
+class DataBlockBuilderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var FormFactory
@@ -27,7 +27,7 @@ class DataBlockBuilderTest extends \PHPUnit_Framework_TestCase
             ->addTypeExtension(new DataBlockExtension())
             ->getFormFactory();
 
-        $templateRenderer = $this->getMock('Oro\Bundle\FormBundle\Form\Builder\TemplateRendererInterface');
+        $templateRenderer = $this->createMock('Oro\Bundle\FormBundle\Form\Builder\TemplateRendererInterface');
         $templateRenderer->expects($this->any())
             ->method('render')
             ->will($this->returnArgument(0));
@@ -90,7 +90,7 @@ class DataBlockBuilderTest extends \PHPUnit_Framework_TestCase
             ],
         ];
 
-        $formBuilder = $this->factory->createNamedBuilder('test', 'form', null, $formOptions);
+        $formBuilder = $this->factory->createNamedBuilder('test', FormType::class, null, $formOptions);
         $this->buildForm($formBuilder, $formItems);
         $formView = $formBuilder->getForm()->createView();
 
@@ -105,7 +105,7 @@ class DataBlockBuilderTest extends \PHPUnit_Framework_TestCase
      */
     public function testLayout($formOptions, $formItems, $expectedBlocks)
     {
-        $formBuilder = $this->factory->createNamedBuilder('test', 'form', null, $formOptions);
+        $formBuilder = $this->factory->createNamedBuilder('test', FormType::class, null, $formOptions);
         $this->buildForm($formBuilder, $formItems);
         $formView = $formBuilder->getForm()->createView();
 

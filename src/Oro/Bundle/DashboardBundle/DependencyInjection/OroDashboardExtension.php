@@ -2,17 +2,17 @@
 
 namespace Oro\Bundle\DashboardBundle\DependencyInjection;
 
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
+use Oro\Component\PhpUtils\ArrayUtil;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
-use Oro\Component\PhpUtils\ArrayUtil;
-
 class OroDashboardExtension extends Extension
 {
+    const CONFIG_ROOT_NODE = 'dashboards';
     /**
      * {@inheritDoc}
      */
@@ -22,11 +22,11 @@ class OroDashboardExtension extends Extension
 
         $configLoader = new CumulativeConfigLoader(
             'oro_dashboard',
-            new YamlCumulativeFileLoader('Resources/config/dashboard.yml')
+            new YamlCumulativeFileLoader('Resources/config/oro/dashboards.yml')
         );
         $resources    = $configLoader->load($container);
         foreach ($resources as $resource) {
-            $dashboardConfigs[] = $resource->data['oro_dashboard_config'];
+            $dashboardConfigs[] = $resource->data[self::CONFIG_ROOT_NODE];
         }
 
         foreach ($configs as $config) {

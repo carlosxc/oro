@@ -2,10 +2,8 @@
 
 namespace Oro\Bundle\DataAuditBundle\Entity;
 
-use LogicException;
-
 use Doctrine\ORM\Mapping as ORM;
-
+use LogicException;
 use Oro\Bundle\DataAuditBundle\Model\AuditFieldTypeRegistry;
 
 /**
@@ -19,7 +17,8 @@ abstract class AbstractAuditField
     use DateTimeFieldType;
     use ArrayFieldTypeTrait;
     use ObjectFieldTypeTrait;
-
+    use CollectionTypeTrait;
+    
     /**
      * @var int
      *
@@ -59,15 +58,20 @@ abstract class AbstractAuditField
     protected $dataType;
 
     /**
-     * @param AbstractAudit $audit
+     * @var string
+     *
+     * @ORM\Column(name="translation_domain", type="string", length=100, nullable=true)
+     */
+    protected $translationDomain;
+
+    /**
      * @param string $field
      * @param string $dataType
      * @param mixed $newValue
      * @param mixed $oldValue
      */
-    public function __construct(AbstractAudit $audit, $field, $dataType, $newValue, $oldValue)
+    public function __construct($field, $dataType, $newValue, $oldValue)
     {
-        $this->audit = $audit;
         $this->field = $field;
         $this->dataType = AuditFieldTypeRegistry::getAuditType($dataType);
 
@@ -97,6 +101,14 @@ abstract class AbstractAuditField
     public function getAudit()
     {
         return $this->audit;
+    }
+
+    /**
+     * @param AbstractAudit $audit
+     */
+    public function setAudit(AbstractAudit $audit)
+    {
+        $this->audit = $audit;
     }
 
     /**
@@ -133,6 +145,25 @@ abstract class AbstractAuditField
     public function getDataType()
     {
         return $this->dataType;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getTranslationDomain()
+    {
+        return $this->translationDomain;
+    }
+
+    /**
+     * @param string $translationDomain
+     * @return $this
+     */
+    public function setTranslationDomain(string $translationDomain)
+    {
+        $this->translationDomain = $translationDomain;
+
+        return $this;
     }
 
     /**

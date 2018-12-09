@@ -3,10 +3,9 @@
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Authentication\Guesser;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
 use Oro\Bundle\SecurityBundle\Authentication\Guesser\UserOrganizationGuesser;
 
-class UserOrganizationGuesserTest extends \PHPUnit_Framework_TestCase
+class UserOrganizationGuesserTest extends \PHPUnit\Framework\TestCase
 {
     public function testGuessFromToken()
     {
@@ -17,7 +16,7 @@ class UserOrganizationGuesserTest extends \PHPUnit_Framework_TestCase
         $organization = $this->getMockBuilder('Oro\Bundle\OrganizationBundle\Entity\Organization')
             ->disableOriginalConstructor()->getMock();
 
-        $token = $this->getMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
+        $token = $this->createMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
         $token->expects($this->exactly(2))->method('getOrganizationContext')->willReturn($organization);
 
         $this->assertSame($organization, $guesser->guess($user, $token));
@@ -32,7 +31,7 @@ class UserOrganizationGuesserTest extends \PHPUnit_Framework_TestCase
         $creatorOrganization = $this->getMockBuilder('Oro\Bundle\OrganizationBundle\Entity\Organization')
             ->disableOriginalConstructor()->getMock();
 
-        $token = $this->getMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
+        $token = $this->createMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
         $token->expects($this->once())->method('getOrganizationContext')->willReturn(false);
 
         $user->expects($this->once())->method('getOrganization')->willReturn($creatorOrganization);
@@ -55,7 +54,7 @@ class UserOrganizationGuesserTest extends \PHPUnit_Framework_TestCase
         $organization2 = $this->getMockBuilder('Oro\Bundle\OrganizationBundle\Entity\Organization')
             ->disableOriginalConstructor()->getMock();
 
-        $token = $this->getMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
+        $token = $this->createMock('Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationContextTokenInterface');
         $token->expects($this->once())->method('getOrganizationContext')->willReturn(false);
 
         $user->expects($this->once())->method('getOrganization')->willReturn($creatorOrganization);

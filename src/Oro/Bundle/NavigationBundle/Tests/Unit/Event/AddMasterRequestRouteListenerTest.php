@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\NavigationBundle\Tests\Unit\Event;
 
+use Oro\Bundle\NavigationBundle\Event\AddMasterRequestRouteListener;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
-use Oro\Bundle\NavigationBundle\Event\AddMasterRequestRouteListener;
-
-class AddMasterRequestRouteListenerTest extends \PHPUnit_Framework_TestCase
+class AddMasterRequestRouteListenerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var AddMasterRequestRouteListener
@@ -42,7 +41,7 @@ class AddMasterRequestRouteListenerTest extends \PHPUnit_Framework_TestCase
      */
     protected function createMasterRequestEvent($route)
     {
-        $kernel = $this->getMock('Symfony\Component\HttpKernel\HttpKernelInterface');
+        $kernel = $this->createMock('Symfony\Component\HttpKernel\HttpKernelInterface');
 
         return new GetResponseEvent(
             $kernel,
@@ -56,7 +55,7 @@ class AddMasterRequestRouteListenerTest extends \PHPUnit_Framework_TestCase
      */
     protected function createSubRequestEvent()
     {
-        $kernel = $this->getMock('Symfony\Component\HttpKernel\HttpKernelInterface');
+        $kernel = $this->createMock('Symfony\Component\HttpKernel\HttpKernelInterface');
 
         return new GetResponseEvent(
             $kernel,

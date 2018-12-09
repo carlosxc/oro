@@ -3,39 +3,38 @@
 namespace Oro\Bundle\SecurityBundle\Metadata;
 
 use Doctrine\Common\Cache\CacheProvider;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class ActionMetadataProvider
 {
     const CACHE_KEY = 'data';
 
-    /**
-     * @var AclAnnotationProvider
-     */
+    /** @var AclAnnotationProvider */
     protected $annotationProvider;
 
-    /**
-     * @var CacheProvider
-     */
+    /** @var TranslatorInterface */
+    protected $translator;
+
+    /** @var CacheProvider */
     protected $cache;
 
-    /**
-     * @var array
-     *         key = action name
-     *         value = ActionMetadata
-     */
+    /** @var array [action name => ActionMetadata, ...] */
     protected $localCache;
 
     /**
      * Constructor
      *
      * @param AclAnnotationProvider $annotationProvider
+     * @param TranslatorInterface   $translator
      * @param CacheProvider|null    $cache
      */
     public function __construct(
         AclAnnotationProvider $annotationProvider,
+        TranslatorInterface $translator,
         CacheProvider $cache = null
     ) {
         $this->annotationProvider = $annotationProvider;
+        $this->translator = $translator;
         $this->cache = $cache;
     }
 
@@ -106,16 +105,18 @@ class ActionMetadataProvider
      */
     protected function loadMetadata()
     {
-        $data = array();
+        $data = [];
         foreach ($this->annotationProvider->getAnnotations('action') as $annotation) {
+            $description = $annotation->getDescription();
+            if ($description) {
+                $description = $this->translator->trans($description);
+            }
             $data[$annotation->getId()] = new ActionMetadata(
                 $annotation->getId(),
                 $annotation->getGroup(),
-                $annotation->getLabel(),
-                $annotation->getDescription(),
-                $annotation->getCategory(),
-                $annotation->getIsLeme(),
-                $annotation->getPluralLabel()
+                $this->translator->trans($annotation->getLabel()),
+                $description,
+                $annotation->getCategory()
             );
         }
 

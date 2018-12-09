@@ -3,13 +3,15 @@
 namespace Oro\Bundle\WorkflowBundle\Model;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Oro\Bundle\ActionBundle\Button\ButtonSearchContext;
 use Oro\Bundle\ActionBundle\Model\Attribute as BaseAttribute;
 use Oro\Bundle\ActionBundle\Model\AttributeGuesser;
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
-
+use Oro\Bundle\WorkflowBundle\Helper\WorkflowTranslationHelper;
 use Oro\Component\Action\Exception\AssemblerException;
 use Oro\Component\Action\Model\AbstractAssembler as BaseAbstractAssembler;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class AttributeAssembler extends BaseAbstractAssembler
 {
@@ -19,20 +21,29 @@ class AttributeAssembler extends BaseAbstractAssembler
     protected $attributeGuesser;
 
     /**
-     * @param AttributeGuesser $attributeGuesser
+     * @var TranslatorInterface
      */
-    public function __construct(AttributeGuesser $attributeGuesser)
+    protected $translator;
+
+    /**
+     * @param AttributeGuesser $attributeGuesser
+     * @param TranslatorInterface $translator
+     */
+    public function __construct(AttributeGuesser $attributeGuesser, TranslatorInterface $translator)
     {
         $this->attributeGuesser = $attributeGuesser;
+        $this->translator = $translator;
     }
 
     /**
-     * @param WorkflowDefinition $definition,
+     * @param WorkflowDefinition $definition
      * @param array $configuration
+     * @param array $transitionConfigurations
+     *
      * @return ArrayCollection
      * @throws AssemblerException If configuration is invalid
      */
-    public function assemble(WorkflowDefinition $definition, array $configuration)
+    public function assemble(WorkflowDefinition $definition, array $configuration, array $transitionConfigurations = [])
     {
         $entityAttributeName = $definition->getEntityAttributeName();
         if (!array_key_exists($entityAttributeName, $configuration)) {
@@ -43,6 +54,23 @@ class AttributeAssembler extends BaseAbstractAssembler
                     'class' => $definition->getRelatedEntity(),
                 ),
             );
+        }
+
+        foreach ($transitionConfigurations as $transition) {
+            if (!array_key_exists(WorkflowConfiguration::NODE_INIT_CONTEXT_ATTRIBUTE, $transition)) {
+                continue;
+            }
+
+            $initContextAttribute = $transition[WorkflowConfiguration::NODE_INIT_CONTEXT_ATTRIBUTE];
+            if (!array_key_exists($initContextAttribute, $configuration)) {
+                $configuration[$initContextAttribute] = [
+                    'label' => $initContextAttribute,
+                    'type' => 'object',
+                    'options' => [
+                        'class' => ButtonSearchContext::class
+                    ],
+                ];
+            }
         }
 
         $attributes = new ArrayCollection();
@@ -64,6 +92,20 @@ class AttributeAssembler extends BaseAbstractAssembler
     {
         if (!empty($options['property_path'])) {
             $options = $this->guessOptions($options, $definition->getRelatedEntity(), $options['property_path']);
+            if (empty($options['type'])) {
+                throw new AssemblerException(
+                    sprintf(
+                        'Workflow "%s": Option "type" for attribute "%s" with property path "%s" can not be guessed',
+                        $this->translator->trans(
+                            $definition->getLabel(),
+                            [],
+                            WorkflowTranslationHelper::TRANSLATION_DOMAIN
+                        ),
+                        $name,
+                        $options['property_path']
+                    )
+                );
+            }
         }
 
         $this->assertOptions($options, array('label', 'type'));
@@ -103,16 +145,36 @@ class AttributeAssembler extends BaseAbstractAssembler
             return $options;
         }
 
-        $attributeParameters = $this->attributeGuesser->guessAttributeParameters($rootClass, $propertyPath);
+        $attributeParameters = $this->attributeGuesser->guessParameters($rootClass, $propertyPath);
         if ($attributeParameters) {
             foreach ($guessedOptions as $option) {
-                if (empty($options[$option]) && !empty($attributeParameters[$option])) {
-                    $options[$option] = $attributeParameters[$option];
+                if (!empty($attributeParameters[$option])) {
+                    if (empty($options[$option])) {
+                        $options[$option] = $attributeParameters[$option];
+                    } elseif ($option === 'label') {
+                        $options[$option] = $this->guessOptionLabel($options, $attributeParameters);
+                    }
                 }
             }
         }
 
         return $options;
+    }
+
+    /**
+     * @param array $options
+     * @param array $attributeParameters
+     * @return string
+     */
+    private function guessOptionLabel(array $options, array $attributeParameters)
+    {
+        $domain = WorkflowTranslationHelper::TRANSLATION_DOMAIN;
+
+        if ($this->translator->trans($options['label'], [], $domain) === $options['label']) {
+            $options['label'] = $attributeParameters['label'];
+        }
+
+        return $options['label'];
     }
 
     /**
@@ -140,10 +202,11 @@ class AttributeAssembler extends BaseAbstractAssembler
     {
         $this->assertAttributeHasValidType($attribute);
 
-        if ($attribute->getType() == 'object' || $attribute->getType() == 'entity') {
-            $this->assertAttributeHasClassOption($attribute);
+        $attributeType = $attribute->getType();
+        if ('object' === $attributeType || 'entity' === $attributeType) {
+            $this->assertParameterHasClassOption($attribute);
         } else {
-            $this->assertAttributeHasNoOptions($attribute, 'class');
+            $this->assertParameterHasNoOptions($attribute, ['class']);
         }
     }
 
@@ -162,60 +225,6 @@ class AttributeAssembler extends BaseAbstractAssembler
                     'Invalid attribute type "%s", allowed types are "%s"',
                     $attributeType,
                     implode('", "', $allowedTypes)
-                )
-            );
-        }
-    }
-
-    /**
-     * @param BaseAttribute $attribute
-     * @param string|array $optionNames
-     * @throws AssemblerException If attribute is invalid
-     */
-    protected function assertAttributeHasOptions(BaseAttribute $attribute, $optionNames)
-    {
-        $optionNames = (array)$optionNames;
-
-        foreach ($optionNames as $optionName) {
-            if (!$attribute->hasOption($optionName)) {
-                throw new AssemblerException(
-                    sprintf('Option "%s" is required in attribute "%s"', $optionName, $attribute->getName())
-                );
-            }
-        }
-    }
-
-    /**
-     * @param BaseAttribute $attribute
-     * @param string|array $optionNames
-     * @throws AssemblerException If attribute is invalid
-     */
-    protected function assertAttributeHasNoOptions(BaseAttribute $attribute, $optionNames)
-    {
-        $optionNames = (array)$optionNames;
-
-        foreach ($optionNames as $optionName) {
-            if ($attribute->hasOption($optionName)) {
-                throw new AssemblerException(
-                    sprintf('Option "%s" cannot be used in attribute "%s"', $optionName, $attribute->getName())
-                );
-            }
-        }
-    }
-
-    /**
-     * @param BaseAttribute $attribute
-     * @throws AssemblerException If attribute is invalid
-     */
-    protected function assertAttributeHasClassOption(BaseAttribute $attribute)
-    {
-        $this->assertAttributeHasOptions($attribute, 'class');
-        if (!class_exists($attribute->getOption('class'))) {
-            throw new AssemblerException(
-                sprintf(
-                    'Class "%s" referenced by "class" option in attribute "%s" not found',
-                    $attribute->getOption('class'),
-                    $attribute->getName()
                 )
             );
         }

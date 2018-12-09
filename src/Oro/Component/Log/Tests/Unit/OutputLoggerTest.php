@@ -2,20 +2,18 @@
 
 namespace Oro\Component\Log\Tests\Unit\OutputLoggerTest;
 
+use Oro\Component\Log\OutputLogger;
 use Psr\Log\LogLevel;
-
 use Symfony\Component\Console\Output\OutputInterface;
 
-use Oro\Component\Log\OutputLogger;
-
-class OutputLoggerTest extends \PHPUnit_Framework_TestCase
+class OutputLoggerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject|OutputInterface */
+    /** @var \PHPUnit\Framework\MockObject\MockObject|OutputInterface */
     protected $output;
 
     protected function setUp()
     {
-        $this->output = $this->getMock('Symfony\Component\Console\Output\OutputInterface');
+        $this->output = $this->createMock('Symfony\Component\Console\Output\OutputInterface');
     }
 
     /**

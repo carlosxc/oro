@@ -2,23 +2,22 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Provider;
 
-use Symfony\Component\HttpFoundation\ParameterBag;
-
 use Oro\Bundle\IntegrationBundle\Entity\Transport;
 use Oro\Bundle\IntegrationBundle\Provider\SOAPTransport;
+use Symfony\Component\HttpFoundation\ParameterBag;
 
-class SoapTransportTest extends \PHPUnit_Framework_TestCase
+class SoapTransportTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var SOAPTransport|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var SOAPTransport|\PHPUnit\Framework\MockObject\MockObject */
     protected $transport;
 
-    /** @var Transport|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var Transport|\PHPUnit\Framework\MockObject\MockObject */
     protected $transportEntity;
 
     /** @var ParameterBag */
     protected $settings;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $soapClientMock;
 
     /**
@@ -42,7 +41,7 @@ class SoapTransportTest extends \PHPUnit_Framework_TestCase
             ->getMock();
 
         $this->settings        = new ParameterBag();
-        $this->transportEntity = $this->getMock('Oro\Bundle\IntegrationBundle\Entity\Transport');
+        $this->transportEntity = $this->createMock('Oro\Bundle\IntegrationBundle\Entity\Transport');
         $this->transportEntity->expects($this->any())->method('getSettingsBag')
             ->will($this->returnValue($this->settings));
 

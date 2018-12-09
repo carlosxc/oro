@@ -2,16 +2,15 @@
 
 namespace Oro\Bundle\EmailBundle\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\Mapping as ORM;
 use JMS\Serializer\Annotation as JMS;
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
 
 /**
  * Email Body
  *
  * @ORM\Table(name="oro_email_body")
- * @ORM\Entity
+ * @ORM\Entity(repositoryClass="Oro\Bundle\EmailBundle\Entity\Repository\EmailBodyRepository")
  * @ORM\HasLifecycleCallbacks
  */
 class EmailBody
@@ -40,7 +39,6 @@ class EmailBody
      * @var string
      *
      * @ORM\Column(name="body", type="text")
-     * @Soap\ComplexType("string", name="content")
      * @JMS\Type("string")
      */
     protected $bodyContent;
@@ -49,10 +47,16 @@ class EmailBody
      * @var bool
      *
      * @ORM\Column(name="body_is_text", type="boolean")
-     * @Soap\ComplexType("boolean")
      * @JMS\Type("boolean")
      */
     protected $bodyIsText;
+
+    /**
+     * @var string
+     *
+     * @ORM\Column(name="text_body", type="text", nullable=true)
+     */
+    protected $textBody;
 
     /**
      * @var bool
@@ -75,7 +79,6 @@ class EmailBody
      *
      * @ORM\OneToMany(targetEntity="EmailAttachment", mappedBy="emailBody",
      *      cascade={"persist", "remove"}, orphanRemoval=true)
-     * @Soap\ComplexType("Oro\Bundle\EmailBundle\Entity\EmailAttachment[]")
      * @JMS\Exclude
      */
     protected $attachments;
@@ -270,5 +273,24 @@ class EmailBody
     public function __toString()
     {
         return (string)$this->getId();
+    }
+
+    /**
+     * @return string
+     */
+    public function getTextBody()
+    {
+        return $this->textBody;
+    }
+
+    /**
+     * @param string $textBody
+     * @return $this
+     */
+    public function setTextBody($textBody)
+    {
+        $this->textBody = $textBody;
+
+        return $this;
     }
 }

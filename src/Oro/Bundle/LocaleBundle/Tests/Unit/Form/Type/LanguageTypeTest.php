@@ -2,73 +2,74 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Form\Type;
 
-use Symfony\Component\Form\Test\FormIntegrationTestCase;
-use Symfony\Component\Intl\Util\IntlTestHelper;
-
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\FormBundle\Form\Type\OroChoiceType;
 use Oro\Bundle\LocaleBundle\Form\Type\LanguageType;
-use Oro\Bundle\TranslationBundle\Translation\TranslationStatusInterface;
+use Oro\Bundle\TranslationBundle\Provider\LanguageProvider;
+use Oro\Component\Testing\Unit\PreloadedExtension;
+use Symfony\Component\Form\ChoiceList\View\ChoiceView;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\Form\Test\FormIntegrationTestCase;
 
 class LanguageTypeTest extends FormIntegrationTestCase
 {
     /** @var LanguageType */
     protected $formType;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $cmMock;
 
-    /**
-     * @var string
-     */
+    /** @var LanguageProvider|\PHPUnit\Framework\MockObject\MockObject */
+    protected $languageProvider;
+
+    /** @var string */
     protected $locale;
 
     protected function setUp()
     {
         $this->locale = \Locale::getDefault();
+        $this->cmMock = $this->getMockBuilder(ConfigManager::class)->disableOriginalConstructor()->getMock();
+
+        $this->languageProvider = $this->getMockBuilder(LanguageProvider::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->formType = new LanguageType($this->cmMock, $this->languageProvider);
         parent::setUp();
-        $this->cmMock   = $this->getMockBuilder('Oro\Bundle\ConfigBundle\Config\ConfigManager')
-            ->disableOriginalConstructor()->getMock();
-        $this->formType = new LanguageType($this->cmMock);
     }
 
     protected function tearDown()
     {
         \Locale::setDefault($this->locale);
         parent::tearDown();
-        unset($this->cmMock, $this->formType);
-    }
-
-    public function testGetName()
-    {
-        $this->assertEquals('oro_language', $this->formType->getName());
+        unset($this->cmMock, $this->languageProvider, $this->formType);
     }
 
     public function testGetParent()
     {
-        $this->assertEquals('locale', $this->formType->getParent());
+        $this->assertEquals(OroChoiceType::class, $this->formType->getParent());
     }
 
     /**
      * @dataProvider buildFormProvider
      *
-     * @param array  $configData
+     * @param array $configData
      * @param string $defaultLang
-     * @param array  $choicesKeysExpected
+     * @param array $choicesKeysExpected
      */
     public function testBuildForm(array $configData, $defaultLang, array $choicesKeysExpected)
     {
-        IntlTestHelper::requireIntl($this);
-
         \Locale::setDefault($defaultLang);
 
-        $this->cmMock->expects($this->at(0))->method('get')
-            ->with($this->equalTo(LanguageType::CONFIG_KEY), $this->equalTo(true))
-            ->will($this->returnValue($defaultLang));
+        $this->cmMock->expects($this->once())
+            ->method('get')
+            ->with(LanguageType::CONFIG_KEY, true)
+            ->willReturn($defaultLang);
 
-        $this->cmMock->expects($this->at(1))->method('get')
-            ->with($this->equalTo(TranslationStatusInterface::CONFIG_KEY))
-            ->will($this->returnValue($configData));
+        $this->languageProvider->expects($this->once())->method('getEnabledLanguages')->willReturn($configData);
 
-        $form    = $this->factory->create($this->formType);
+        $form = $this->factory->create(LanguageType::class);
         $choices = $form->getConfig()->getOption('choices');
         $this->assertEquals($choicesKeysExpected, array_keys($choices));
     }
@@ -79,21 +80,106 @@ class LanguageTypeTest extends FormIntegrationTestCase
     public function buildFormProvider()
     {
         return [
-            'only default language available'       => [
+            'only default language available' => [
                 [],
                 'en',
-                ['en']
+                ['English']
             ],
-            'disabled language should not appears' => [
-                ['fr' => TranslationStatusInterface::STATUS_DOWNLOADED],
+            'enabled languages are appeared' => [
+                ['uk'],
                 'en',
-                ['en']
-            ],
-            'enabled languages are appeared'        => [
-                ['uk' => TranslationStatusInterface::STATUS_ENABLED],
-                'en',
-                ['en', 'uk']
+                ['English', 'Ukrainian']
             ]
+        ];
+    }
+
+    /**
+     * @dataProvider finishViewProvider
+     *
+     * @param string $defaultLang
+     * @param array $expected
+     * @param array $options
+     */
+    public function testFinishView($defaultLang, array $expected, array $options = [])
+    {
+        \Locale::setDefault($defaultLang);
+
+        $this->cmMock->expects($this->any())
+            ->method('get')
+            ->willReturnMap(
+                [
+                    [LanguageType::CONFIG_KEY, true, false, null, $defaultLang],
+                    ['oro_locale.languages', false, false, null, ['fr', 'nl']]
+                ]
+            );
+
+        $this->languageProvider->expects($this->any())
+            ->method('getEnabledLanguages')
+            ->willReturn(['fr', 'nl', 'uk', 'jp']);
+
+        $view = new FormView();
+        $view->vars['choices'] = [
+            new ChoiceView('en', 'en', 'English'),
+            new ChoiceView('de', 'de', 'German'),
+            new ChoiceView('fr', 'fr', 'French'),
+            new ChoiceView('uk', 'uk', 'Ukrainian')
+        ];
+
+        $this->formType->finishView($view, $this->createMock('Symfony\Component\Form\Test\FormInterface'), $options);
+
+        $this->assertCount(count($expected), $view->vars['choices']);
+
+        foreach ($expected as $key => $data) {
+            $this->assertEquals($data['label'], $view->vars['choices'][$key]->label);
+            $this->assertEquals($data['value'], $view->vars['choices'][$key]->value);
+            $this->assertEquals($data['data'], $view->vars['choices'][$key]->data);
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public function finishViewProvider()
+    {
+        return [
+            'show all' => [
+                'defaultLang' => 'en',
+                'expected' => [
+                    0 => ['label' => 'English', 'value' => 'en', 'data' => 'en'],
+                    2 => ['label' => 'French', 'value' => 'fr', 'data' => 'fr'],
+                    3 => ['label' => 'Ukrainian', 'value' => 'uk', 'data' => 'uk']
+                ],
+                'options' => ['show_all' => true]
+            ],
+            'not show all' => [
+                'defaultLang' => 'de',
+                'expected' => [
+                    2 => ['label' => 'French', 'value' => 'fr', 'data' => 'fr']
+                ],
+                'options' => ['show_all' => false]
+            ]
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function getExtensions()
+    {
+        $choiceType = $this->getMockBuilder(OroChoiceType::class)
+            ->setMethods(['configureOptions', 'getParent'])
+            ->disableOriginalConstructor()
+            ->getMock();
+        $choiceType->expects($this->any())->method('getParent')->willReturn(ChoiceType::class);
+
+        return [
+            new PreloadedExtension(
+                [
+                    LanguageType::class => $this->formType,
+                    OroChoiceType::class => $choiceType
+                ],
+                []
+            )
         ];
     }
 }

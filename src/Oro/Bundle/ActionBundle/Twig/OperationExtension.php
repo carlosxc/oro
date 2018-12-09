@@ -2,43 +2,67 @@
 
 namespace Oro\Bundle\ActionBundle\Twig;
 
-use Oro\Bundle\ActionBundle\Helper\ApplicationsHelper;
+use Oro\Bundle\ActionBundle\Button\ButtonInterface;
 use Oro\Bundle\ActionBundle\Helper\ContextHelper;
 use Oro\Bundle\ActionBundle\Helper\OptionsHelper;
-use Oro\Bundle\ActionBundle\Model\OperationManager;
+use Oro\Bundle\ActionBundle\Provider\ButtonProvider;
+use Oro\Bundle\ActionBundle\Provider\ButtonSearchContextProvider;
+use Oro\Bundle\ActionBundle\Provider\RouteProviderInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class OperationExtension extends \Twig_Extension
 {
     const NAME = 'oro_action';
 
-    /** @var OperationManager */
-    protected $manager;
-
-    /** @var ApplicationsHelper */
-    protected $appsHelper;
-
-    /** @var ContextHelper */
-    protected $contextHelper;
-
-    /** @var OptionsHelper */
-    protected $optionsHelper;
+    /** @var ContainerInterface */
+    protected $container;
 
     /**
-     * @param OperationManager $manager
-     * @param ApplicationsHelper $appsHelper
-     * @param ContextHelper $contextHelper
-     * @param OptionsHelper $optionsHelper
+     * @param ContainerInterface $container
      */
-    public function __construct(
-        OperationManager $manager,
-        ApplicationsHelper $appsHelper,
-        ContextHelper $contextHelper,
-        OptionsHelper $optionsHelper
-    ) {
-        $this->manager = $manager;
-        $this->appsHelper = $appsHelper;
-        $this->contextHelper = $contextHelper;
-        $this->optionsHelper = $optionsHelper;
+    public function __construct(ContainerInterface $container)
+    {
+        $this->container = $container;
+    }
+
+    /**
+     * @return RouteProviderInterface
+     */
+    protected function getRouteProvider()
+    {
+        return $this->container->get('oro_action.provider.route');
+    }
+
+    /**
+     * @return ContextHelper
+     */
+    protected function getContextHelper()
+    {
+        return $this->container->get('oro_action.helper.context');
+    }
+
+    /**
+     * @return OptionsHelper
+     */
+    protected function getOptionsHelper()
+    {
+        return $this->container->get('oro_action.helper.options');
+    }
+
+    /**
+     * @return ButtonProvider
+     */
+    protected function getButtonProvider()
+    {
+        return $this->container->get('oro_action.provider.button');
+    }
+
+    /**
+     * @return ButtonSearchContextProvider
+     */
+    protected function getButtonSearchContextProvider()
+    {
+        return $this->container->get('oro_action.provider.button_search_context');
     }
 
     /**
@@ -54,15 +78,57 @@ class OperationExtension extends \Twig_Extension
      */
     public function getFunctions()
     {
-        return array(
+        return [
             new \Twig_SimpleFunction(
                 'oro_action_widget_parameters',
-                [$this->contextHelper, 'getActionParameters'],
+                [$this, 'getActionParameters'],
                 ['needs_context' => true]
             ),
-            new \Twig_SimpleFunction('oro_action_widget_route', [$this->appsHelper, 'getWidgetRoute']),
-            new \Twig_SimpleFunction('has_operations', [$this->manager, 'hasOperations']),
-            new \Twig_SimpleFunction('oro_action_frontend_options', [$this->optionsHelper, 'getFrontendOptions']),
+            new \Twig_SimpleFunction('oro_action_widget_route', [$this, 'getWidgetRoute']),
+            new \Twig_SimpleFunction('oro_action_frontend_options', [$this, 'getFrontendOptions']),
+            new \Twig_SimpleFunction('oro_action_has_buttons', [$this, 'hasButtons']),
+        ];
+    }
+
+    /**
+     * @param array $context
+     *
+     * @return array
+     */
+    public function getActionParameters(array $context)
+    {
+        return $this->getContextHelper()->getActionParameters($context);
+    }
+
+    /**
+     * @return string
+     */
+    public function getWidgetRoute()
+    {
+        return $this->getRouteProvider()->getWidgetRoute();
+    }
+
+    /**
+     * @param ButtonInterface $button
+     *
+     * @return array
+     */
+    public function getFrontendOptions(ButtonInterface $button)
+    {
+        return $this->getOptionsHelper()->getFrontendOptions($button);
+    }
+
+    /**
+     * @param array $context
+     *
+     * @return bool
+     */
+    public function hasButtons(array $context)
+    {
+        return $this->getButtonProvider()->hasButtons(
+            $this->getButtonSearchContextProvider()->getButtonSearchContext(
+                $this->getContextHelper()->getContext($context)
+            )
         );
     }
 }

@@ -2,62 +2,86 @@
 
 namespace Oro\Bundle\EmailBundle\Form\Type;
 
-use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Form\FormEvent;
-use Symfony\Component\Form\FormEvents;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
-use Symfony\Component\Security\Core\SecurityContextInterface;
-
-use Oro\Bundle\FormBundle\Utils\FormUtils;
+use Oro\Bundle\ActivityBundle\Form\Type\ContextsSelectType;
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EmailBundle\Builder\Helper\EmailModelBuilderHelper;
 use Oro\Bundle\EmailBundle\Entity\Repository\EmailTemplateRepository;
 use Oro\Bundle\EmailBundle\Form\Model\Email;
 use Oro\Bundle\EmailBundle\Provider\EmailRenderer;
-use Oro\Bundle\SecurityBundle\Authentication\Token\UsernamePasswordOrganizationToken;
+use Oro\Bundle\FormBundle\Form\Type\OroResizeableRichTextType;
+use Oro\Bundle\FormBundle\Form\Type\OroRichTextType;
+use Oro\Bundle\FormBundle\Utils\FormUtils;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Validator\Constraints\Valid;
 
+/**
+ * Form type to represent email
+ */
 class EmailType extends AbstractType
 {
-    /**
-     * @var SecurityContextInterface
-     */
-    protected $securityContext;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
 
-    /**
-     * @var EmailRenderer
-     */
+    /** @var TokenAccessorInterface */
+    protected $tokenAccessor;
+
+    /** @var EmailRenderer */
     protected $emailRenderer;
 
     /** @var EmailModelBuilderHelper */
     protected $emailModelBuilderHelper;
 
+    /** @var ConfigManager */
+    protected $configManager;
+
     /**
-     * @param SecurityContextInterface $securityContext
-     * @param EmailRenderer $emailRenderer
-     * @param EmailModelBuilderHelper $emailModelBuilderHelper
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param TokenAccessorInterface        $tokenAccessor
+     * @param EmailRenderer                 $emailRenderer
+     * @param EmailModelBuilderHelper       $emailModelBuilderHelper
+     * @param ConfigManager                 $configManager
      */
     public function __construct(
-        SecurityContextInterface $securityContext,
+        AuthorizationCheckerInterface $authorizationChecker,
+        TokenAccessorInterface $tokenAccessor,
         EmailRenderer $emailRenderer,
-        EmailModelBuilderHelper $emailModelBuilderHelper
+        EmailModelBuilderHelper $emailModelBuilderHelper,
+        ConfigManager $configManager
     ) {
-        $this->securityContext = $securityContext;
+        $this->authorizationChecker = $authorizationChecker;
+        $this->tokenAccessor = $tokenAccessor;
         $this->emailRenderer = $emailRenderer;
         $this->emailModelBuilderHelper = $emailModelBuilderHelper;
+        $this->configManager = $configManager;
     }
 
     /**
      * {@inheritdoc}
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
-            ->add('gridName', 'hidden', ['required' => false])
-            ->add('entityClass', 'hidden', ['required' => false])
-            ->add('entityId', 'hidden', ['required' => false])
+            ->add('gridName', HiddenType::class, ['required' => false])
+            ->add('entityClass', HiddenType::class, ['required' => false])
+            ->add('entityId', HiddenType::class, ['required' => false])
             ->add(
                 'from',
-                'oro_email_email_address_from',
+                HiddenType::class
+            )
+            ->add(
+                'origin',
+                EmailOriginFromType::class,
                 [
                     'required' => true,
                     'label' => 'oro.email.from_email_address.label',
@@ -66,7 +90,7 @@ class EmailType extends AbstractType
             )
             ->add(
                 'to',
-                'oro_email_email_address_recipients',
+                EmailAddressRecipientsType::class,
                 [
                     'required' => false,
                     'attr' => ['class' => 'taggable-field forged-required']
@@ -74,19 +98,27 @@ class EmailType extends AbstractType
             )
             ->add(
                 'cc',
-                'oro_email_email_address_recipients',
+                EmailAddressRecipientsType::class,
                 ['required' => false, 'attr' => ['class' => 'taggable-field']]
             )
             ->add(
                 'bcc',
-                'oro_email_email_address_recipients',
+                EmailAddressRecipientsType::class,
                 ['required' => false, 'attr' => ['class' => 'taggable-field']]
             )
-            ->add('subject', 'text', ['required' => true, 'label' => 'oro.email.subject.label'])
-            ->add('body', 'oro_resizeable_rich_text', ['required' => false, 'label' => 'oro.email.email_body.label'])
+            ->add('subject', TextType::class, ['required' => true, 'label' => 'oro.email.subject.label'])
+            ->add(
+                'body',
+                OroResizeableRichTextType::class,
+                [
+                    'required' => false,
+                    'label' => 'oro.email.email_body.label',
+                    'wysiwyg_options' => $this->getWysiwygOptions(),
+                ]
+            )
             ->add(
                 'template',
-                'oro_email_template_list',
+                EmailTemplateSelectType::class,
                 [
                     'label' => 'oro.email.template.label',
                     'required' => false,
@@ -98,39 +130,40 @@ class EmailType extends AbstractType
             )
             ->add(
                 'type',
-                'choice',
+                ChoiceType::class,
                 [
                     'label'      => 'oro.email.type.label',
                     'required'   => true,
                     'data'       => 'html',
                     'choices'  => [
-                        'html' => 'oro.email.datagrid.emailtemplate.filter.type.html',
-                        'txt'  => 'oro.email.datagrid.emailtemplate.filter.type.txt'
+                        'oro.email.datagrid.emailtemplate.filter.type.html' => 'html',
+                        'oro.email.datagrid.emailtemplate.filter.type.txt' => 'txt',
                     ],
                     'expanded'   => true
                 ]
             )
-            ->add('attachments', 'oro_email_attachments', [
-                'type' => 'oro_email_attachment',
+            ->add('attachments', EmailAttachmentsType::class, [
+                'entry_type' => EmailAttachmentType::class,
                 'required' => false,
                 'allow_add' => true,
                 'prototype' => false,
-                'options' => [
+                'constraints' => [
+                    new Valid()
+                ],
+                'entry_options' => [
                     'required' => false,
                 ],
             ])
-            ->add('bodyFooter', 'hidden')
-            ->add('parentEmailId', 'hidden')
-            ->add('signature', 'hidden')
+            ->add('bodyFooter', HiddenType::class)
+            ->add('parentEmailId', HiddenType::class)
+            ->add('signature', HiddenType::class)
             ->add(
                 'contexts',
-                'oro_activity_contexts_select',
+                ContextsSelectType::class,
                 [
+                    'collectionModel' => true,
+                    'error_bubbling'  => false,
                     'tooltip'   => 'oro.email.contexts.tooltip',
-                    'read_only' => !$this->securityContext->isGranted(
-                        'EDIT',
-                        'entity:Oro\Bundle\EmailBundle\Entity\EmailUser'
-                    ),
                     'configs'   => [
                         'containerCssClass' => 'taggable-email',
                         'route_name'       => 'oro_activity_form_autocomplete_search',
@@ -138,6 +171,12 @@ class EmailType extends AbstractType
                             'activity' => 'emails',
                             'name'     => 'emails'
                         ],
+                    ],
+                    'attr' => [
+                        'readonly' => !$this->authorizationChecker->isGranted(
+                            'EDIT',
+                            'entity:Oro\Bundle\EmailBundle\Entity\EmailUser'
+                        )
                     ]
                 ]
             );
@@ -160,27 +199,36 @@ class EmailType extends AbstractType
             return;
         }
 
-        $entityClass = is_object($data) ? $data->getEntityClass() : $data['entityClass'];
+        if (is_array($data) && isset($data['origin'])) {
+            $value = $data['origin'];
+            $values =  explode('|', $value);
+            $data['from'] = $values[1];
+            $this->emailModelBuilderHelper->preciseFullEmailAddress($data['from']);
+
+            $event->setData($data);
+        }
+
         $form = $event->getForm();
+        if (!$form->has('template')) {
+            return;
+        }
 
-        /** @var UsernamePasswordOrganizationToken $token */
-        $token        = $this->securityContext->getToken();
-        $organization = $token->getOrganizationContext();
-
+        $entityClass = is_object($data) ? $data->getEntityClass() : $data['entityClass'];
         FormUtils::replaceField(
             $form,
             'template',
             [
                 'selectedEntity' => $entityClass,
                 'query_builder'  =>
-                    function (EmailTemplateRepository $templateRepository) use (
-                        $entityClass,
-                        $organization
-                    ) {
-                        return $templateRepository->getEntityTemplatesQueryBuilder($entityClass, $organization, true);
+                    function (EmailTemplateRepository $templateRepository) use ($entityClass) {
+                        return $templateRepository->getEntityTemplatesQueryBuilder(
+                            $entityClass,
+                            $this->tokenAccessor->getOrganization(),
+                            true
+                        );
                     },
             ],
-            ['choice_list', 'choices']
+            ['choices']
         );
     }
 
@@ -217,14 +265,13 @@ class EmailType extends AbstractType
     /**
      * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefaults(
             [
                 'data_class'         => 'Oro\Bundle\EmailBundle\Form\Model\Email',
-                'intention'          => 'email',
+                'csrf_token_id'      => 'email',
                 'csrf_protection'    => true,
-                'cascade_validation' => true,
             ]
         );
     }
@@ -243,5 +290,20 @@ class EmailType extends AbstractType
     public function getBlockPrefix()
     {
         return 'oro_email_email';
+    }
+
+    /**
+     * @return array
+     */
+    protected function getWysiwygOptions()
+    {
+        if ($this->configManager->get('oro_email.sanitize_html')) {
+            return [];
+        }
+
+        return [
+            'valid_elements' => null, //all elements are valid
+            'plugins' => array_merge(OroRichTextType::$defaultPlugins, ['fullpage']),
+        ];
     }
 }

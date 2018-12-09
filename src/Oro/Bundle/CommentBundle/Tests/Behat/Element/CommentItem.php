@@ -11,7 +11,7 @@ class CommentItem extends Element
      */
     public function clickActionLink($title)
     {
-        $actions = $this->find('css', 'div.comment-actions a.dropdown-toggle');
+        $actions = $this->find('css', 'div.comment-actions .dropdown-toggle');
         self::assertNotNull($actions, 'Comment actions dropdown not found');
 
         // BAP-11448. PhantomJs not handle mouseOver on this element
@@ -20,22 +20,5 @@ class CommentItem extends Element
 
         $this->clickLink($title);
         $this->getDriver()->waitForAjax();
-    }
-
-    public function clickOnAttachmentThumbnail()
-    {
-        $this->find('css', 'div.thumbnail a')->click();
-    }
-
-    public function checkDownloadLink()
-    {
-        $downLoadLink = $this->find('css', 'ul.file-menu a:contains("Download")');
-        $fileMenu = $this->find('css', 'a.file-menu');
-
-        self::assertFalse($downLoadLink->isVisible());
-        $fileMenu->click();
-
-        self::assertTrue($downLoadLink->isVisible());
-        $fileMenu->click();
     }
 }

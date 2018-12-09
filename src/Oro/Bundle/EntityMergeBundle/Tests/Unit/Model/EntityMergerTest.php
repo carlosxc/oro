@@ -6,7 +6,7 @@ use Oro\Bundle\EntityMergeBundle\Event\EntityDataEvent;
 use Oro\Bundle\EntityMergeBundle\MergeEvents;
 use Oro\Bundle\EntityMergeBundle\Model\EntityMerger;
 
-class StrategyTest extends \PHPUnit_Framework_TestCase
+class EntityMergerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var EntityMerger
@@ -14,22 +14,22 @@ class StrategyTest extends \PHPUnit_Framework_TestCase
     protected $merger;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $eventDispatcher;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject[]
+     * @var \PHPUnit\Framework\MockObject\MockObject[]
      */
     protected $steps;
 
     protected function setUp()
     {
         $this->steps = array(
-            $this->getMock('Oro\Bundle\EntityMergeBundle\Model\Step\MergeStepInterface'),
-            $this->getMock('Oro\Bundle\EntityMergeBundle\Model\Step\MergeStepInterface')
+            $this->createMock('Oro\Bundle\EntityMergeBundle\Model\Step\MergeStepInterface'),
+            $this->createMock('Oro\Bundle\EntityMergeBundle\Model\Step\MergeStepInterface')
         );
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
         $this->merger = new EntityMerger($this->steps, $this->eventDispatcher);
     }
 

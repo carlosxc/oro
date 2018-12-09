@@ -2,19 +2,17 @@
 
 namespace Oro\Bundle\NoteBundle\Entity;
 
-use Symfony\Component\Security\Core\User\UserInterface;
-
 use Doctrine\ORM\Mapping as ORM;
-
+use Oro\Bundle\EntityBundle\EntityProperty\DatesAwareInterface;
+use Oro\Bundle\EntityBundle\EntityProperty\DatesAwareTrait;
+use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareInterface;
+use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareTrait;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
 use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
 use Oro\Bundle\NoteBundle\Model\ExtendNote;
-use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
-use Oro\Bundle\EntityBundle\EntityProperty\DatesAwareInterface;
-use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareInterface;
-use Oro\Bundle\EntityBundle\EntityProperty\DatesAwareTrait;
-use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareTrait;
+use Oro\Bundle\UserBundle\Entity\User;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * @ORM\Entity(repositoryClass="Oro\Bundle\NoteBundle\Entity\Repository\NoteRepository")
@@ -22,7 +20,7 @@ use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareTrait;
  * @Config(
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-comment-alt"
+ *              "icon"="fa-comment-o"
  *          },
  *          "ownership"={
  *              "owner_type"="USER",
@@ -36,8 +34,13 @@ use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareTrait;
  *              "group_name"="",
  *              "category"="account_management"
  *          },
+ *          "grouping"={
+ *              "groups"={"activity"}
+ *          },
  *          "activity"={
- *              "immutable"=true
+ *              "acl"="oro_note_view",
+ *              "action_button_widget"="oro_add_note_button",
+ *              "action_link_widget"="oro_add_note_link"
  *          }
  *      }
  * )

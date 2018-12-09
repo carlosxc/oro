@@ -26,13 +26,9 @@ define([
         element: null,
 
         /**
-         * Default multiselect widget parameters
-         *
          * @property {Object}
          */
-        parameters: {
-            height: 'auto'
-        },
+        multiselectFilterParameters: {},
 
         /**
          * @property {Boolean}
@@ -58,13 +54,17 @@ define([
             // initialize multiselect widget
             this.multiselect(options.parameters);
 
-            // initialize multiselect filter
             if (this.contextSearch) {
-                this.multiselectfilter({
+                var multiselectFilterDefaults = {
                     label: '',
                     placeholder: '',
                     autoReset: true
-                });
+                };
+
+                // initialize multiselect filter
+                this.multiselectfilter(
+                    _.extend(multiselectFilterDefaults, this.multiselectFilterParameters)
+                );
             }
         },
 
@@ -109,13 +109,24 @@ define([
             widget.find('ul li label').removeClass('ui-corner-all');
         },
 
+        onBeforeOpenDropdown: function() {
+            this._setDropdownDesign();
+        },
+
         /**
          * Action performed on dropdown open
          */
         onOpenDropdown: function() {
-            this._setDropdownDesign();
             this.getWidget().find('input[type="search"]').focus();
-            $('body').trigger('click');
+        },
+
+        /**
+         * Action on multiselect widget refresh
+         */
+        onRefresh: function() {
+            var widget = this.getWidget();
+            widget.find('.ui-multiselect-checkboxes').addClass('fixed-li');
+            widget.inputWidget('seekAndCreate');
         },
 
         /**
@@ -168,8 +179,9 @@ define([
          * @param functionName
          * @return {Object}
          */
-        multiselect: function(functionName) {
-            return this.element.multiselect(functionName);
+        multiselect: function() {
+            var elem = this.element;
+            return elem.multiselect.apply(elem, arguments);
         },
 
         /**
@@ -178,15 +190,16 @@ define([
          * @param functionName
          * @return {Object}
          */
-        multiselectfilter: function(functionName) {
-            return this.element.multiselectfilter(functionName);
+        multiselectfilter: function() {
+            var elem = this.element;
+            return elem.multiselectfilter.apply(elem, arguments);
         },
 
         /**
          *  Set dropdown position according to button element
          */
-        updateDropdownPosition: function() {
-            this.multiselect('updatePos');
+        updateDropdownPosition: function(position) {
+            this.multiselect('updatePos', position);
         }
     };
 

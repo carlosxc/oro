@@ -2,16 +2,14 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Model\Action;
 
+use Oro\Bundle\EntityBundle\Tests\Unit\ORM\Stub\ItemStub;
+use Oro\Bundle\WorkflowBundle\Model\Action\TransitWorkflow;
+use Oro\Bundle\WorkflowBundle\Model\WorkflowManager;
+use Oro\Component\ConfigExpression\ContextAccessor;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\PropertyAccess\PropertyPath;
 
-use Oro\Bundle\WorkflowBundle\Model\Action\TransitWorkflow;
-use Oro\Bundle\EntityBundle\Tests\Unit\ORM\Stub\ItemStub;
-use Oro\Bundle\WorkflowBundle\Model\WorkflowManager;
-
-use Oro\Component\Action\Model\ContextAccessor;
-
-class TransitWorkflowTest extends \PHPUnit_Framework_TestCase
+class TransitWorkflowTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var TransitWorkflow
@@ -19,7 +17,7 @@ class TransitWorkflowTest extends \PHPUnit_Framework_TestCase
     protected $action;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|WorkflowManager
+     * @var \PHPUnit\Framework\MockObject\MockObject|WorkflowManager
      */
     protected $workflowManager;
 
@@ -68,12 +66,12 @@ class TransitWorkflowTest extends \PHPUnit_Framework_TestCase
 
         $expectedData = array_merge($options['data'], ['path' => $expectedParameter]);
 
-        $workflowData = $this->getMock('Oro\Bundle\WorkflowBundle\Model\WorkflowData');
+        $workflowData = $this->createMock('Oro\Bundle\WorkflowBundle\Model\WorkflowData');
         $workflowData->expects($this->once())
             ->method('add')
             ->with($expectedData);
 
-        $expectedWorkflowItem = $this->getMock('Oro\Bundle\WorkflowBundle\Entity\WorkflowItem');
+        $expectedWorkflowItem = $this->createMock('Oro\Bundle\WorkflowBundle\Entity\WorkflowItem');
         $expectedWorkflowItem->expects($this->once())
             ->method('getData')
             ->willReturn($workflowData);
@@ -215,7 +213,8 @@ class TransitWorkflowTest extends \PHPUnit_Framework_TestCase
      */
     public function testInitializeException(array $options, $exceptionName, $exceptionMessage)
     {
-        $this->setExpectedException($exceptionName, $exceptionMessage);
+        $this->expectException($exceptionName);
+        $this->expectExceptionMessage($exceptionMessage);
         $this->action->initialize($options);
     }
 

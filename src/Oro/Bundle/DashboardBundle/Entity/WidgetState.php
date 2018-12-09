@@ -3,7 +3,6 @@
 namespace Oro\Bundle\DashboardBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-
 use Oro\Bundle\UserBundle\Entity\User;
 
 /**
@@ -34,7 +33,7 @@ class WidgetState
     /**
      * @var Widget
      *
-     * @ORM\ManyToOne(targetEntity="Oro\Bundle\DashboardBundle\Entity\Widget")
+     * @ORM\ManyToOne(targetEntity="Oro\Bundle\DashboardBundle\Entity\Widget", cascade={"persist"})
      * @ORM\JoinColumn(name="widget_id", referencedColumnName="id", onDelete="CASCADE")
      */
     protected $widget;

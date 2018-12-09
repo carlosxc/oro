@@ -7,7 +7,7 @@ use Oro\Component\MessageQueue\Transport\Exception\Exception as ExceptionInterfa
 use Oro\Component\MessageQueue\Transport\Exception\InvalidDestinationException;
 use Oro\Component\Testing\ClassExtensionTrait;
 
-class InvalidDestinationExceptionTest extends \PHPUnit_Framework_TestCase
+class InvalidDestinationExceptionTest extends \PHPUnit\Framework\TestCase
 {
     use ClassExtensionTrait;
     
@@ -23,8 +23,8 @@ class InvalidDestinationExceptionTest extends \PHPUnit_Framework_TestCase
 
     public function testThrowIfAssertDestinationInstanceOfNotSameAsExpected()
     {
-        $this->setExpectedException(
-            InvalidDestinationException::class,
+        $this->expectException(InvalidDestinationException::class);
+        $this->expectExceptionMessage(
             'The destination must be an instance of Oro\Component\MessageQueue\Tests\Unit\Mock\DestinationBar'.
             ' but it is Oro\Component\MessageQueue\Tests\Unit\Mock\DestinationFoo.'
         );

@@ -3,11 +3,13 @@
 namespace Oro\Bundle\TagBundle\Tests\Unit\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
 use Oro\Bundle\TagBundle\Entity\Tag;
 use Oro\Bundle\TagBundle\Entity\TagManager;
 use Oro\Bundle\TagBundle\Tests\Unit\Fixtures\Taggable;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
-class TagManagerTest extends \PHPUnit_Framework_TestCase
+class TagManagerTest extends \PHPUnit\Framework\TestCase
 {
     const TEST_TAG_NAME     = 'testName';
     const TEST_NEW_TAG_NAME = 'testAnotherName';
@@ -22,16 +24,19 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
     /** @var TagManager */
     protected $manager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $securityFacade;
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $authorizationChecker;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $tokenAccessor;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $router;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $user;
 
     protected function setUp()
@@ -39,26 +44,27 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         $this->em = $this->getMockBuilder('Doctrine\ORM\EntityManager')
             ->disableOriginalConstructor()->getMock();
 
-        $this->securityFacade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->disableOriginalConstructor()->getMock();
+        $this->authorizationChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $this->tokenAccessor = $this->createMock(TokenAccessorInterface::class);
 
         $this->router = $this->getMockBuilder('Symfony\Bundle\FrameworkBundle\Routing\Router')
             ->disableOriginalConstructor()->getMock();
 
-        $this->user = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $this->user = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
         $this->user->expects($this->any())
             ->method('getId')
             ->will($this->returnValue(self::TEST_USER_ID));
 
-        $this->securityFacade->expects($this->any())
-            ->method('getLoggedUser')
+        $this->tokenAccessor->expects($this->any())
+            ->method('getUser')
             ->willReturn($this->user);
 
         $this->manager = new TagManager(
             $this->em,
             'Oro\Bundle\TagBundle\Entity\Tag',
             'Oro\Bundle\TagBundle\Entity\Tagging',
-            $this->securityFacade,
+            $this->authorizationChecker,
+            $this->tokenAccessor,
             $this->router
         );
     }
@@ -67,7 +73,7 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
     {
         $testTags = array(new Tag(self::TEST_TAG_NAME));
 
-        $collection = $this->getMock('Doctrine\Common\Collections\ArrayCollection');
+        $collection = $this->createMock('Doctrine\Common\Collections\ArrayCollection');
         $collection->expects($this->once())->method('add');
 
         $resource = $this->getMockForAbstractClass('Oro\Bundle\TagBundle\Entity\Taggable');
@@ -100,7 +106,6 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         if ($shouldWorkWithDB) {
             $this->assertContainsOnlyInstancesOf('Oro\Bundle\TagBundle\Entity\Tag', $result);
         }
-
     }
 
     /**
@@ -129,7 +134,7 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
      */
     public function tagIdsProvider()
     {
-        $tag = $this->getMock('Oro\Bundle\TagBundle\Entity\Tag');
+        $tag = $this->createMock('Oro\Bundle\TagBundle\Entity\Tag');
         $tag->expects($this->once())->method('getId')
             ->will($this->returnValue(self::TEST_TAG_ID));
 
@@ -195,9 +200,9 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
     public function testGetPreparedArrayFromDb()
     {
         $resource = new Taggable(array('id' => 1));
-        $tagging = $this->getMock('Oro\Bundle\TagBundle\Entity\Tagging');
+        $tagging = $this->createMock('Oro\Bundle\TagBundle\Entity\Tagging');
 
-        $tag1 = $this->getMock('Oro\Bundle\TagBundle\Entity\Tag');
+        $tag1 = $this->createMock('Oro\Bundle\TagBundle\Entity\Tag');
         $tag1->expects($this->once())->method('getName')
             ->will($this->returnValue('test name 1'));
         $tag1->expects($this->any())->method('getId')
@@ -205,7 +210,7 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         $tag1->expects($this->exactly(1))->method('getTagging')
             ->will($this->returnValue(new ArrayCollection(array($tagging))));
 
-        $tag2 = $this->getMock('Oro\Bundle\TagBundle\Entity\Tag');
+        $tag2 = $this->createMock('Oro\Bundle\TagBundle\Entity\Tag');
         $tag2->expects($this->once())->method('getName')
             ->will($this->returnValue('test name 2'));
         $tag2->expects($this->any())->method('getId')
@@ -213,7 +218,7 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         $tag2->expects($this->exactly(1))->method('getTagging')
             ->will($this->returnValue(new ArrayCollection(array($tagging))));
 
-        $userMock = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $userMock = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
         $tagging->expects($this->exactly(2))
             ->method('getOwner')->will($this->returnValue($userMock));
@@ -270,18 +275,17 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         $this->router->expects($this->once())
             ->method('generate');
 
-        $repo = $this->getMockBuilder('Oro\Bundle\TagBundle\Entity\Repository\TagRepository')
-            ->disableOriginalConstructor()->getMock();
-        $repo->expects($this->never())->method('getTagging');
-
         $this->manager->getPreparedArray($resource, $this->tagForPreparing());
     }
 
+    /**
+     * @return ArrayCollection|Tag[]
+     */
     protected function tagForPreparing()
     {
-        $tag1 = $this->getMock('Oro\Bundle\TagBundle\Entity\Tag');
-        $tag2 = $this->getMock('Oro\Bundle\TagBundle\Entity\Tag');
-        $tagging = $this->getMock('Oro\Bundle\TagBundle\Entity\Tagging');
+        $tag1 = $this->createMock('Oro\Bundle\TagBundle\Entity\Tag');
+        $tag2 = $this->createMock('Oro\Bundle\TagBundle\Entity\Tag');
+        $tagging = $this->createMock('Oro\Bundle\TagBundle\Entity\Tagging');
 
         $tag1->expects($this->exactly(2))
             ->method('getName')
@@ -300,7 +304,7 @@ class TagManagerTest extends \PHPUnit_Framework_TestCase
         $tag2->expects($this->exactly(1))->method('getTagging')
             ->will($this->returnValue(new ArrayCollection(array($tagging))));
 
-        $userMock = $this->getMock('Oro\Bundle\UserBundle\Entity\User');
+        $userMock = $this->createMock('Oro\Bundle\UserBundle\Entity\User');
 
         $tagging->expects($this->exactly(2))
             ->method('getOwner')->will($this->returnValue($userMock));

@@ -2,28 +2,37 @@
 
 namespace Oro\Bundle\ApiBundle\Form\Type;
 
-use Doctrine\Common\Persistence\ManagerRegistry;
-
+use Oro\Bundle\ApiBundle\Collection\IncludedEntityCollection;
+use Oro\Bundle\ApiBundle\Form\DataTransformer\CollectionToArrayTransformer;
+use Oro\Bundle\ApiBundle\Form\DataTransformer\EntityToIdTransformer;
+use Oro\Bundle\ApiBundle\Metadata\AssociationMetadata;
+use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
+use Oro\Bundle\ApiBundle\Util\EntityLoader;
+use Oro\Bundle\ApiBundle\Util\EntityMapper;
 use Symfony\Bridge\Doctrine\Form\EventListener\MergeDoctrineCollectionListener;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-use Oro\Bundle\ApiBundle\Form\DataTransformer\CollectionToArrayTransformer;
-use Oro\Bundle\ApiBundle\Form\DataTransformer\EntityToIdTransformer;
-use Oro\Bundle\ApiBundle\Metadata\AssociationMetadata;
-
+/**
+ * The form type for manageable entity associations.
+ */
 class EntityType extends AbstractType
 {
-    /** @var ManagerRegistry */
-    protected $doctrine;
+    /** @var DoctrineHelper */
+    protected $doctrineHelper;
+
+    /** @var EntityLoader */
+    protected $entityLoader;
 
     /**
-     * @param ManagerRegistry $doctrine
+     * @param DoctrineHelper $doctrineHelper
+     * @param EntityLoader   $entityLoader
      */
-    public function __construct(ManagerRegistry $doctrine)
+    public function __construct(DoctrineHelper $doctrineHelper, EntityLoader $entityLoader)
     {
-        $this->doctrine = $doctrine;
+        $this->doctrineHelper = $doctrineHelper;
+        $this->entityLoader = $entityLoader;
     }
 
     /**
@@ -33,15 +42,35 @@ class EntityType extends AbstractType
     {
         /** @var AssociationMetadata $metadata */
         $metadata = $options['metadata'];
+        /** @var EntityMapper|null $entityMapper */
+        $entityMapper = $options['entity_mapper'];
+        /** @var IncludedEntityCollection|null $includedEntities */
+        $includedEntities = $options['included_entities'];
         if ($metadata->isCollection()) {
             $builder
                 ->addEventSubscriber(new MergeDoctrineCollectionListener())
                 ->addViewTransformer(
-                    new CollectionToArrayTransformer(new EntityToIdTransformer($this->doctrine, $metadata)),
+                    new CollectionToArrayTransformer(
+                        new EntityToIdTransformer(
+                            $this->doctrineHelper,
+                            $this->entityLoader,
+                            $metadata,
+                            $entityMapper,
+                            $includedEntities
+                        )
+                    ),
                     true
                 );
         } else {
-            $builder->addViewTransformer(new EntityToIdTransformer($this->doctrine, $metadata));
+            $builder->addViewTransformer(
+                new EntityToIdTransformer(
+                    $this->doctrineHelper,
+                    $this->entityLoader,
+                    $metadata,
+                    $entityMapper,
+                    $includedEntities
+                )
+            );
         }
     }
 
@@ -51,24 +80,10 @@ class EntityType extends AbstractType
     public function configureOptions(OptionsResolver $resolver)
     {
         $resolver
-            ->setDefaults(['compound' => false])
+            ->setDefaults(['compound' => false, 'entity_mapper' => null, 'included_entities' => null])
             ->setRequired(['metadata'])
-            ->setAllowedTypes('metadata', ['Oro\Bundle\ApiBundle\Metadata\AssociationMetadata']);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getName()
-    {
-        return $this->getBlockPrefix();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getBlockPrefix()
-    {
-        return 'oro_api_entity';
+            ->setAllowedTypes('metadata', [AssociationMetadata::class])
+            ->setAllowedTypes('entity_mapper', ['null', EntityMapper::class])
+            ->setAllowedTypes('included_entities', ['null', IncludedEntityCollection::class]);
     }
 }

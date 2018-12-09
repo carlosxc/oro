@@ -5,10 +5,10 @@ namespace Oro\Bundle\EmailBundle\Entity\Repository;
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\EmailBundle\Entity\Email;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\UserBundle\Entity\User;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
 use Oro\Component\PhpUtils\ArrayUtil;
 
 class EmailRepository extends EntityRepository
@@ -22,14 +22,7 @@ class EmailRepository extends EntityRepository
      */
     public function findEmailsByIds($ids)
     {
-        $queryBuilder = $this->createQueryBuilder('e');
-        $criteria     = new Criteria();
-        $criteria->where(Criteria::expr()->in('id', $ids));
-        $criteria->orderBy(['sentAt' => Criteria::DESC]);
-        $queryBuilder->addCriteria($criteria);
-        $result = $queryBuilder->getQuery()->getResult();
-
-        return $result;
+        return $this->findBy(['id' => $ids], ['sentAt' => Criteria::DESC]);
     }
 
     /**
@@ -41,11 +34,7 @@ class EmailRepository extends EntityRepository
      */
     public function findEmailByMessageId($messageId)
     {
-        return $this->createQueryBuilder('e')
-            ->where('e.messageId = :messageId')
-            ->setParameter('messageId', $messageId)
-            ->getQuery()
-            ->getOneOrNullResult();
+        return $this->findOneBy(['messageId' => $messageId]);
     }
 
     /**
@@ -61,24 +50,15 @@ class EmailRepository extends EntityRepository
      */
     public function getNewEmails(User $user, Organization $organization, $limit, $folderId)
     {
-        $qb = $this->getEntityManager()->createQueryBuilder();
-        $qb->select('eu')
-            ->from('OroEmailBundle:EmailUser', 'eu')
-            ->leftJoin('eu.email', 'e')
-            ->where($this->getAclWhereCondition($user, $organization))
-            ->orderBy('eu.seen', 'ASC')
-            ->addOrderBy('e.sentAt', 'DESC')
-            ->setParameter('organization', $organization)
-            ->setParameter('owner', $user)
-            ->setMaxResults($limit);
-
-        if ($folderId > 0) {
-            $qb->leftJoin('eu.folders', 'f')
-                ->andWhere('f.id = :folderId')
-                ->setParameter('folderId', $folderId);
+        $qb = $this->getEmailList($user, $organization, $limit, $folderId, false);
+        $newEmails = $qb->getQuery()->getResult();
+        if (count($newEmails) < $limit) {
+            $qb = $this->getEmailList($user, $organization, $limit - count($newEmails), $folderId, true);
+            $seenEmails = $qb->getQuery()->getResult();
+            $newEmails = array_merge($newEmails, $seenEmails);
         }
 
-        return $qb->getQuery()->getResult();
+        return $newEmails;
     }
 
     /**
@@ -175,6 +155,58 @@ class EmailRepository extends EntityRepository
     }
 
     /**
+     * Returns QueryBuilder which returns ids or all owner records which have at least one email
+     *
+     * @param string $ownerClassName
+     * @param string $ownerIdentifierName
+     * @param string $ownerColumnName
+     *
+     * @return QueryBuilder
+     */
+    public function getOwnerIdsWithEmailsQb($ownerClassName, $ownerIdentifierName, $ownerColumnName)
+    {
+        $qb = $this->_em->createQueryBuilder();
+
+        return $qb
+            ->select(QueryBuilderUtil::getField('owner', $ownerIdentifierName))
+            ->from($ownerClassName, 'owner')
+            ->where($qb->expr()->orX(
+                // has incoming email
+                $qb->expr()->exists(
+                    $this
+                        ->createQueryBuilder('e')
+                        ->select('e.id')
+                        ->join('e.recipients', 'r')
+                        ->join('r.emailAddress', 'ea')
+                        ->andWhere(
+                            $qb->expr()->eq(
+                                QueryBuilderUtil::getField('ea', $ownerColumnName),
+                                QueryBuilderUtil::getField('owner', $ownerIdentifierName)
+                            )
+                        )
+                        ->andWhere('ea.hasOwner = :hasOwner')
+                        ->getDQL()
+                ),
+                // has outgoing email
+                $qb->expr()->exists(
+                    $this
+                        ->createQueryBuilder('e2')
+                        ->select('e2.id')
+                        ->join('e2.fromEmailAddress', 'ea2')
+                        ->andWhere(
+                            $qb->expr()->eq(
+                                QueryBuilderUtil::getField('ea2', $ownerColumnName),
+                                QueryBuilderUtil::getField('owner', $ownerIdentifierName)
+                            )
+                        )
+                        ->andWhere('ea2.hasOwner = :hasOwner')
+                        ->getDQL()
+                )
+            ))
+            ->setParameter('hasOwner', true);
+    }
+
+    /**
      * Has email entities by owner entity
      *
      * @param object $entity
@@ -209,14 +241,14 @@ class EmailRepository extends EntityRepository
                 ->createQueryBuilder('e')
                 ->join('e.recipients', 'r')
                 ->join('r.emailAddress', 'ea')
-                ->andWhere(sprintf('ea.%s = :contactId', $ownerColumnName))
+                ->andWhere(QueryBuilderUtil::sprintf('ea.%s = :contactId', $ownerColumnName))
                 ->andWhere('ea.hasOwner = :hasOwner')
                 ->setParameter('contactId', $entity->getId())
                 ->setParameter('hasOwner', true),
             $this
                 ->createQueryBuilder('e')
                 ->join('e.fromEmailAddress', 'ea')
-                ->andWhere(sprintf('ea.%s = :contactId', $ownerColumnName))
+                ->andWhere(QueryBuilderUtil::sprintf('ea.%s = :contactId', $ownerColumnName))
                 ->andWhere('ea.hasOwner = :hasOwner')
                 ->setParameter('contactId', $entity->getId())
                 ->setParameter('hasOwner', true),
@@ -249,5 +281,38 @@ class EmailRepository extends EntityRepository
         } else {
             return $andExpr;
         }
+    }
+
+    /**
+     * @param User         $user
+     * @param Organization $organization
+     * @param integer      $limit
+     * @param integer      $folderId
+     * @param bool         $isSeen
+     *
+     * @return QueryBuilder
+     */
+    protected function getEmailList(User $user, Organization $organization, $limit, $folderId, $isSeen)
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('eu')
+            ->from('OroEmailBundle:EmailUser', 'eu')
+            ->where($this->getAclWhereCondition($user, $organization))
+            ->andWhere('eu.seen = :seen')
+            ->orderBy('eu.receivedAt', 'DESC')
+            ->setParameter('organization', $organization)
+            ->setParameter('owner', $user)
+            ->setParameter('seen', $isSeen)
+            ->setMaxResults($limit);
+
+        if ($folderId > 0) {
+            $qb->leftJoin('eu.folders', 'f')
+                ->andWhere('f.id = :folderId')
+                ->setParameter('folderId', $folderId);
+
+            return $qb;
+        }
+
+        return $qb;
     }
 }

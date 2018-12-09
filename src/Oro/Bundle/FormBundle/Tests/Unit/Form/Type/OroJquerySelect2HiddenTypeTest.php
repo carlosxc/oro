@@ -3,9 +3,6 @@
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Type;
 
 use Doctrine\ORM\EntityManager;
-
-use Symfony\Component\Form\Test\FormIntegrationTestCase;
-
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
 use Oro\Bundle\FormBundle\Autocomplete\ConverterInterface;
 use Oro\Bundle\FormBundle\Autocomplete\SearchHandlerInterface;
@@ -13,6 +10,8 @@ use Oro\Bundle\FormBundle\Autocomplete\SearchRegistry;
 use Oro\Bundle\FormBundle\Form\DataTransformer\EntityToIdTransformer;
 use Oro\Bundle\FormBundle\Form\Type\OroJquerySelect2HiddenType;
 use Oro\Bundle\FormBundle\Tests\Unit\MockHelper;
+use Oro\Component\Testing\Unit\PreloadedExtension;
+use Symfony\Component\Form\Test\FormIntegrationTestCase;
 
 class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
 {
@@ -27,38 +26,37 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
     private $type;
 
     /**
-     * @var SearchRegistry|\PHPUnit_Framework_MockObject_MockObject
+     * @var SearchRegistry|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $searchRegistry;
 
     /**
-     * @var SearchHandlerInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var SearchHandlerInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $searchHandler;
 
     /**
-     * @var ConverterInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConverterInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $converter;
 
     /**
-     * @var EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     private $entityManager;
 
     /**
-     * @var EntityToIdTransformer|\PHPUnit_Framework_MockObject_MockObject
+     * @var EntityToIdTransformer|\PHPUnit\Framework\MockObject\MockObject
      */
     private $entityToIdTransformer;
 
     /**
-     * @var ConfigProvider|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigProvider|\PHPUnit\Framework\MockObject\MockObject
      */
     private $configProvider;
 
     protected function setUp()
     {
-        parent::setUp();
         $this->type = $this->getMockBuilder('Oro\Bundle\FormBundle\Form\Type\OroJquerySelect2HiddenType')
             ->setMethods(['createDefaultTransformer'])
             ->setConstructorArgs(
@@ -69,11 +67,23 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
                 ]
             )
             ->getMock();
+        parent::setUp();
     }
 
+    /**
+     * @return array
+     */
     protected function getExtensions()
     {
-        return array_merge(parent::getExtensions(), [new TestFormExtension()]);
+        return array_merge(parent::getExtensions(), [
+            new PreloadedExtension(
+                [
+                    OroJquerySelect2HiddenType::class => $this->type
+                ],
+                []
+            ),
+            new TestFormExtension()
+        ]);
     }
 
     /**
@@ -106,7 +116,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
             MockHelper::addMockExpectedCalls($mock, $calls, $this);
         }
 
-        $form = $this->factory->create($this->type, null, $options);
+        $form = $this->factory->create(OroJquerySelect2HiddenType::class, null, $options);
 
         $form->submit($bindData);
 
@@ -173,9 +183,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
                     ],
                     'attr'    => [
                         'data-selected-data' => json_encode(
-                            [
-                                ['id' => 1, 'bar' => 'Bar value', 'baz' => 'Baz value']
-                            ]
+                            ['id' => 1, 'bar' => 'Bar value', 'baz' => 'Baz value']
                         )
                     ]
                 ]
@@ -218,9 +226,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
                     ],
                     'attr'    => [
                         'data-selected-data' => json_encode(
-                            [
-                                ['id' => 1, 'bar' => 'Bar value', 'baz' => 'Baz value']
-                            ]
+                            ['id' => 1, 'bar' => 'Bar value', 'baz' => 'Baz value']
                         )
                     ]
                 ]
@@ -254,8 +260,9 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
             MockHelper::addMockExpectedCalls($mock, $calls, $this);
         }
 
-        $this->setExpectedException($expectedException, $expectedExceptionMessage);
-        $this->factory->create($this->type, null, $options);
+        $this->expectException($expectedException);
+        $this->expectExceptionMessage($expectedExceptionMessage);
+        $this->factory->create(OroJquerySelect2HiddenType::class, null, $options);
     }
 
     /**
@@ -348,7 +355,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
         $this->type->expects($this->once())->method('createDefaultTransformer')
             ->will($this->returnValue($this->getMockEntityToIdTransformer()));
 
-        $form = $this->factory->create($this->type, null, $options);
+        $form = $this->factory->create(OroJquerySelect2HiddenType::class, null, $options);
 
         $expectedOptions = [
             'error_bubbling' => false
@@ -364,19 +371,19 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
      * @param string $property
      * @param mixed  $value
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     private function createMockEntity($property, $value)
     {
         $getter = 'get' . ucfirst($property);
-        $result = $this->getMock('MockEntity', [$getter]);
+        $result = $this->createPartialMock(\ArrayObject::class, [$getter]);
         $result->expects($this->any())->method($getter)->will($this->returnValue($value));
 
         return $result;
     }
 
     /**
-     * @return EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @return EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockEntityManager()
     {
@@ -391,7 +398,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
     }
 
     /**
-     * @return SearchRegistry|\PHPUnit_Framework_MockObject_MockObject
+     * @return SearchRegistry|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockSearchRegistry()
     {
@@ -406,7 +413,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
     }
 
     /**
-     * @return ConfigProvider|\PHPUnit_Framework_MockObject_MockObject
+     * @return ConfigProvider|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getConfigProvider()
     {
@@ -416,7 +423,7 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
                 ->disableOriginalConstructor()
                 ->getMock();
 
-            $config = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+            $config = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
 
             $this->configProvider
                 ->expects($this->any())
@@ -428,19 +435,19 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
     }
 
     /**
-     * @return ConverterInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return ConverterInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockConverter()
     {
         if (!$this->converter) {
-            $this->converter = $this->getMock('Oro\Bundle\FormBundle\Autocomplete\ConverterInterface');
+            $this->converter = $this->createMock('Oro\Bundle\FormBundle\Autocomplete\ConverterInterface');
         }
 
         return $this->converter;
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockFormType()
     {
@@ -448,19 +455,19 @@ class OroJquerySelect2HiddenTypeTest extends FormIntegrationTestCase
     }
 
     /**
-     * @return SearchHandlerInterface|\PHPUnit_Framework_MockObject_MockObject
+     * @return SearchHandlerInterface|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockSearchHandler()
     {
         if (!$this->searchHandler) {
-            $this->searchHandler = $this->getMock('Oro\Bundle\FormBundle\Autocomplete\SearchHandlerInterface');
+            $this->searchHandler = $this->createMock('Oro\Bundle\FormBundle\Autocomplete\SearchHandlerInterface');
         }
 
         return $this->searchHandler;
     }
 
     /**
-     * @return EntityToIdTransformer|\PHPUnit_Framework_MockObject_MockObject
+     * @return EntityToIdTransformer|\PHPUnit\Framework\MockObject\MockObject
      */
     public function getMockEntityToIdTransformer()
     {

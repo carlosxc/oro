@@ -3,17 +3,17 @@
 
 {% oro_title_set({params : {
     "%entityName%": entity_config.get('label')|default('N/A')|trans,
-    "%recordName%": 'oro.entity.item'|trans({'%id%': entity.id}) },
+    "%recordName%": entity|oro_format_name|default('oro.entity.item'|trans({'%id%': entity.id})) },
 }) %}
 
 {% block navButtons %}
-    {% if resource_granted('EDIT', entity) %}
+    {% if is_granted('EDIT', entity) %}
         {{ UI.editButton({
             'path': path('oro_entity_update', {entityName: entity_name, id: entity.id}),
             'entity_label': entity_config.get('label')|default('N/A')|trans
         }) }}
     {% endif %}
-    {% if resource_granted('DELETE', entity) %}
+    {% if is_granted('DELETE', entity) %}
         {{ UI.deleteButton({
             'dataUrl': path('oro_entity_delete', {'entityName': entity_class, 'id': entity.id}),
             'dataRedirect': path('oro_entity_index', {'entityName': entity_class}),
@@ -30,7 +30,7 @@
         'entity':      entity,
         'indexPath':   path('oro_entityconfig_index'),
         'indexLabel': 'oro.entity.plural_label'|trans,
-        'entityTitle': 'oro.entity.item'|trans({'%id%': entity.id}),
+        'entityTitle': entity|oro_format_name|default('oro.entity.item'|trans({'%id%': entity.id})),
         'additional': [{
             'indexPath'  : path('oro_entity_index', {entityName: entity_name}),
             'indexLabel' : entity_config.get('label')|default('N/A')|trans

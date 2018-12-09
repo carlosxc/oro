@@ -5,38 +5,38 @@ namespace Oro\Bundle\OrganizationBundle\Tests\Ownership;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
 use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\OrganizationBundle\Ownership\OwnerDeletionManager;
-use Oro\Bundle\SecurityBundle\Acl\Domain\ObjectIdAccessor;
 use Oro\Bundle\OrganizationBundle\Tests\Unit\Ownership\Fixture\Entity\TestEntity;
 use Oro\Bundle\OrganizationBundle\Tests\Unit\Ownership\Fixture\Entity\TestOwnerEntity;
+use Oro\Bundle\SecurityBundle\Acl\Domain\ObjectIdAccessor;
 use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadata;
 
-class OwnerDeletionManagerTest extends \PHPUnit_Framework_TestCase
+class OwnerDeletionManagerTest extends \PHPUnit\Framework\TestCase
 {
     /** @var OwnerDeletionManager */
     protected $ownerDeletionManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $defaultChecker;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $ownershipProvider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $ownershipMetadata;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
     protected function setUp()
     {
         $this->defaultChecker    =
-            $this->getMock('Oro\Bundle\OrganizationBundle\Ownership\OwnerAssignmentCheckerInterface');
+            $this->createMock('Oro\Bundle\OrganizationBundle\Ownership\OwnerAssignmentCheckerInterface');
         $this->ownershipProvider =
             $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider')
                 ->disableOriginalConstructor()
                 ->getMock();
         $this->ownershipMetadata =
-            $this->getMockBuilder('Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProvider')
+            $this->getMockBuilder('Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface')
                 ->disableOriginalConstructor()
                 ->getMock();
         $this->em                =
@@ -179,7 +179,7 @@ class OwnerDeletionManagerTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($entityOwnershipMetadata));
 
         $customChecker =
-            $this->getMock('Oro\Bundle\OrganizationBundle\Ownership\OwnerAssignmentCheckerInterface');
+            $this->createMock('Oro\Bundle\OrganizationBundle\Ownership\OwnerAssignmentCheckerInterface');
         $customChecker->expects($this->once())
             ->method('hasAssignments')
             ->with($ownerId, $entityClassName, 'owner', $this->identicalTo($this->em))

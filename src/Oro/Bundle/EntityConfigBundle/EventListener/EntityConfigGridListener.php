@@ -2,16 +2,13 @@
 
 namespace Oro\Bundle\EntityConfigBundle\EventListener;
 
+use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Event\BuildAfter;
 use Oro\Bundle\DataGridBundle\Event\BuildBefore;
-use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
-
 use Oro\Bundle\EntityConfigBundle\Provider\PropertyConfigContainer;
 
 class EntityConfigGridListener extends AbstractConfigGridListener
 {
-    const GRID_NAME = 'entityconfig-grid';
-
     /**
      * @var array|null
      */
@@ -39,7 +36,7 @@ class EntityConfigGridListener extends AbstractConfigGridListener
     }
 
     /**
-     * Call this method from datagrid.yml
+     * Call this method from datagrids.yml
      * invoked in Manager when datagrid configuration prepared for grid build process
      *
      * @return array

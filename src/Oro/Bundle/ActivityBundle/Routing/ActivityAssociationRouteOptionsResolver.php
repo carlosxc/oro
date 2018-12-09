@@ -2,15 +2,14 @@
 
 namespace Oro\Bundle\ActivityBundle\Routing;
 
-use Symfony\Component\Routing\Route;
-
-use Oro\Component\Routing\Resolver\RouteCollectionAccessor;
-use Oro\Component\Routing\Resolver\RouteOptionsResolverInterface;
-
 use Oro\Bundle\ActivityBundle\EntityConfig\ActivityScope;
+use Oro\Bundle\EntityBundle\Exception\EntityAliasNotFoundException;
 use Oro\Bundle\EntityBundle\ORM\EntityAliasResolver;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Oro\Component\Routing\Resolver\RouteCollectionAccessor;
+use Oro\Component\Routing\Resolver\RouteOptionsResolverInterface;
+use Symfony\Component\Routing\Route;
 
 class ActivityAssociationRouteOptionsResolver implements RouteOptionsResolverInterface
 {
@@ -71,12 +70,16 @@ class ActivityAssociationRouteOptionsResolver implements RouteOptionsResolverInt
     protected function getSupportedActivities()
     {
         if (null === $this->supportedActivities) {
-            $this->supportedActivities = array_map(
+            $this->supportedActivities = array_filter(array_map(
                 function (ConfigInterface $config) {
-                    // convert to entity alias
-                    return $this->entityAliasResolver->getPluralAlias(
-                        $config->getId()->getClassName()
-                    );
+                    try {
+                        // convert to entity alias
+                        return $this->entityAliasResolver->getPluralAlias(
+                            $config->getId()->getClassName()
+                        );
+                    } catch (EntityAliasNotFoundException $e) {
+                        return false;
+                    }
                 },
                 $this->groupingConfigProvider->filter(
                     function (ConfigInterface $config) {
@@ -88,7 +91,7 @@ class ActivityAssociationRouteOptionsResolver implements RouteOptionsResolverInt
                             && in_array(ActivityScope::GROUP_ACTIVITY, $groups, true);
                     }
                 )
-            );
+            ));
         }
 
         return $this->supportedActivities;

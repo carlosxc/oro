@@ -12,13 +12,16 @@ class Lexer
         Query::KEYWORD_SELECT,
         Query::KEYWORD_FROM,
         Query::KEYWORD_WHERE,
+        Query::KEYWORD_AGGREGATE,
 
         Query::KEYWORD_AND,
         Query::KEYWORD_OR,
 
         Query::KEYWORD_ORDER_BY,
         Query::KEYWORD_OFFSET,
-        Query::KEYWORD_MAX_RESULTS
+        Query::KEYWORD_MAX_RESULTS,
+
+        Query::KEYWORD_AS
     ];
 
     /**
@@ -86,7 +89,8 @@ class Lexer
                 $tokens[] = new Token(Token::STRING_TYPE, stripcslashes(substr($match[0], 1, -1)), $cursor + 1);
                 $cursor += strlen($match[0]);
             } elseif (preg_match(
-                '/and(?=[\s(])|\>\=|or(?=[\s(])|\<\=|in(?=[\s(])|\=|\!\=|\*|~|\!~|\>|\</A',
+                '/and(?=[\s(])|\>\=|or(?=[\s(])|\<\=|in(?=[\s(])|\=|\!\=|\*|~|\!~|\>|\<|' .
+                'exists(?=[\s(])|notexists(?=[\s(])|starts_with(?=[\s(])|like(?=[\s(])|notlike(?=[\s(])/A',
                 $expression,
                 $match,
                 null,

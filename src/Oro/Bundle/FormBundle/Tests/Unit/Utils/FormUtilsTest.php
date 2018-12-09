@@ -2,13 +2,13 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Utils;
 
-use Symfony\Component\Form\FormView;
-use Symfony\Component\Form\DataTransformerInterface;
-
-use Oro\Bundle\FormBundle\Utils\FormUtils;
 use Oro\Bundle\FormBundle\Tests\Unit\Stub\StubTransformer;
+use Oro\Bundle\FormBundle\Utils\FormUtils;
+use Oro\Component\Testing\Unit\Form\Type\Stub\EntityType;
+use Symfony\Component\Form\DataTransformerInterface;
+use Symfony\Component\Form\FormView;
 
-class FormUtilsTest extends \PHPUnit_Framework_TestCase
+class FormUtilsTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider optionsProvider
@@ -20,13 +20,13 @@ class FormUtilsTest extends \PHPUnit_Framework_TestCase
     public function testReplaceField($expectedOptions = [], $modifyOptions = [], $unsetOptions = [])
     {
         $testFieldName = 'testField';
-        $testTypeName  = 'testType';
         $testOptions   = ['required' => true, 'auto_initialize' => true];
 
-        $rootForm   = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-        $childForm  = $this->getMock('Symfony\Component\Form\Test\FormInterface');
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
-        $formType   = $this->getMock('Symfony\Component\Form\ResolvedFormTypeInterface');
+        $rootForm   = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $childForm  = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
+        $formType   = $this->createMock('Symfony\Component\Form\ResolvedFormTypeInterface');
+        $formType->expects($this->any())->method('getInnerType')->willReturn(new EntityType([]));
 
         $rootForm->expects($this->once())->method('get')->with($testFieldName)
             ->will($this->returnValue($childForm));
@@ -40,11 +40,8 @@ class FormUtilsTest extends \PHPUnit_Framework_TestCase
         $formConfig->expects($this->once())->method('getOptions')
             ->will($this->returnValue($testOptions));
 
-        $formType->expects($this->once())->method('getName')
-            ->will($this->returnValue($testTypeName));
-
         $rootForm->expects($this->once())->method('add')
-            ->with($testFieldName, $testTypeName, $expectedOptions);
+            ->with($testFieldName, EntityType::class, $expectedOptions);
 
         FormUtils::replaceField($rootForm, $testFieldName, $modifyOptions, $unsetOptions);
     }
@@ -123,7 +120,7 @@ class FormUtilsTest extends \PHPUnit_Framework_TestCase
      */
     public function testReplaceTransformer(array $existingTransformers, $type, $toReplace, array $expected)
     {
-        $builder = $this->getMock('Symfony\Component\Form\Test\FormBuilderInterface');
+        $builder = $this->createMock('Symfony\Component\Form\Test\FormBuilderInterface');
 
         $model = 'model' === $type;
         $builder->expects($this->once())->method($model ? 'getModelTransformers' : 'getViewTransformers')
@@ -152,8 +149,8 @@ class FormUtilsTest extends \PHPUnit_Framework_TestCase
         $newTransformer = new StubTransformer();
 
         $transformerOrigin = new StubTransformer();
-        $transformer1      = $this->getMock('Symfony\Component\Form\DataTransformerInterface');
-        $transformer3      = $this->getMock('Symfony\Component\Form\DataTransformerInterface');
+        $transformer1      = $this->createMock('Symfony\Component\Form\DataTransformerInterface');
+        $transformer3      = $this->createMock('Symfony\Component\Form\DataTransformerInterface');
 
         return [
             'should append view transformer'                => [
@@ -180,6 +177,74 @@ class FormUtilsTest extends \PHPUnit_Framework_TestCase
                 '$toReplace'            => $newTransformer,
                 '$expected'             => [$transformer1, $newTransformer, $transformer3],
             ],
+        ];
+    }
+
+    /**
+     * @dataProvider replaceOptionsDataProvider
+     *
+     * @param array $fieldOptions
+     * @param array $replaceOptions
+     * @param array $expectedOptions
+     */
+    public function testReplaceFieldOptionsRecursive($fieldOptions = [], $replaceOptions = [], $expectedOptions = [])
+    {
+        $testFieldName = 'testField';
+
+        $typeStub = new EntityType([], 'test_type');
+        $rootForm   = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $childForm  = $this->createMock('Symfony\Component\Form\Test\FormInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
+        $formType   = $this->createMock('Symfony\Component\Form\ResolvedFormTypeInterface');
+        $formType
+            ->expects($this->any())
+            ->method('getInnerType')
+            ->willReturn($typeStub);
+
+        $rootForm->expects($this->once())->method('get')->with($testFieldName)
+            ->will($this->returnValue($childForm));
+
+        $childForm->expects($this->once())->method('getConfig')
+            ->will($this->returnValue($formConfig));
+
+        $formConfig->expects($this->once())->method('getType')
+            ->will($this->returnValue($formType));
+
+        $formConfig->expects($this->once())->method('getOptions')
+            ->will($this->returnValue($fieldOptions));
+
+        $rootForm->expects($this->once())->method('add')
+            ->with($testFieldName, EntityType::class, $expectedOptions);
+
+        FormUtils::replaceFieldOptionsRecursive($rootForm, $testFieldName, $replaceOptions);
+    }
+
+    /**
+     * @return array
+     */
+    public function replaceOptionsDataProvider()
+    {
+        return [
+            'no options modified' => [
+                ['required' => true, 'attr' => ['readonly' => true]],
+                [],
+                ['required' => true, 'attr' => ['readonly' => true]]
+            ],
+            'disabled option is merged and replaces existing option' => [
+                ['attr' => ['disabled' => true]],
+                ['attr' => ['disabled' => false]],
+                ['attr' => ['disabled' => false]]
+            ],
+            'string option is replaced' => [
+                ['required' => true],
+                ['required' => false],
+                ['required' => false]
+            ],
+            'readonly option is merged and added to attr array option' => [
+                ['attr' => []],
+                ['attr' => ['readonly' => true]],
+                ['attr' => ['readonly' => true]],
+            ]
         ];
     }
 }

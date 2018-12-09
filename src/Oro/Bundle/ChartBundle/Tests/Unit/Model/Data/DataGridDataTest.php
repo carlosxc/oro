@@ -4,15 +4,15 @@ namespace Oro\Bundle\ChartBundle\Tests\Unit\Model\Data;
 
 use Oro\Bundle\ChartBundle\Model\Data\DataGridData;
 
-class DataGridDataTest extends \PHPUnit_Framework_TestCase
+class DataGridDataTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $datagrid;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $resultObject;
 
@@ -23,7 +23,7 @@ class DataGridDataTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $this->datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $this->resultObject = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Datagrid\Common\ResultsObject')
             ->disableOriginalConstructor()
             ->getMock();

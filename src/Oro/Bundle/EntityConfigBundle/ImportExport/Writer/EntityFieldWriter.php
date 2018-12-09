@@ -3,16 +3,19 @@
 namespace Oro\Bundle\EntityConfigBundle\ImportExport\Writer;
 
 use Akeneo\Bundle\BatchBundle\Item\ItemWriterInterface;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Entity\FieldConfigModel;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Oro\Bundle\EntityConfigBundle\Provider\EntityFieldStateChecker;
 use Oro\Bundle\EntityConfigBundle\Translation\ConfigTranslationHelper;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Tools\EnumSynchronizer;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
 
+/**
+ * Import writer for extend entity attributes
+ */
 class EntityFieldWriter implements ItemWriterInterface
 {
     /** @var ConfigManager */
@@ -24,19 +27,25 @@ class EntityFieldWriter implements ItemWriterInterface
     /** @var EnumSynchronizer */
     protected $enumSynchronizer;
 
+    /** @var EntityFieldStateChecker */
+    private $stateChecker;
+
     /**
      * @param ConfigManager $configManager
      * @param ConfigTranslationHelper $translationHelper
      * @param EnumSynchronizer $enumSynchronizer
+     * @param EntityFieldStateChecker $entityFieldStateChecker
      */
     public function __construct(
         ConfigManager $configManager,
         ConfigTranslationHelper $translationHelper,
-        EnumSynchronizer $enumSynchronizer
+        EnumSynchronizer $enumSynchronizer,
+        EntityFieldStateChecker $entityFieldStateChecker
     ) {
         $this->configManager = $configManager;
         $this->translationHelper = $translationHelper;
         $this->enumSynchronizer = $enumSynchronizer;
+        $this->stateChecker = $entityFieldStateChecker;
     }
 
     /**
@@ -62,11 +71,15 @@ class EntityFieldWriter implements ItemWriterInterface
     {
         $className = $configModel->getEntity()->getClassName();
         $fieldName = $configModel->getFieldName();
-        $state = ExtendScope::STATE_UPDATE;
+        $state = ExtendScope::STATE_ACTIVE;
 
         if (!$this->configManager->hasConfig($className, $fieldName)) {
             $this->configManager->createConfigFieldModel($className, $fieldName, $configModel->getType());
             $state = ExtendScope::STATE_NEW;
+        }
+
+        if ($state === ExtendScope::STATE_ACTIVE && $this->stateChecker->isSchemaUpdateNeeded($configModel)) {
+            $state = ExtendScope::STATE_UPDATE;
         }
 
         $translations = [];
@@ -84,10 +97,9 @@ class EntityFieldWriter implements ItemWriterInterface
             );
         }
 
-        $this->setExtendData($className, $fieldName, $state);
-        $this->updateEntityState($className);
+        $this->setExtendData($configModel, $state);
 
-        if ($state === ExtendScope::STATE_UPDATE && in_array($configModel->getType(), ['enum', 'multiEnum'], true)) {
+        if ($state !== ExtendScope::STATE_NEW && in_array($configModel->getType(), ['enum', 'multiEnum'], true)) {
             $this->setEnumData($configModel->toArray('enum'), $className, $fieldName);
         }
 
@@ -131,23 +143,6 @@ class EntityFieldWriter implements ItemWriterInterface
     }
 
     /**
-     * @param string $className
-     */
-    protected function updateEntityState($className)
-    {
-        $provider = $this->configManager->getProvider('extend');
-        if (!$provider) {
-            return;
-        }
-
-        $entityConfig = $provider->getConfig($className);
-        if (!$entityConfig->is('state', ExtendScope::STATE_UPDATE)) {
-            $entityConfig->set('state', ExtendScope::STATE_UPDATE);
-            $this->configManager->persist($entityConfig);
-        }
-    }
-
-    /**
      * @param array $data
      * @param string $className
      * @param string $fieldName
@@ -167,37 +162,27 @@ class EntityFieldWriter implements ItemWriterInterface
 
         $enumValueClassName = ExtendHelper::buildEnumValueClassName($enumCode);
 
-        $enumOptions = array_map(
-            function ($option) {
-                if (!isset($option['id'])) {
-                    $option['id'] = $option['label'];
-                }
-
-                return $option;
-            },
-            $data['enum_options']
-        );
-
         if ($provider->hasConfig($enumValueClassName)) {
             $this->enumSynchronizer->applyEnumOptions(
                 $enumValueClassName,
-                $enumOptions,
+                $this->getUniqueOptions($data['enum_options']),
                 $this->translationHelper->getLocale()
             );
         }
     }
 
     /**
-     * @param string $className
-     * @param string $fieldName
+     * @param FieldConfigModel $configModel
      * @param string $state
      */
-    protected function setExtendData($className, $fieldName, $state)
+    protected function setExtendData(FieldConfigModel $configModel, $state)
     {
         $provider = $this->configManager->getProvider('extend');
         if (!$provider) {
             return;
         }
+        $className = $configModel->getEntity()->getClassName();
+        $fieldName = $configModel->getFieldName();
 
         $config = $provider->getConfig($className, $fieldName);
         $data = [
@@ -206,7 +191,7 @@ class EntityFieldWriter implements ItemWriterInterface
             'origin' => ExtendScope::ORIGIN_CUSTOM,
             'is_extend' => true,
             'is_deleted' => false,
-            'is_serialized' => false
+            'is_serialized' => $config->get('is_serialized', false, false)
         ];
 
         foreach ($data as $code => $value) {
@@ -214,5 +199,33 @@ class EntityFieldWriter implements ItemWriterInterface
         }
 
         $this->configManager->persist($config);
+    }
+
+    /**
+     * @param array $options
+     * @return array
+     */
+    private function getUniqueOptions(array $options)
+    {
+        $processedIds = [];
+        $processedLabels = [];
+        $result = [];
+
+        foreach ($options as $key => $opts) {
+            if (isset($opts['id']) && $opts['id'] !== null && $opts['id'] !== '') {
+                if (empty($processedIds[$opts['id']])) {
+                    $processedIds[$opts['id']] = true;
+                    $result[$key] = $opts;
+                }
+            } elseif (isset($opts['label'])) {
+                $labelKey = trim($opts['label']);
+                if (empty($processedLabels[$labelKey])) {
+                    $processedLabels[$labelKey] = true;
+                    $result[$key] = $opts;
+                }
+            }
+        }
+
+        return $result;
     }
 }

@@ -5,26 +5,19 @@ namespace Oro\Bundle\ImportExportBundle\Handler;
 use Oro\Bundle\ImportExportBundle\Job\JobResult;
 use Oro\Bundle\ImportExportBundle\Processor\ProcessorRegistry;
 
+/**
+ * Handles import, checks whatever job was successful otherwise fills errors array
+ */
 class CliImportHandler extends AbstractImportHandler
 {
-    /**
-     * @var string
-     */
-    protected $importingFileName;
-
     /**
      * {@inheritdoc}
      */
     public function handleImportValidation(
         $jobName,
         $processorAlias,
-        $inputFormat = 'csv',
-        $inputFilePrefix = null,
         array $options = []
     ) {
-        if ($inputFilePrefix === null) {
-            $inputFilePrefix = $processorAlias;
-        }
         $entityName = $this->processorRegistry->getProcessorEntityName(
             ProcessorRegistry::TYPE_IMPORT_VALIDATION,
             $processorAlias
@@ -33,8 +26,6 @@ class CliImportHandler extends AbstractImportHandler
         $jobResult = $this->executeValidation(
             $jobName,
             $processorAlias,
-            $inputFormat,
-            $inputFilePrefix,
             $options,
             $entityName
         );
@@ -61,12 +52,10 @@ class CliImportHandler extends AbstractImportHandler
     public function handleImport(
         $jobName,
         $processorAlias,
-        $inputFormat = 'csv',
-        $inputFilePrefix = null,
         array $options = []
     ) {
-        $jobResult = $this->executeJob($jobName, $processorAlias, $inputFormat, $options);
-
+        $jobResult = $this->executeJob($jobName, $processorAlias, $options);
+        $entityName = '';
         $counts = $this->getValidationCounts($jobResult);
 
         $errors = [];
@@ -76,6 +65,12 @@ class CliImportHandler extends AbstractImportHandler
 
         $isSuccessful = $jobResult->isSuccessful() && isset($counts['process']) && $counts['process'] > 0;
 
+        if ($isSuccessful) {
+            $entityName = $this->processorRegistry->getProcessorEntityName(
+                ProcessorRegistry::TYPE_IMPORT,
+                $processorAlias
+            );
+        }
         $message = $isSuccessful
             ? $this->translator->trans('oro.importexport.import.success')
             : $this->translator->trans('oro.importexport.import.error');
@@ -85,23 +80,10 @@ class CliImportHandler extends AbstractImportHandler
             'counts'  => $counts,
             'errors'  => $errors,
             'message' => $message,
+            'importInfo' => $this->getImportInfo($counts, $entityName),
+            'postponedRows' => $jobResult->getContext()->getPostponedRows(),
+            'deadlockDetected' => $jobResult->getContext()->getValue('deadlockDetected')
         ];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function getImportingFileName($inputFormat, $inputFilePrefix = null)
-    {
-        return $this->importingFileName;
-    }
-
-    /**
-     * @param string $fileName
-     */
-    public function setImportingFileName($fileName)
-    {
-        $this->importingFileName = $fileName;
     }
 
     /**

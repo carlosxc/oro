@@ -2,102 +2,102 @@
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Query;
 
 use Oro\Bundle\SearchBundle\Query\Criteria\Comparison;
-use Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Product;
-
+use Oro\Bundle\SearchBundle\Query\Query;
 use Oro\Bundle\SearchBundle\Query\Result;
 use Oro\Bundle\SearchBundle\Query\Result\Item;
-use Oro\Bundle\SearchBundle\Query\Query;
+use Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Product;
 
-class ResultTest extends \PHPUnit_Framework_TestCase
+class ResultTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \Oro\Bundle\SearchBundle\Query\Result
+     * @var array
      */
-    private $result;
+    protected $items = [];
+
+    /**
+     * @var Result
+     */
+    protected $result;
+
+    /**
+     * @var Result
+     */
+    protected $result1;
+
+    /**
+     * @var array
+     */
+    protected static $aggregatedData = [
+        'test_name' => [
+            'field' => 'test_field_name',
+            'function' => Query::AGGREGATE_FUNCTION_COUNT
+        ]
+    ];
 
     protected function setUp()
     {
-        if (!interface_exists('Doctrine\Common\Persistence\ObjectManager')) {
-            $this->markTestSkipped('Doctrine Common has to be installed for this test to run.');
-        }
+        $product = new Product();
+        $product->setName('test product');
 
-        $this->om = $this->getMock('Doctrine\Common\Persistence\ObjectManager');
-        $this->repository = $this->getMock('Doctrine\Common\Persistence\ObjectRepository');
-
-        $this->om->expects($this->any())
-            ->method('getRepository')
-            ->with($this->equalTo('OroTestBundle:test'))
-            ->will($this->returnValue($this->repository));
-
-        $this->product = new Product();
-        $this->product->setName('test product');
-
-        $this->repository->expects($this->any())
-            ->method('find')
-            ->will($this->returnValue($this->product));
-
-        $items[] = new Item(
-            $this->om,
+        $this->items[] = new Item(
             'OroTestBundle:test',
             1,
             'test title',
             'http://example.com',
             [],
-            array(
+            [
                  'alias' => 'test_product',
                  'label' => 'test product',
-                 'fields' => array(
-                     array(
+                 'fields' => [
+                     [
                          'name'          => 'name',
                          'target_type'   => 'text',
-                     ),
-                 ),
-            )
+                     ],
+                 ],
+            ]
         );
-        $items[] = new Item(
-            $this->om,
+        $this->items[] = new Item(
             'OroTestBundle:test',
             2,
             'test title 2',
             'http://example.com',
             [],
-            array(
+            [
                  'alias' => 'test_product',
                  'label' => 'test product',
-                 'fields' => array(
-                     array(
+                 'fields' => [
+                     [
                          'name'          => 'name',
                          'target_type'   => 'text',
-                     ),
-                 ),
-            )
+                     ],
+                 ],
+            ]
         );
-        $items[] = new Item(
-            $this->om,
+        $this->items[] = new Item(
             'OroTestBundle:test',
             3,
             'test title 3',
             'http://example.com',
             [],
-            array(
+            [
                  'alias' => 'test_product',
                  'label' => 'test product',
-                 'fields' => array(
-                     array(
+                 'fields' => [
+                     [
                          'name'          => 'name',
                          'target_type'   => 'text',
-                     ),
-                 ),
-            )
+                     ],
+                 ],
+            ]
         );
 
         $query = new Query();
         $query
-            ->from(array('OroTestBundle:test', 'OroTestBundle:product'))
+            ->from(['OroTestBundle:test', 'OroTestBundle:product'])
             ->andWhere('name', Query::OPERATOR_CONTAINS, 'test string', Query::TYPE_TEXT);
 
-        $this->result = new Result($query, $items, 3);
-        $this->result1 = new Result($query, array(), 0);
+        $this->result = new Result($query, $this->items, 3, self::$aggregatedData);
+        $this->result1 = new Result($query, [], 0);
     }
 
     public function testGetQuery()
@@ -130,5 +130,16 @@ class ResultTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('test title 3', $resultArray['data'][2]['record_string']);
 
         $this->result1->toSearchResultData();
+    }
+
+    public function testGetAggregatedData()
+    {
+        $this->assertSame(self::$aggregatedData, $this->result->getAggregatedData());
+        $this->assertSame([], $this->result1->getAggregatedData());
+    }
+
+    public function testToArray()
+    {
+        $this->assertEquals($this->items, $this->result->toArray());
     }
 }

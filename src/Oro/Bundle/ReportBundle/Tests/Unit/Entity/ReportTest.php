@@ -4,7 +4,7 @@ namespace Oro\Bundle\ReportBundle\Tests\Unit\Entity;
 
 use Oro\Bundle\ReportBundle\Entity\Report;
 
-class ReportTest extends \PHPUnit_Framework_TestCase
+class ReportTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider getSetDataProvider
@@ -19,7 +19,7 @@ class ReportTest extends \PHPUnit_Framework_TestCase
 
     public function getSetDataProvider()
     {
-        $organization = $this->getMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
+        $organization = $this->createMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
         return array(
             'organization' => array('organization', $organization, $organization)
         );

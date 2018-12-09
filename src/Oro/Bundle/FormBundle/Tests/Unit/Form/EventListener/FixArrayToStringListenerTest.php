@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Type;
 
-use Symfony\Component\Form\FormEvents;
+use Oro\Bundle\FormBundle\Form\EventListener\FixArrayToStringListener;
 use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\Tests\FormInterface;
 
-use Oro\Bundle\FormBundle\Form\EventListener\FixArrayToStringListener;
-
-class FixArrayToStringListenerTest extends \PHPUnit_Framework_TestCase
+class FixArrayToStringListenerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider preBindDataProvider
@@ -19,7 +18,7 @@ class FixArrayToStringListenerTest extends \PHPUnit_Framework_TestCase
      */
     public function testPreBind($delimiter, $data, $expectedData)
     {
-        $event = new FormEvent($this->getMock('Symfony\Component\Form\Test\FormInterface'), $data);
+        $event = new FormEvent($this->createMock('Symfony\Component\Form\Test\FormInterface'), $data);
         $listener = new FixArrayToStringListener($delimiter);
         $listener->preSubmit($event);
         $this->assertEquals($expectedData, $event->getData());

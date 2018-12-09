@@ -3,19 +3,19 @@
 namespace Oro\Bundle\FeatureToggleBundle\Tests\Unit\Checker\Voter;
 
 use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\FeatureToggleBundle\Checker\Voter\ConfigVoter;
 use Oro\Bundle\FeatureToggleBundle\Checker\Voter\VoterInterface;
 use Oro\Bundle\FeatureToggleBundle\Configuration\ConfigurationManager;
-use Oro\Bundle\FeatureToggleBundle\Checker\Voter\ConfigVoter;
 
-class ConfigVoterTest extends \PHPUnit_Framework_TestCase
+class ConfigVoterTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var ConfigManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $configManager;
 
     /**
-     * @var ConfigurationManager|\PHPUnit_Framework_MockObject_MockObject
+     * @var ConfigurationManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected $featureConfigManager;
 
@@ -68,5 +68,22 @@ class ConfigVoterTest extends \PHPUnit_Framework_TestCase
             [true, VoterInterface::FEATURE_ENABLED],
             [false, VoterInterface::FEATURE_DISABLED]
         ];
+    }
+
+    public function testVoteAbstain()
+    {
+        $feature = 'test';
+        $scopeIdentifier = new \stdClass();
+        $toggle = null;
+
+        $this->featureConfigManager->expects($this->once())
+            ->method('get')
+            ->with($feature, ConfigVoter::TOGGLE_KEY)
+            ->willReturn($toggle);
+
+        $this->configManager->expects($this->never())
+            ->method($this->anything());
+
+        $this->assertEquals(VoterInterface::FEATURE_ABSTAIN, $this->configVoter->vote($feature, $scopeIdentifier));
     }
 }

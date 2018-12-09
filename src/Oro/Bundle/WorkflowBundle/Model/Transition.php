@@ -3,12 +3,12 @@
 namespace Oro\Bundle\WorkflowBundle\Model;
 
 use Doctrine\Common\Collections\Collection;
-
-use Oro\Component\Action\Action\ActionInterface;
-use Oro\Component\ConfigExpression\ExpressionInterface;
-
+use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowItem;
 use Oro\Bundle\WorkflowBundle\Exception\ForbiddenTransitionException;
+use Oro\Bundle\WorkflowBundle\Resolver\TransitionOptionsResolver;
+use Oro\Component\Action\Action\ActionInterface;
+use Oro\Component\ConfigExpression\ExpressionInterface;
 
 /**
  * @SuppressWarnings(PHPMD.TooManyFields)
@@ -17,105 +17,100 @@ use Oro\Bundle\WorkflowBundle\Exception\ForbiddenTransitionException;
  */
 class Transition
 {
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $name;
 
-    /**
-     * @var Step
-     */
+    /** @var Step */
     protected $stepTo;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $label;
 
-    /**
-     * @var ExpressionInterface|null
-     */
+    /** @var string */
+    protected $buttonLabel;
+
+    /** @var string */
+    protected $buttonTitle;
+
+    /** @var ExpressionInterface|null */
     protected $condition;
 
-    /**
-     * @var ExpressionInterface|null
-     */
+    /** @var ExpressionInterface|null */
     protected $preCondition;
 
-    /**
-     * @var ActionInterface|null
-     */
+    /** @var ActionInterface|null */
     protected $preAction;
 
-    /**
-     * @var ActionInterface|null
-     */
+    /** @var ActionInterface|null */
     protected $action;
 
-    /**
-     * @var bool
-     */
+    /** @var bool */
     protected $start = false;
 
-    /**
-     * @var bool
-     */
+    /** @var bool */
     protected $hidden = false;
 
-    /**
-     * @var array
-     */
+    /** @var array */
     protected $frontendOptions = array();
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $formType;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $displayType;
 
-    /**
-     * @var array
-     */
+    /** @var array */
     protected $formOptions = array();
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $message;
 
-    /**
-     * @var bool
-     */
+    /** @var bool */
     protected $unavailableHidden = false;
 
-    /**
-     * @var string
-     */
+    /** @var string */
+    protected $destinationPage;
+
+    /** @var string */
     protected $pageTemplate;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $dialogTemplate;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $scheduleCron;
 
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $scheduleFilter;
 
-    /**
-     * @var bool
-     */
+    /** @var bool */
     protected $scheduleCheckConditions = false;
+
+    /** @var array */
+    protected $initEntities = [];
+
+    /** @var array */
+    protected $initRoutes = [];
+
+    /** @var array */
+    protected $initDatagrids = [];
+
+    /** @var string */
+    protected $initContextAttribute;
+
+    /** @var bool */
+    protected $hasFormConfiguration = false;
+
+    /** @var TransitionOptionsResolver */
+    protected $optionsResolver;
+
+    /**
+     * @param TransitionOptionsResolver $optionsResolver
+     */
+    public function __construct(TransitionOptionsResolver $optionsResolver)
+    {
+        $this->optionsResolver = $optionsResolver;
+    }
 
     /**
      * Set label.
@@ -137,6 +132,44 @@ class Transition
     public function getLabel()
     {
         return $this->label;
+    }
+
+    /**
+     * @param string $buttonLabel
+     *
+     * @return Transition
+     */
+    public function setButtonLabel($buttonLabel)
+    {
+        $this->buttonLabel = $buttonLabel;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getButtonLabel()
+    {
+        return $this->buttonLabel;
+    }
+
+    /**
+     * @param string $buttonTitle
+     *
+     * @return Transition
+     */
+    public function setButtonTitle($buttonTitle)
+    {
+        $this->buttonTitle = $buttonTitle;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getButtonTitle()
+    {
+        return $this->buttonTitle;
     }
 
     /**
@@ -321,11 +354,13 @@ class Transition
      */
     public function isAvailable(WorkflowItem $workflowItem, Collection $errors = null)
     {
-        if ($this->hasForm()) {
-            return $this->isPreConditionAllowed($workflowItem, $errors);
-        } else {
-            return $this->isAllowed($workflowItem, $errors);
-        }
+        $result = $this->hasForm()
+            ? $this->isPreConditionAllowed($workflowItem, $errors)
+            : $this->isAllowed($workflowItem, $errors);
+
+        $this->optionsResolver->resolveTransitionOptions($this, $workflowItem);
+
+        return $result;
     }
 
     /**
@@ -397,7 +432,8 @@ class Transition
      */
     public function hasForm()
     {
-        return !empty($this->formOptions) && !empty($this->formOptions['attribute_fields']);
+        return (!empty($this->formOptions) && !empty($this->formOptions['attribute_fields']))
+            || $this->hasFormConfiguration() || $this->getDisplayType() === 'page';
     }
 
     /**
@@ -510,6 +546,25 @@ class Transition
     }
 
     /**
+     * @param string $destinationPage
+     * @return Transition
+     */
+    public function setDestinationPage($destinationPage)
+    {
+        $this->destinationPage = $destinationPage;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDestinationPage()
+    {
+        return $this->destinationPage;
+    }
+
+    /**
      * @param string $transitionTemplate
      * @return Transition
      */
@@ -609,6 +664,134 @@ class Transition
      */
     public function __toString()
     {
-        return $this->name;
+        return (string)$this->name;
+    }
+
+    /**
+     * @return array
+     */
+    public function getInitEntities()
+    {
+        return $this->initEntities;
+    }
+
+    /**
+     * @param array $initEntities
+     *
+     * @return $this
+     */
+    public function setInitEntities(array $initEntities)
+    {
+        $this->initEntities = $initEntities;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getInitRoutes()
+    {
+        return $this->initRoutes;
+    }
+
+    /**
+     * @param array $initRoutes
+     *
+     * @return $this
+     */
+    public function setInitRoutes(array $initRoutes)
+    {
+        $this->initRoutes = $initRoutes;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getInitDatagrids()
+    {
+        return $this->initDatagrids;
+    }
+
+    /**
+     * @param array $initDatagrids
+     *
+     * @return $this
+     */
+    public function setInitDatagrids(array $initDatagrids)
+    {
+        $this->initDatagrids = $initDatagrids;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEmptyInitOptions()
+    {
+        return !count($this->getInitEntities()) && !count($this->getInitRoutes()) && !count($this->getInitDatagrids());
+    }
+
+    /**
+     * @return string
+     */
+    public function getInitContextAttribute()
+    {
+        return $this->initContextAttribute;
+    }
+
+    /**
+     * @param string $initContextAttribute
+     *
+     * @return $this
+     */
+    public function setInitContextAttribute($initContextAttribute)
+    {
+        $this->initContextAttribute = $initContextAttribute;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getFormHandler()
+    {
+        return $this->formOptions[WorkflowConfiguration::NODE_FORM_OPTIONS_CONFIGURATION]['handler'];
+    }
+
+    /**
+     * @return string
+     */
+    public function getFormDataAttribute()
+    {
+        return $this->formOptions[WorkflowConfiguration::NODE_FORM_OPTIONS_CONFIGURATION]['data_attribute'];
+    }
+
+    /**
+     * @return string
+     */
+    public function getFormTemplate()
+    {
+        return $this->formOptions[WorkflowConfiguration::NODE_FORM_OPTIONS_CONFIGURATION]['template'];
+    }
+
+    /**
+     * @return string
+     */
+    public function getFormDataProvider()
+    {
+        return $this->formOptions[WorkflowConfiguration::NODE_FORM_OPTIONS_CONFIGURATION]['data_provider'];
+    }
+
+    /**
+     * @return boolean
+     */
+    public function hasFormConfiguration()
+    {
+        return !empty($this->formOptions[WorkflowConfiguration::NODE_FORM_OPTIONS_CONFIGURATION]);
     }
 }

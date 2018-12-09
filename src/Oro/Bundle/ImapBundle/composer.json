@@ -6,10 +6,10 @@
     "homepage": "https://github.com/laboro/ImapBundle",
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "oro/log": "dev-master",
-        "zendframework/zend-mail": "2.1.5",
+        "zendframework/zend-mail": "2.10.0",
         "oro/platform-bundle": "dev-master",
         "oro/email-bundle": "dev-master",
         "oro/google-integration-bundle": "dev-master"
@@ -18,7 +18,6 @@
         "psr-0": { "Oro\\Bundle\\ImapBundle": "" }
     },
     "target-dir": "Oro/Bundle/ImapBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

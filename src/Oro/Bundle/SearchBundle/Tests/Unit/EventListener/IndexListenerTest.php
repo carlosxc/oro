@@ -5,22 +5,25 @@ namespace Oro\Bundle\SearchBundle\Tests\Unit\EventListener;
 use Doctrine\ORM\Event\OnClearEventArgs;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
-
+use Doctrine\ORM\Mapping\ClassMetadataInfo;
+use Oro\Bundle\SearchBundle\Engine\IndexerInterface;
 use Oro\Bundle\SearchBundle\EventListener\IndexListener;
 use Oro\Bundle\SearchBundle\Provider\SearchMappingProvider;
+use Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Manufacturer;
 use Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Product;
+use Symfony\Component\PropertyAccess\PropertyAccessor;
 
-class IndexListenerTest extends \PHPUnit_Framework_TestCase
+class IndexListenerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $doctrineHelper;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
-    protected $searchEngine;
+    protected $searchIndexer;
 
     /**
      * @var array
@@ -37,11 +40,12 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
+        $this->markTestSkipped('Due to BAP-13223');
         $this->doctrineHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\DoctrineHelper')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->searchEngine = $this->getMock('Oro\Bundle\SearchBundle\Engine\EngineInterface');
+        $this->searchIndexer = $this->createMock(IndexerInterface::class);
     }
 
     public function testOnFlush()
@@ -57,6 +61,8 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
         $deletedEntityReference->class = $entityClass;
         $deletedEntityReference->id = $entityId;
 
+        $meta = $this->createClassMetadata();
+
         $unitOfWork = $this->getMockBuilder('Doctrine\ORM\UnitOfWork')
             ->disableOriginalConstructor()
             ->getMock();
@@ -65,7 +71,7 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
                 'inserted' => $insertedEntity,
                 'not_supported' => $notSupportedEntity,
             ]));
-        $unitOfWork->expects($this->once())->method('getScheduledEntityUpdates')
+        $unitOfWork->expects($this->any())->method('getScheduledEntityUpdates')
             ->will($this->returnValue([
                 'updated' => $updatedEntity,
                 'not_supported' => $notSupportedEntity,
@@ -92,6 +98,8 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($unitOfWork));
         $entityManager->expects($this->once())->method('getReference')->with($entityClass, $entityId)
             ->will($this->returnValue($deletedEntityReference));
+        $entityManager->expects($this->any())->method('getClassMetadata')
+            ->will($this->returnValue($meta));
 
         $listener = $this->createListener();
         $listener->onFlush(new OnFlushEventArgs($entityManager));
@@ -110,18 +118,14 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
 
     public function testPostFlushNoEntities()
     {
-        $this->searchEngine->expects($this->never())->method('save');
-        $this->searchEngine->expects($this->never())->method('delete');
+        $this->searchIndexer->expects($this->never())->method('save');
+        $this->searchIndexer->expects($this->never())->method('delete');
 
         $listener = $this->createListener();
         $listener->postFlush(new PostFlushEventArgs($this->createEntityManager()));
     }
 
-    /**
-     * @param bool $realTime
-     * @dataProvider postFlushDataProvider
-     */
-    public function testPostFlush($realTime)
+    public function testPostFlush()
     {
         $insertedEntity = $this->createTestEntity('inserted');
         $insertedEntities = ['inserted' => $insertedEntity];
@@ -133,21 +137,34 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
             ->getMock();
         $unitOfWork->expects($this->once())->method('getScheduledEntityInsertions')
             ->will($this->returnValue($insertedEntities));
-        $unitOfWork->expects($this->once())->method('getScheduledEntityUpdates')
+        $unitOfWork->expects($this->exactly(2))->method('getScheduledEntityUpdates')
             ->will($this->returnValue([]));
         $unitOfWork->expects($this->once())->method('getScheduledEntityDeletions')
             ->will($this->returnValue($deletedEntities));
+
+        $meta = $this->createClassMetadata();
 
         $entityManager = $this->createEntityManager();
         $entityManager->expects($this->any())->method('getUnitOfWork')
             ->will($this->returnValue($unitOfWork));
         $entityManager->expects($this->once())->method('getReference')
             ->will($this->returnValue($deletedEntity));
+        $entityManager->expects($this->any())->method('getClassMetadata')
+            ->will($this->returnValue($meta));
 
-        $this->searchEngine->expects($this->once())->method('save')->with($insertedEntities, $realTime);
-        $this->searchEngine->expects($this->once())->method('delete')->with($deletedEntities, $realTime);
+        $this->searchIndexer
+            ->expects($this->once())
+            ->method('save')
+            ->with($insertedEntities)
+        ;
 
-        $listener = $this->createListener($realTime);
+        $this->searchIndexer
+            ->expects($this->once())
+            ->method('delete')
+            ->with($deletedEntities)
+        ;
+
+        $listener = $this->createListener();
         $listener->onFlush(new OnFlushEventArgs($entityManager));
         $listener->postFlush(new PostFlushEventArgs($entityManager));
 
@@ -166,16 +183,18 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()->getMock();
         $unitOfWork->expects($this->once())->method('getScheduledEntityInsertions')
             ->will($this->returnValue($insertedEntities));
-        $unitOfWork->expects($this->once())->method('getScheduledEntityUpdates')
+        $unitOfWork->expects($this->exactly(2))->method('getScheduledEntityUpdates')
             ->will($this->returnValue([]));
         $unitOfWork->expects($this->once())->method('getScheduledEntityDeletions')
             ->will($this->returnValue($deletedEntities));
 
+        $meta = $this->createClassMetadata();
+
         $entityManager = $this->createEntityManager();
         $entityManager->expects($this->any())->method('getUnitOfWork')
             ->will($this->returnValue($unitOfWork));
-        $entityManager->expects($this->once())->method('getReference')
-            ->will($this->returnValue($deletedEntity));
+        $entityManager->expects($this->any())->method('getClassMetadata')
+            ->will($this->returnValue($meta));
 
         $listener = $this->createListener();
         $listener->onFlush(new OnFlushEventArgs($entityManager));
@@ -186,46 +205,11 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return array
-     */
-    public function postFlushDataProvider()
-    {
-        return [
-            'realtime' => [true],
-            'queued'   => [false],
-        ];
-    }
-
-    public function testSetRealTimeUpdate()
-    {
-        $listener = $this->createListener();
-
-        $this->assertAttributeEquals(true, 'realTimeUpdate', $listener);
-        $listener->setRealTimeUpdate(false);
-        $this->assertAttributeEquals(false, 'realTimeUpdate', $listener);
-        $listener->setRealTimeUpdate(true);
-        $this->assertAttributeEquals(true, 'realTimeUpdate', $listener);
-    }
-
-    public function testSetEntitiesConfig()
-    {
-        $listener = $this->createListener();
-        $config = ['key' => 'value'];
-
-        $this->assertAttributeEquals($this->entitiesMapping, 'entitiesConfig', $listener);
-        $listener->setEntitiesConfig($config);
-        $this->assertAttributeEquals($config, 'entitiesConfig', $listener);
-    }
-
-    /**
-     * @param bool $realTime
      * @return IndexListener
      */
-    protected function createListener($realTime = true)
+    protected function createListener()
     {
-        $listener = new IndexListener($this->doctrineHelper, $this->searchEngine);
-        $listener->setRealTimeUpdate($realTime);
-        $listener->setEntitiesConfig($this->entitiesMapping);
+        $listener = new IndexListener($this->doctrineHelper, $this->searchIndexer, new PropertyAccessor());
 
         $eventDispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcher')
             ->disableOriginalConstructor()->getMock();
@@ -244,17 +228,43 @@ class IndexListenerTest extends \PHPUnit_Framework_TestCase
     {
         $result = new Product();
         $result->setName($name);
+        $result->setManufacturer(new Manufacturer());
 
         return $result;
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function createEntityManager()
     {
         return $this->getMockBuilder('Doctrine\ORM\EntityManager')
             ->disableOriginalConstructor()
             ->getMock();
+    }
+
+    /**
+     * @return \PHPUnit\Framework\MockObject\MockObject
+     */
+    protected function createClassMetadata()
+    {
+        $metaProperties = [
+            [
+                'inversedBy' => 'products',
+                'targetEntity' => 'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Product',
+                'type' => ClassMetadataInfo::MANY_TO_ONE,
+                'fieldName' => 'manufacturer',
+            ]
+        ];
+
+        $meta = $this->getMockBuilder('Doctrine\ORM\Mapping\ClassMetadata')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $meta
+            ->expects($this->any())
+            ->method('getAssociationMappings')
+            ->will($this->onConsecutiveCalls($metaProperties, [], [], [], $metaProperties, [], [], []));
+
+        return $meta;
     }
 }

@@ -1,7 +1,9 @@
 define([
     'underscore',
-    './filters-manager'
-], function(_, FiltersManager) {
+    'oroui/js/tools',
+    './filters-manager',
+    'oroui/js/mediator'
+], function(_, tools, FiltersManager, mediator) {
     'use strict';
 
     var CollectionFiltersManager;
@@ -15,6 +17,13 @@ define([
      */
     CollectionFiltersManager = FiltersManager.extend({
         /**
+         * @inheritDoc
+         */
+        constructor: function CollectionFiltersManager() {
+            CollectionFiltersManager.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
          * Initialize filter list options
          *
          * @param {Object} options
@@ -26,9 +35,9 @@ define([
             this.collection = options.collection;
 
             this.listenTo(this.collection, {
-                'beforeFetch': this._beforeCollectionFetch,
-                'updateState': this._onUpdateCollectionState,
-                'reset': this._onCollectionReset
+                beforeFetch: this._beforeCollectionFetch,
+                updateState: this._onUpdateCollectionState,
+                reset: this._onCollectionReset
             });
 
             this.isVisible = true;
@@ -105,7 +114,7 @@ define([
          * @protected
          */
         _onCollectionReset: function(collection) {
-            var hasRecords = collection.state.totalRecords > 0;
+            var hasRecords = collection.length > 0;
             var hasFiltersState = !_.isEmpty(collection.state.filters);
             if (hasRecords || hasFiltersState) {
                 if (!this.isVisible) {
@@ -130,10 +139,10 @@ define([
             var state = {};
             _.each(this.filters, function(filter, name) {
                 var shortName = '__' + name;
-                if (_.has(this.collection.initialState.filters, name)) {
+                if (_.has(this.collection.initialState.filters, name) && !filter.isEmptyValue()) {
                     state[name] = filter.getValue();
                 } else if (filter.enabled) {
-                    if (!filter.isEmpty()) {
+                    if (!filter.isEmptyValue()) {
                         state[name] = filter.getValue();
                     } else if (!filter.defaultEnabled) {
                         state[shortName] = '1';
@@ -156,13 +165,14 @@ define([
         _applyState: function(state) {
             var toEnable = [];
             var toDisable = [];
+            var valuesToApply = {};
 
             _.each(this.filters, function(filter, name) {
                 var shortName = '__' + name;
                 var filterState;
 
-                //Reset to initial state,
-                //todo: should be removed after complete story about filter states
+                // Reset to initial state,
+                // todo: should be removed after complete story about filter states
                 if (filter.defaultEnabled === false && filter.enabled === true) {
                     this.disableFilter(filter);
                 }
@@ -171,14 +181,14 @@ define([
                     this.enableFilter(filter);
                 }
 
-                if (_.has(state, name)) {
+                if (_.has(state, name) && !tools.isEqualsLoosely(state[name], filter.emptyValue)) {
                     filterState = state[name];
                     if (!_.isObject(filterState)) {
                         filterState = {
                             value: filterState
                         };
                     }
-                    filter.setValue(filterState);
+                    valuesToApply[name] = filterState;
                     toEnable.push(filter);
                 } else if (_.has(state, shortName)) {
                     filter.reset();
@@ -194,6 +204,13 @@ define([
 
             this.enableFilters(toEnable);
             this.disableFilters(toDisable);
+
+            _.each(valuesToApply, function(filterState, name) {
+                this.filters[name].setValue(filterState);
+            }, this);
+
+            mediator.trigger('filters-manager:after-applying-state');
+            this.checkFiltersVisibility();
 
             return this;
         }

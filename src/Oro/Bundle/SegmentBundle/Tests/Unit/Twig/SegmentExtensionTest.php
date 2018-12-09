@@ -6,7 +6,7 @@ use Oro\Bundle\SegmentBundle\Event\ConditionBuilderOptionsLoadEvent;
 use Oro\Bundle\SegmentBundle\Event\WidgetOptionsLoadEvent;
 use Oro\Bundle\SegmentBundle\Twig\SegmentExtension;
 
-class SegmentExtensionTest extends \PHPUnit_Framework_TestCase
+class SegmentExtensionTest extends \PHPUnit\Framework\TestCase
 {
     protected $dispatcher;
 
@@ -14,7 +14,7 @@ class SegmentExtensionTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->dispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
 
         $this->segmentExtension = new SegmentExtension($this->dispatcher);
     }

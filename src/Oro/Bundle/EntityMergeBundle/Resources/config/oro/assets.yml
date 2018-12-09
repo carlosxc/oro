@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+          - 'bundles/oroentitymerge/css/scss/main.scss'

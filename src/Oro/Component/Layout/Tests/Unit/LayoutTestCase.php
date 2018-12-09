@@ -2,10 +2,11 @@
 
 namespace Oro\Component\Layout\Tests\Unit;
 
-use Oro\Component\Layout\ArrayCollection;
+use Oro\Component\Layout\Block\Type\Options;
 use Oro\Component\Layout\BlockView;
+use Oro\Component\Layout\BlockViewCollection;
 
-class LayoutTestCase extends \PHPUnit_Framework_TestCase
+class LayoutTestCase extends \PHPUnit\Framework\TestCase
 {
     /**
      * @param array     $expected
@@ -20,7 +21,7 @@ class LayoutTestCase extends \PHPUnit_Framework_TestCase
             array_walk($view->children, $collectViews);
         };
         $collectViews($actual);
-        $views = new ArrayCollection($views);
+        $views = new BlockViewCollection($views);
 
         $this->completeView($expected, ['blocks' => $views]);
         $actualArray = $this->convertBlockViewToArray($actual, $ignoreAuxiliaryVariables);
@@ -38,31 +39,36 @@ class LayoutTestCase extends \PHPUnit_Framework_TestCase
     /**
      * @param array $view
      * @param array $vars
-     *
-     * @return array
      */
     protected function completeView(array &$view, $vars)
     {
-        if (!isset($view['vars'])) {
-            $view['vars'] = [];
-        }
-        if (!isset($view['vars']['id'])) {
-            $view['vars']['id'] = '';
-        }
-        if (!isset($view['vars']['attr'])) {
-            $view['vars']['attr'] = [];
-        }
-        if (!isset($view['children'])) {
-            $view['children'] = [];
-        }
-        if (!isset($view['vars']['class_prefix'])) {
-            $view['vars']['class_prefix'] = null;
-        }
+        $this->setDefaultValue($view['vars'], []);
+        $this->setDefaultValue($view['vars']['id'], '');
+        $this->setDefaultValue($view['vars']['attr'], []);
+        $this->setDefaultValue($view['vars']['class_prefix'], null);
+        $this->setDefaultValue($view['vars']['visible'], true);
+        $this->setDefaultValue($view['children'], []);
 
-        $view['vars'] = array_merge($vars, $view['vars']);
+        if ($view['vars'] instanceof Options) {
+            $merged = array_merge($vars, $view['vars']->toArray());
+            $view['vars'] = new Options($merged);
+        } else {
+            $view['vars'] = array_merge($vars, $view['vars']);
+        }
 
         foreach ($view['children'] as &$child) {
             $this->completeView($child, $vars);
+        }
+    }
+
+    /**
+     * @param mixed $value
+     * @param mixed $defaultValue
+     */
+    protected function setDefaultValue(&$value, $defaultValue)
+    {
+        if (!isset($value)) {
+            $value = $defaultValue;
         }
     }
 
@@ -88,13 +94,15 @@ class LayoutTestCase extends \PHPUnit_Framework_TestCase
         unset($result['vars']['block']);
 
         if ($removeAuxiliaryVariables) {
-            unset($result['vars']['translation_domain']);
-            unset($result['vars']['label']);
-            unset($result['vars']['block_type']);
-            unset($result['vars']['block_type_widget_id']);
-            unset($result['vars']['unique_block_prefix']);
-            unset($result['vars']['block_prefixes']);
-            unset($result['vars']['cache_key']);
+            unset(
+                $result['vars']['translation_domain'],
+                $result['vars']['label'],
+                $result['vars']['block_type'],
+                $result['vars']['block_type_widget_id'],
+                $result['vars']['unique_block_prefix'],
+                $result['vars']['block_prefixes'],
+                $result['vars']['cache_key']
+            );
         }
 
         return $result;
@@ -146,7 +154,7 @@ class LayoutTestCase extends \PHPUnit_Framework_TestCase
         }
 
         if ($root) {
-            $viewsCollection = new ArrayCollection($views);
+            $viewsCollection = new BlockViewCollection($views);
             foreach ($views as $view) {
                 $view->blocks = $viewsCollection;
             }

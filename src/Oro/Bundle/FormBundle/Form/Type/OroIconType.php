@@ -6,11 +6,13 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpKernel\KernelInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Yaml\Yaml;
 
 class OroIconType extends AbstractType
 {
+    const NAME = 'oro_icon_select';
+
     /**
      * @var KernelInterface
      */
@@ -33,8 +35,12 @@ class OroIconType extends AbstractType
 
         $vars = ['configs' => $options['configs']];
         if ($form->getData()) {
+            $selectedData = ['id' => $form->getData(), 'text' => $form->getData()];
+            if (isset($options['configs']['multiple']) && $options['configs']['multiple']) {
+                $selectedData = [$selectedData];
+            }
             $vars['attr'] = [
-                'data-selected-data' => json_encode([['id' => $form->getData(), 'text' => $form->getData()]])
+                'data-selected-data' => json_encode($selectedData)
             ];
         }
 
@@ -44,22 +50,20 @@ class OroIconType extends AbstractType
     /**
      * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $configFile = $this->kernel->locateResource('@OroFormBundle/Resources/config/config_icon.yml');
-        $config      = Yaml::parse(file_get_contents($configFile));
-        $choices = array_map(
-            function ($value) {
-                return 'oro.form.icon_select.' . $value;
-            },
-            array_flip($config['oro_icon_select'])
-        );
+        $config = Yaml::parse(file_get_contents($configFile));
+        $choices = [];
+        foreach ($config['oro_icon_select'] as $label => $value) {
+            $choices['oro.form.icon_select.' . $label] = $value;
+        }
 
         $resolver->setDefaults(
             [
                 'placeholder' => 'oro.form.choose_value',
                 'choices'     => $choices,
-                'empty_value' => '',
+                'placeholder' => '',
                 'configs'     => [
                     'placeholder'             => 'oro.form.choose_value',
                     'result_template_twig'    => 'OroFormBundle:Autocomplete:icon/result.html.twig',
@@ -74,7 +78,7 @@ class OroIconType extends AbstractType
      */
     public function getParent()
     {
-        return 'genemu_jqueryselect2_choice';
+        return Select2ChoiceType::class;
     }
 
     /**
@@ -90,6 +94,6 @@ class OroIconType extends AbstractType
      */
     public function getBlockPrefix()
     {
-        return 'oro_icon_select';
+        return self::NAME;
     }
 }

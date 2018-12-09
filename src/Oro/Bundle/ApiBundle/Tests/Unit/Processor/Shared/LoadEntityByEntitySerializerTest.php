@@ -4,26 +4,26 @@ namespace Oro\Bundle\ApiBundle\Tests\Unit\Processor\Shared;
 
 use Oro\Bundle\ApiBundle\Config\Config;
 use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
+use Oro\Bundle\ApiBundle\Exception\RuntimeException;
 use Oro\Bundle\ApiBundle\Processor\Shared\LoadEntityByEntitySerializer;
 use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group;
 use Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Product;
 use Oro\Bundle\ApiBundle\Tests\Unit\Processor\Get\GetProcessorOrmRelatedTestCase;
+use Oro\Component\EntitySerializer\EntitySerializer;
 
 class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $serializer;
+    /** @var \PHPUnit\Framework\MockObject\MockObject|EntitySerializer */
+    private $serializer;
 
     /** @var LoadEntityByEntitySerializer */
-    protected $processor;
+    private $processor;
 
     protected function setUp()
     {
         parent::setUp();
 
-        $this->serializer = $this->getMockBuilder('Oro\Component\EntitySerializer\EntitySerializer')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->serializer = $this->createMock(EntitySerializer::class);
 
         $this->processor = new LoadEntityByEntitySerializer($this->serializer);
     }
@@ -35,7 +35,7 @@ class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
         $this->context->setResult($resultEntity);
         $this->processor->process($this->context);
 
-        $this->assertSame($resultEntity, $this->context->getResult());
+        self::assertSame($resultEntity, $this->context->getResult());
     }
 
     public function testProcessWithUnsupportedQuery()
@@ -43,16 +43,16 @@ class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
         $this->context->setQuery(new \stdClass());
         $this->processor->process($this->context);
 
-        $this->assertFalse($this->context->hasResult());
+        self::assertFalse($this->context->hasResult());
     }
 
     public function testProcessWithoutConfig()
     {
-        $entityClass = 'Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group';
+        $entityClass = Group::class;
 
         $query = $this->doctrineHelper->getEntityRepositoryForClass($entityClass)->createQueryBuilder('e');
 
-        $this->configProvider->expects($this->once())
+        $this->configProvider->expects(self::once())
             ->method('getConfig')
             ->willReturn(new Config());
 
@@ -60,7 +60,7 @@ class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
         $this->context->setQuery($query);
         $this->processor->process($this->context);
 
-        $this->assertFalse($this->context->hasResult());
+        self::assertFalse($this->context->hasResult());
     }
 
     /**
@@ -68,26 +68,33 @@ class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
      */
     public function testProcess($dataFromSerializer, $expectedResult, $isThrowable = false)
     {
-        $entityClass = 'Oro\Bundle\ApiBundle\Tests\Unit\Fixtures\Entity\Group';
+        $entityClass = Group::class;
 
         $query = $this->doctrineHelper->getEntityRepositoryForClass($entityClass)->createQueryBuilder('e');
 
+        $entityDefinitionConfig = new EntityDefinitionConfig();
         $config = new Config();
-        $config->setDefinition(new EntityDefinitionConfig());
-        $this->configProvider->expects($this->once())
+        $config->setDefinition($entityDefinitionConfig);
+        $this->configProvider->expects(self::once())
             ->method('getConfig')
             ->willReturn($config);
 
-        $this->serializer->expects($this->once())
+        $this->serializer->expects(self::once())
             ->method('serialize')
-            ->with($query)
+            ->with(
+                self::identicalTo($query),
+                self::identicalTo($entityDefinitionConfig),
+                [
+                    'action'      => $this->context->getAction(),
+                    'version'     => $this->context->getVersion(),
+                    'requestType' => $this->context->getRequestType()
+                ]
+            )
             ->willReturn($dataFromSerializer);
 
         if ($isThrowable) {
-            $this->setExpectedException(
-                '\Oro\Bundle\ApiBundle\Exception\RuntimeException',
-                'The result must have one or zero items.'
-            );
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('The result must have one or zero items.');
         }
 
         $this->context->setClassName($entityClass);
@@ -96,8 +103,8 @@ class LoadEntityByEntitySerializerTest extends GetProcessorOrmRelatedTestCase
 
         if (!$isThrowable) {
             $result = $this->context->getResult();
-            $this->assertEquals($expectedResult, $result);
-            $this->assertEquals(['normalize_data'], $this->context->getSkippedGroups());
+            self::assertEquals($expectedResult, $result);
+            self::assertEquals(['normalize_data'], $this->context->getSkippedGroups());
         }
     }
 

@@ -7,14 +7,14 @@ use Oro\Component\ConfigExpression\ExpressionAssembler;
 use Oro\Component\ConfigExpression\Func;
 use Oro\Component\ConfigExpression\Tests\Unit\Fixtures\ExpressionStub;
 
-class ExpressionAssemblerTest extends \PHPUnit_Framework_TestCase
+class ExpressionAssemblerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider configurationDataProvider
      */
     public function testAssemble($configuration, $expected)
     {
-        $factory = $this->getMock('Oro\Component\ConfigExpression\ExpressionFactoryInterface');
+        $factory = $this->createMock('Oro\Component\ConfigExpression\ExpressionFactoryInterface');
         $factory->expects($this->any())
             ->method('create')
             ->will(

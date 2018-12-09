@@ -3,11 +3,12 @@
 namespace Oro\Bundle\DataGridBundle\Extension\Toolbar;
 
 use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\ResultsObject;
 use Oro\Bundle\DataGridBundle\Exception\LogicException;
 use Oro\Bundle\DataGridBundle\Extension\AbstractExtension;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
+use Oro\Bundle\DataGridBundle\Provider\DatagridModeProvider;
 
 class ToolbarExtension extends AbstractExtension
 {
@@ -18,6 +19,7 @@ class ToolbarExtension extends AbstractExtension
 
     const OPTIONS_PATH                         = '[options]';
     const TOOLBAR_OPTION_PATH                  = '[options][toolbarOptions]';
+    const TOOLBAR_HIDE_OPTION_PATH             = '[options][toolbarOptions][hide]';
     const PAGER_ITEMS_OPTION_PATH              = '[options][toolbarOptions][pageSize][items]';
     const PAGER_DEFAULT_PER_PAGE_OPTION_PATH   = '[options][toolbarOptions][pageSize][default_per_page]';
     const PAGER_ONE_PAGE_OPTION_PATH           = '[options][toolbarOptions][pagination][onePage]';
@@ -27,20 +29,17 @@ class ToolbarExtension extends AbstractExtension
     /** @var ConfigManager */
     private $cm;
 
+    /** {@inheritdoc} */
+    protected $excludedModes = [
+        DatagridModeProvider::DATAGRID_IMPORTEXPORT_MODE
+    ];
+
     /**
      * @param ConfigManager $cm
      */
     public function __construct(ConfigManager $cm)
     {
         $this->cm = $cm;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function isApplicable(DatagridConfiguration $config)
-    {
-        return true;
     }
 
     /**

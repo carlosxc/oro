@@ -12,29 +12,49 @@ class DateTimePicker extends Element
      */
     public function setValue($dateTime)
     {
-        $this->getDatePicker()->click();
-
-        $this->getMonthPicker()->selectOption($dateTime->format('M'));
+        $this->open();
         $this->getYearPicker()->selectOption($dateTime->format('Y'));
-        $dateValue = (string) $dateTime->format('j');
+        $this->getMonthPicker()->selectOption($dateTime->format('M'));
+        $this->getCalendarDate($dateTime->format('j'))->click();
 
-        /** @var NodeElement $date */
-        foreach ($this->getCalendar()->findAll('css', 'tbody a') as $date) {
-            if ($date->getText() === $dateValue) {
-                $date->click();
-            }
+        if ($this->getElements('TimePicker')) {
+            $this->getTimePicker()->setValue($dateTime);
         }
-
-        $timePicker = $this->getTimePicker();
-        $timePicker->setValue($dateTime->format('H:i'));
-        $timePicker->click();
-        $this->clickSelectedTime();
     }
 
-    protected function clickSelectedTime()
+    protected function open()
     {
-        $timeSelect = $this->findVisible('css', '.ui-timepicker-wrapper');
-        $timeSelect->find('css', 'li.ui-timepicker-selected')->click();
+        if (!$this->isOpened()) {
+            $this->getDatePicker()->click();
+        }
+    }
+
+    protected function close()
+    {
+        if ($this->isOpened()) {
+            $this->getDatePicker()->click();
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public function getHeader()
+    {
+        $this->open();
+
+        $container = $this->findVisible('css', 'table.ui-datepicker-calendar');
+
+        $header = array_map(
+            function (NodeElement $element) {
+                return $element->getText();
+            },
+            $container->findAll('css', 'thead th > span')
+        );
+
+        $this->close();
+
+        return $header;
     }
 
     /**
@@ -42,7 +62,7 @@ class DateTimePicker extends Element
      */
     protected function getMonthPicker()
     {
-        return $this->findVisible('css', '.ui-datepicker-month');
+        return $this->getDatePickerHeader()->find('css', '.ui-datepicker-month');
     }
 
     /**
@@ -50,7 +70,15 @@ class DateTimePicker extends Element
      */
     protected function getYearPicker()
     {
-        return $this->findVisible('css', '.ui-datepicker-year');
+        return $this->getDatePickerHeader()->find('css', '.ui-datepicker-year');
+    }
+
+    /**
+     * @return NodeElement|null
+     */
+    protected function getDatePickerHeader()
+    {
+        return $this->findVisible('css', '.ui-datepicker-header');
     }
 
     /**
@@ -62,11 +90,11 @@ class DateTimePicker extends Element
     }
 
     /**
-     * @return NodeElement|null
+     * @return TimePicker
      */
     protected function getTimePicker()
     {
-        return $this->find('css', 'input.timepicker-input');
+        return $this->getElement('TimePicker');
     }
 
     /**
@@ -75,5 +103,28 @@ class DateTimePicker extends Element
     protected function getDatePicker()
     {
         return $this->find('css', 'input.datepicker-input');
+    }
+
+    /**
+     * @param int|string $dateValue
+     * @return NodeElement|null
+     */
+    protected function getCalendarDate($dateValue)
+    {
+        return $this->getCalendar()->find('css', "tbody a:contains('$dateValue')");
+    }
+
+    /**
+     * @return bool
+     */
+    protected function isOpened()
+    {
+        $class = $this->getDatePicker()->getAttribute('class');
+
+        if ($class !== null) {
+            return preg_match('/\bui-datepicker-dialog-is-(below|above)\b/', $class) === 1;
+        }
+
+        return false;
     }
 }

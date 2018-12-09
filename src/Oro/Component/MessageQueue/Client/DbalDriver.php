@@ -65,8 +65,6 @@ class DbalDriver implements DriverInterface
 
     /**
      * {@inheritdoc}
-     *
-     * @return DbalMessage
      */
     public function createTransportMessage()
     {
@@ -80,11 +78,7 @@ class DbalDriver implements DriverInterface
      */
     public function createQueue($queueName)
     {
-        $queue = $this->session->createQueue($queueName);
-
-        $this->session->declareQueue($queue);
-
-        return $queue;
+        return $this->session->createQueue($queueName);
     }
 
     /**

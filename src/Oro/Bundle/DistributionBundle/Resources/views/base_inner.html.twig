@@ -2,13 +2,13 @@
 
     {% block javascripts %}
         {{ parent() }}
-        <script type="text/javascript" src="{{ asset('bundles/oroinstaller/lib/jquery-2.0.3.min.js') }}"></script>
+        <script type="text/javascript" src="{{ asset('bundles/components/jquery/jquery.min.js') }}"></script>
         <script type="text/javascript" src="{{ asset('bundles/orodistribution/js/loader.js') }}"></script>
-        <script type="text/javascript" src="{{ asset('bundles/orodistribution/lib/util.js') }}"></script>
+        <script type="text/javascript" src="{{ asset('bundles/orodistribution/js/util.js') }}"></script>
         <script type="text/javascript" src="{{ asset('bundles/orodistribution/js/package.manager.js') }}"></script>
-        <script type="text/javascript" src="{{ asset('bundles/orodistribution/lib/bootstrap.min.js') }}"></script>
-        <script type="text/javascript" src="{{ asset('bundles/orodistribution/lib/bootbox.min.js') }}"></script>
-        <script type="text/javascript" src="{{ asset('bundles/orodistribution/lib/jquery.cookie.js') }}"></script>
+        <script type="text/javascript" src="{{ asset('bundles/npmassets/bootstrap/dist/js/bootstrap.min.js') }}"></script>
+        <script type="text/javascript" src="{{ asset('bundles/npmassets/bootbox/bootbox.js') }}"></script>
+        <script type="text/javascript" src="{{ asset('bundles/bowerassets/jquery-cookie/jquery.cookie.js') }}"></script>
 
         <script type="text/javascript">
 
@@ -92,8 +92,8 @@
         <div class="wrapper">
             <div id="alerts">
                 {% if errors is defined and errors|length > 0 %}
-                    <div class="alert fade in alert-error">
-                        <i class="icon icon-error"></i>
+                    <div class="alert fade in alert-error" role="alert">
+                        <i class="fa-error"></i>
                         {{ 'oro.distribution.messages.unexpected_error'|trans }}:
                         <ul>
                             {% for error in errors %}
@@ -103,8 +103,8 @@
                     </div>
                 {% endif %}
                 {% if notWritableSystemPaths|length > 0 %}
-                    <div class="alert fade in alert-notice">
-                        <i class="icon icon-info-sign"></i>
+                    <div class="alert fade in alert-notice" role="alert">
+                        <i class="fa-info-circle"></i>
                         {{ 'oro.distribution.messages.not_writable'|trans }}:
                         <ul>
                             {% for path in notWritableSystemPaths %}
@@ -125,7 +125,7 @@
                         {% block menu %} {% endblock %}
                     </div>
                 </div>
-                <div class="alert alert-warning">
+                <div class="alert alert-warning" role="alert">
                     {{ 'oro.distribution.settings.recommendation'|trans|raw }}
                 </div>
                 <div class="body">

@@ -2,113 +2,83 @@
 
 namespace Oro\Bundle\ApiBundle\Form\DataTransformer;
 
-use Doctrine\Common\Persistence\ManagerRegistry;
-
-use Symfony\Component\Form\DataTransformerInterface;
-use Symfony\Component\Form\Exception\TransformationFailedException;
-
+use Oro\Bundle\ApiBundle\Collection\IncludedEntityCollection;
 use Oro\Bundle\ApiBundle\Metadata\AssociationMetadata;
+use Oro\Bundle\ApiBundle\Util\DoctrineHelper;
+use Oro\Bundle\ApiBundle\Util\EntityLoader;
+use Oro\Bundle\ApiBundle\Util\EntityMapper;
 
-class EntityToIdTransformer implements DataTransformerInterface
+/**
+ * Transforms class name and identifier of an entity to an entity object.
+ */
+class EntityToIdTransformer extends AbstractEntityAssociationTransformer
 {
-    /** @var ManagerRegistry */
-    protected $doctrine;
+    /** @var EntityMapper|null */
+    protected $entityMapper;
 
-    /** @var AssociationMetadata */
-    protected $metadata;
+    /** @var IncludedEntityCollection|null */
+    protected $includedEntities;
 
     /**
-     * @param ManagerRegistry     $doctrine
-     * @param AssociationMetadata $metadata
+     * @param DoctrineHelper                $doctrineHelper
+     * @param EntityLoader                  $entityLoader
+     * @param AssociationMetadata           $metadata
+     * @param EntityMapper|null             $entityMapper
+     * @param IncludedEntityCollection|null $includedEntities
      */
-    public function __construct(ManagerRegistry $doctrine, AssociationMetadata $metadata)
-    {
-        $this->doctrine = $doctrine;
-        $this->metadata = $metadata;
+    public function __construct(
+        DoctrineHelper $doctrineHelper,
+        EntityLoader $entityLoader,
+        AssociationMetadata $metadata,
+        EntityMapper $entityMapper = null,
+        IncludedEntityCollection $includedEntities = null
+    ) {
+        parent::__construct($doctrineHelper, $entityLoader, $metadata);
+        $this->entityMapper = $entityMapper;
+        $this->includedEntities = $includedEntities;
     }
 
     /**
-     * {@inheritdoc}
+     * @param string $entityClass
+     * @param mixed  $entityId
+     *
+     * @return object
      */
-    public function transform($value)
+    protected function getEntity($entityClass, $entityId)
     {
-        return null;
-    }
-
-    /**
-     * {@inheritdoc}
-     * @SuppressWarnings(PHPMD.NPathComplexity)
-     */
-    public function reverseTransform($value)
-    {
-        if (null === $value || '' === $value) {
-            return null;
-        }
-        if (!is_array($value)) {
-            throw new TransformationFailedException('Expected an array.');
-        }
-        if (empty($value)) {
-            return null;
-        }
-
-        if (empty($value['class'])) {
-            throw new TransformationFailedException('Expected an array with "class" element.');
-        }
-        if (empty($value['id'])) {
-            throw new TransformationFailedException('Expected an array with "id" element.');
-        }
-
-        $entityClass = $value['class'];
-        if (!in_array($entityClass, $this->metadata->getAcceptableTargetClassNames(), true)) {
-            throw new TransformationFailedException(
-                sprintf(
-                    'The "%s" class is not acceptable. Acceptable classes: %s.',
-                    $entityClass,
-                    implode(',', $this->metadata->getAcceptableTargetClassNames())
-                )
-            );
-        }
-
-        $manager = $this->doctrine->getManagerForClass($entityClass);
-        if (null === $manager) {
-            throw new TransformationFailedException(
-                sprintf(
-                    'The "%s" class must be a managed Doctrine entity.',
-                    $entityClass
-                )
-            );
-        }
-
-        $entity = $manager->getRepository($entityClass)->find($value['id']);
+        $entity = $this->getIncludedEntity($entityClass, $entityId);
         if (null === $entity) {
-            throw new TransformationFailedException(
-                sprintf(
-                    'An "%s" entity with "%s" identifier does not exist.',
-                    $entityClass,
-                    $this->humanizeEntityId($value['id'])
-                )
-            );
+            $resolvedEntityClass = $this->resolveEntityClass($entityClass);
+            $entity = $this->loadEntity($resolvedEntityClass, $entityId);
+            if (null !== $this->entityMapper && $resolvedEntityClass !== $entityClass) {
+                $entity = $this->entityMapper->getModel($entity, $entityClass);
+            }
         }
 
         return $entity;
     }
 
     /**
-     * @param mixed $entityId
+     * @param string $entityClass
+     * @param mixed  $entityId
      *
-     * @return string
+     * @return object|null
      */
-    protected function humanizeEntityId($entityId)
+    protected function getIncludedEntity($entityClass, $entityId)
     {
-        if (is_array($entityId)) {
-            $elements = [];
-            foreach ($entityId as $fieldName => $fieldValue) {
-                $elements[] = sprintf('%s = %s', $fieldName, $fieldValue);
-            }
-
-            return sprintf('array(%s)', implode(', ', $elements));
+        if (null === $this->includedEntities) {
+            return null;
         }
 
-        return (string)$entityId;
+        if ($this->includedEntities->isPrimaryEntity($entityClass, $entityId)) {
+            return $this->includedEntities->getPrimaryEntity();
+        }
+
+        $entity = $this->includedEntities->get($entityClass, $entityId);
+        if (null !== $this->entityMapper && null !== $entity) {
+            $entity = $this->entityMapper->getModel($entity);
+        }
+
+        return $entity;
     }
 }

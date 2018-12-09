@@ -2,41 +2,11 @@
 
 namespace Oro\Bundle\ApiBundle\Config;
 
-interface FieldConfigInterface
+/**
+ * An interface for configuration sections that represent a field.
+ */
+interface FieldConfigInterface extends ConfigBagInterface
 {
-    /**
-     * Checks whether the configuration attribute exists.
-     *
-     * @param string $key
-     *
-     * @return bool
-     */
-    public function has($key);
-
-    /**
-     * Gets the configuration value.
-     *
-     * @param string $key
-     *
-     * @return mixed
-     */
-    public function get($key);
-
-    /**
-     * Sets the configuration value.
-     *
-     * @param string $key
-     * @param mixed  $value
-     */
-    public function set($key, $value);
-
-    /**
-     * Removes the configuration value.
-     *
-     * @param string $key
-     */
-    public function remove($key);
-
     /**
      * Indicates whether the exclusion flag is set explicitly.
      *
@@ -61,16 +31,18 @@ interface FieldConfigInterface
     /**
      * Indicates whether the path of the field value exists.
      *
-     * @return string
+     * @return bool
      */
     public function hasPropertyPath();
 
     /**
      * Gets the path of the field value.
      *
+     * @param string|null $defaultValue
+     *
      * @return string|null
      */
-    public function getPropertyPath();
+    public function getPropertyPath($defaultValue = null);
 
     /**
      * Sets the path of the field value.

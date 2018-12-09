@@ -3,19 +3,29 @@
 namespace Oro\Bundle\BatchBundle\Tests\Unit\ORM\QueryBuilder;
 
 use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\DBAL\Platforms\MySqlPlatform;
+use Doctrine\DBAL\Platforms\PostgreSqlPlatform;
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
-
+use Oro\Bundle\BatchBundle\Event\CountQueryOptimizationEvent;
+use Oro\Bundle\BatchBundle\ORM\QueryBuilder\CountQueryBuilderOptimizer;
+use Oro\Bundle\BatchBundle\Tests\Unit\Fixtures\Entity\Tagging;
+use Oro\Bundle\EntityBundle\Helper\RelationHelper;
 use Oro\Component\TestUtils\ORM\Mocks\EntityManagerMock;
 use Oro\Component\TestUtils\ORM\OrmTestCase;
-use Oro\Bundle\BatchBundle\ORM\QueryBuilder\CountQueryBuilderOptimizer;
+use Oro\ORM\Query\AST\Functions;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 class CountQueryBuilderOptimizerTest extends OrmTestCase
 {
     /** @var EntityManagerMock */
     private $em;
+
+    /** @var RelationHelper|\PHPUnit\Framework\MockObject\MockObject */
+    protected $relationHelper;
 
     protected function setUp()
     {
@@ -31,17 +41,40 @@ class CountQueryBuilderOptimizerTest extends OrmTestCase
                 'Test' => 'Oro\Bundle\BatchBundle\Tests\Unit\Fixtures\Entity'
             ]
         );
+        $this->em->getConfiguration()->addCustomDatetimeFunction('date', Functions\SimpleFunction::class);
+        $this->em->getConfiguration()->addCustomDatetimeFunction('convert_tz', Functions\DateTime\ConvertTz::class);
+
+        $this->relationHelper = $this->createMock(RelationHelper::class);
+        $this->relationHelper->expects($this->any())
+            ->method('hasVirtualRelations')
+            ->willReturn(true);
+
+        $this->relationHelper->expects($this->any())
+            ->method('getMetadataTypeForVirtualJoin')
+            ->willReturnCallback(function ($entityClass, $targetEntityClass) {
+                if ($targetEntityClass === Tagging::class) {
+                    return ClassMetadata::ONE_TO_MANY;
+                }
+
+                return 0;
+            });
     }
 
     /**
      * @dataProvider getCountQueryBuilderDataProvider
      *
-     * @param callback $queryBuilder
-     * @param string   $expectedDql
+     * @param callback    $queryBuilder
+     * @param string      $expectedDql
+     * @param string|null $platformClass
      */
-    public function testGetCountQueryBuilder($queryBuilder, $expectedDql)
+    public function testGetCountQueryBuilder($queryBuilder, $expectedDql, $platformClass = null)
     {
+        if (null !== $platformClass) {
+            $this->em->getConnection()->setDatabasePlatform(new $platformClass());
+        }
+
         $optimizer = new CountQueryBuilderOptimizer();
+        $optimizer->setRelationHelper($this->relationHelper);
         $countQb   = $optimizer->getCountQueryBuilder(call_user_func($queryBuilder, $this->em));
 
         $this->assertInstanceOf('Doctrine\ORM\QueryBuilder', $countQb);
@@ -385,6 +418,68 @@ class CountQueryBuilderOptimizerTest extends OrmTestCase
                 },
                 'expectedDQL' => 'SELECT u.id FROM Test:User u WHERE u.username LIKE :test'
             ],
+            'having_by_expr_with_function_mysql' => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->select(['DATE(u.createdAt) as createdDate', 'COUNT(u.id) as count'])
+                        ->groupBy('createdDate')
+                        ->having('createdDate > :date');
+                },
+                'expectedDQL' => 'SELECT DATE(u.createdAt) as _groupByPart0 '
+                    . 'FROM Test:User u '
+                    . 'GROUP BY _groupByPart0 '
+                    . 'HAVING _groupByPart0 > :date',
+                'platformClass' => MySqlPlatform::class
+            ],
+            'having_by_expr_with_function_postgresql' => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->select(['DATE(u.createdAt) as createdDate', 'COUNT(u.id) as count'])
+                        ->groupBy('createdDate')
+                        ->having('createdDate > :date');
+                },
+                'expectedDQL' => 'SELECT DATE(u.createdAt) as _groupByPart0 '
+                    . 'FROM Test:User u '
+                    . 'GROUP BY _groupByPart0 '
+                    . 'HAVING DATE(u.createdAt) > :date',
+                'platformClass' => PostgreSqlPlatform::class
+            ],
+            'having_by_expr_with_nested_functions_mysql' => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->select([
+                            'DATE(CONVERT_TZ(u.createdAt, \'+00:00\', \'+03:00\')) as createdDate',
+                            'COUNT(u.id) as count'
+                        ])
+                        ->groupBy('createdDate')
+                        ->having('createdDate > :date');
+                },
+                'expectedDQL' => 'SELECT DATE(CONVERT_TZ(u.createdAt, \'+00:00\', \'+03:00\')) as _groupByPart0 '
+                    . 'FROM Test:User u '
+                    . 'GROUP BY _groupByPart0 '
+                    . 'HAVING _groupByPart0 > :date',
+                'platformClass' => MySqlPlatform::class
+            ],
+            'having_by_expr_with_nested_functions_postgresql' => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->select([
+                            'DATE(CONVERT_TZ(u.createdAt, \'+00:00\', \'+03:00\')) as createdDate',
+                            'COUNT(u.id) as count'
+                        ])
+                        ->groupBy('createdDate')
+                        ->having('createdDate > :date');
+                },
+                'expectedDQL' => 'SELECT DATE(CONVERT_TZ(u.createdAt, \'+00:00\', \'+03:00\')) as _groupByPart0 '
+                    . 'FROM Test:User u '
+                    . 'GROUP BY _groupByPart0 '
+                    . 'HAVING DATE(CONVERT_TZ(u.createdAt, \'+00:00\', \'+03:00\')) > :date',
+                'platformClass' => PostgreSqlPlatform::class
+            ],
             'join_on_table_that_has_with_join_condition' => [
                 'queryBuilder' => function ($em) {
                     return self::createQueryBuilder($em)
@@ -440,11 +535,14 @@ class CountQueryBuilderOptimizerTest extends OrmTestCase
                         ->select(['u.id'])
                         ->leftJoin('Test:Email', 'e', Join::WITH, 'u MEMBER OF e.users')
                         ->leftJoin('Test:Comment', 'c', Join::WITH, 'c.email = e')
-                        ->leftJoin('Test:Note', 'n', Join::WITH, 'c.note = n');
+                        ->leftJoin('Test:Note', 'n', Join::WITH, 'c.note = n')
+                        ->leftJoin('Test:Tagging', 't', Join::WITH, "t.recordId = u.id AND t.entityName = 'Test:User'")
+                        ->leftJoin('t.tag', 'tag');
                 },
                 'expectedDQL' => 'SELECT u.id FROM Test:User u '
                     . 'LEFT JOIN Test:Email e WITH u MEMBER OF e.users '
-                    . 'LEFT JOIN Test:Comment c WITH c.email = e'
+                    . 'LEFT JOIN Test:Comment c WITH c.email = e '
+                    . "LEFT JOIN Test:Tagging t WITH t.recordId = u.id AND t.entityName = 'Test:User'"
             ],
             'join_one_to_many_table' => [
                 'queryBuilder' => function ($em) {
@@ -533,5 +631,151 @@ class CountQueryBuilderOptimizerTest extends OrmTestCase
     public static function createQueryBuilder(EntityManager $entityManager)
     {
         return new QueryBuilder($entityManager);
+    }
+
+    /**
+     * @dataProvider getCountQueryBuilderDataProviderWithEventDispatcher
+     *
+     * @param callback $queryBuilder
+     * @param array    $joinsToDelete
+     * @param string   $expectedDql
+     */
+    public function testGetCountQueryBuilderWithEventDispatcher($queryBuilder, array $joinsToDelete, $expectedDql)
+    {
+        $optimizer = new CountQueryBuilderOptimizer();
+        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+        $eventDispatcher->expects($this->once())
+            ->method('dispatch')
+            ->willReturnCallback(
+                function ($eventName, CountQueryOptimizationEvent $event) use ($joinsToDelete) {
+                    if (count($joinsToDelete)) {
+                        foreach ($joinsToDelete as $deletedJoin) {
+                            $event->removeJoinFromOptimizedQuery($deletedJoin);
+                        }
+                    }
+                }
+            );
+        $optimizer->setEventDispatcher($eventDispatcher);
+        $countQb = $optimizer->getCountQueryBuilder(call_user_func($queryBuilder, $this->em));
+
+        $this->assertInstanceOf('Doctrine\ORM\QueryBuilder', $countQb);
+        // Check for expected DQL
+        $this->assertEquals($expectedDql, $countQb->getQuery()->getDQL());
+        // Check that Optimized DQL can be converted to SQL
+        $this->assertNotEmpty($countQb->getQuery()->getSQL());
+    }
+
+    /**
+     * @return array
+     */
+    public function getCountQueryBuilderDataProviderWithEventDispatcher()
+    {
+        return [
+            'delete_one_join_table'                                     => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->leftJoin('u.businessUnits', 'bu', Join::WITH, 'bu.id = 456')
+                        ->leftJoin('bu.users', 'o', Join::WITH, 'o.id = 123')
+                        ->select('u.id, o.username');
+                },
+                ['o'],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u '
+                    . 'LEFT JOIN u.businessUnits bu WITH bu.id = 456'
+            ],
+            'request_with_3th_join_table_without_deleting'              => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->leftJoin('u.organization', 'o', Join::WITH, 'o.id = 456')
+                        ->leftJoin('o.businessUnits', 'businessUnits', Join::WITH, 'businessUnits.id = 123')
+                        ->select('u.id, o.username');
+                },
+                [],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u '
+                    . 'LEFT JOIN u.organization o WITH o.id = 456 '
+                    . 'LEFT JOIN o.businessUnits businessUnits WITH businessUnits.id = 123'
+            ],
+            'request_with_3th_join_table_delete_main_join_table'        => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->leftJoin('u.organization', 'o', Join::WITH, 'o.id = 456')
+                        ->leftJoin('o.businessUnits', 'businessUnits', Join::WITH, 'businessUnits.id = 123')
+                        ->select('u.id, o.username');
+                },
+                ['o'],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u LEFT '
+                    . 'JOIN u.organization o WITH o.id = 456 '
+                    . 'LEFT JOIN o.businessUnits businessUnits WITH businessUnits.id = 123'
+            ],
+            'request_with_3th_join_table_delete_3th_join_table'         => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:User', 'u')
+                        ->leftJoin('u.organization', 'o', Join::WITH, 'o.id = 456')
+                        ->leftJoin('o.businessUnits', 'businessUnits', Join::WITH, 'businessUnits.id = 123')
+                        ->select('u.id, o.username');
+                },
+                ['businessUnits'],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u'
+            ],
+            'request_with_2_3th_join_tables_without_deleting'           => [
+                'queryBuilder' => function ($em) {
+                    return $this->getQueryBuilderWith3thJoinTables($em);
+                },
+                [],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u '
+                    . 'LEFT JOIN u.organization o WITH o.id = 456 '
+                    . 'LEFT JOIN o.businessUnits businessUnits WITH businessUnits.id = 123 '
+                    . 'LEFT JOIN o.users users WITH users.id = 123'
+            ],
+            'request_with_2_3th_join_tables_delete_3th_join_table'      => [
+                'queryBuilder' => function ($em) {
+                    return $this->getQueryBuilderWith3thJoinTables($em);
+                },
+                ['businessUnits'],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u '
+                    . 'LEFT JOIN u.organization o WITH o.id = 456 '
+                    . 'LEFT JOIN o.users users WITH users.id = 123'
+            ],
+            'request_with_2_3th_join_tables_delete_both_3th_join_table' => [
+                'queryBuilder' => function ($em) {
+                    return $this->getQueryBuilderWith3thJoinTables($em);
+                },
+                ['businessUnits', 'users'],
+                'expectedDQL'  => 'SELECT u.id FROM Test:User u'
+            ],
+            'request_with_3_joins_2_manyToOne_through_oneToMany'        => [
+                'queryBuilder' => function ($em) {
+                    return self::createQueryBuilder($em)
+                        ->from('Test:EmailOrigin', 'eo')
+                        ->leftJoin('eo.owner', 'u')
+                        ->leftJoin('u.emails', 'primaryEmail', Join::WITH, 'primaryEmail.primary = true')
+                        ->leftJoin('primaryEmail.status', 'emailStatus')
+                        ->where('emailStatus.name IS NOT NULL')
+                        ->select('u.id');
+                },
+                ['primaryEmail'],
+                'expectedDQL'  => 'SELECT eo.id FROM Test:EmailOrigin eo LEFT JOIN eo.owner u '
+                    . 'LEFT JOIN u.emails primaryEmail WITH primaryEmail.primary = true '
+                    . 'LEFT JOIN primaryEmail.status emailStatus WHERE emailStatus.name IS NOT NULL'
+            ]
+        ];
+    }
+
+    /**
+     * @param EntityManager $entityManager
+     *
+     * @return QueryBuilder
+     */
+    private function getQueryBuilderWith3thJoinTables($entityManager)
+    {
+        return self::createQueryBuilder($entityManager)
+            ->from('Test:User', 'u')
+            ->leftJoin('u.organization', 'o', Join::WITH, 'o.id = 456')
+            ->leftJoin('o.businessUnits', 'businessUnits', Join::WITH, 'businessUnits.id = 123')
+            ->leftJoin('o.users', 'users', Join::WITH, 'users.id = 123')
+            ->select('u.id, o.username');
     }
 }

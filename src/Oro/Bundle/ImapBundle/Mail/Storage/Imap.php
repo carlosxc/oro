@@ -2,15 +2,17 @@
 
 namespace Oro\Bundle\ImapBundle\Mail\Storage;
 
-use Zend\Mail\Storage\Exception as BaseException;
-
+use Oro\Bundle\ImapBundle\Exception\InvalidCredentialsException;
+use Oro\Bundle\ImapBundle\Exception\InvalidMessageHeadersException;
 use Oro\Bundle\ImapBundle\Mail\Protocol\Imap as ProtocolImap;
+use Oro\Bundle\ImapBundle\Mail\Storage\Exception\OAuth2ConnectException;
 use Oro\Bundle\ImapBundle\Mail\Storage\Exception\UnselectableFolderException;
 use Oro\Bundle\ImapBundle\Mail\Storage\Exception\UnsupportException;
-use Oro\Bundle\ImapBundle\Mail\Storage\Exception\OAuth2ConnectException;
+use Zend\Mail\Exception\ExceptionInterface as ZendMailException;
+use Zend\Mail\Storage\Exception as BaseException;
 
 /**
- * Class Imap
+ * Imap protocol implementation.
  *
  * @package Oro\Bundle\ImapBundle\Mail\Storage
  *
@@ -69,6 +71,16 @@ class Imap extends \Zend\Mail\Storage\Imap
     private $ignoreCloseCommand = false;
 
     /**
+     * It is used to cache response from getUniqueId in getNumberByUniqueId
+     *
+     * @var array
+     */
+    private $uniqueIds = [];
+
+    /** @var \Closure */
+    private $onConvertError;
+
+    /**
      * {@inheritdoc}
      * @SuppressWarnings(PHPMD.NPathComplexity)
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
@@ -114,7 +126,7 @@ class Imap extends \Zend\Mail\Storage\Imap
         if ($params->accessToken === null) {
             $response = $this->protocol->login($params->user, $password);
             if (!$response) {
-                throw new BaseException\RuntimeException('cannot login, user or password wrong');
+                throw new InvalidCredentialsException('Cannot login. User or password is incorrect.');
             }
             $this->checkAndSetCapability($response);
         } else {
@@ -260,6 +272,7 @@ class Imap extends \Zend\Mail\Storage\Imap
      * @param int[] $ids int numbers of messages
      *
      * @return Message[] key = message id
+     * @throws \Exception
      */
     public function getMessages($ids)
     {
@@ -267,7 +280,15 @@ class Imap extends \Zend\Mail\Storage\Imap
 
         $items = $this->protocol->fetch($this->getMessageItems, $ids);
         foreach ($items as $id => $data) {
-            $messages[$id] = $this->createMessageObject($id, $data);
+            try {
+                $messages[$id] = $this->createMessageObject($id, $data);
+            } catch (ZendMailException $e) {
+                if (null !== $this->onConvertError) {
+                    call_user_func($this->onConvertError, $e, $data[self::UID]);
+                } else {
+                    throw $e;
+                }
+            }
         }
 
         return $messages;
@@ -311,16 +332,16 @@ class Imap extends \Zend\Mail\Storage\Imap
         }
 
         $response = $this->protocol->requestAndResponse('UID SEARCH', $criteria);
+        if (!is_array($response)) {
+            throw new BaseException\RuntimeException('Cannot search messages.');
+        }
+
         foreach ($response as $ids) {
             if ($ids[0] === 'SEARCH') {
                 array_shift($ids);
 
                 return $ids;
             }
-        }
-
-        if (!is_array($response)) {
-            throw new BaseException\RuntimeException('Cannot search messages.');
         }
 
         return $response;
@@ -388,6 +409,34 @@ class Imap extends \Zend\Mail\Storage\Imap
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function getNumberByUniqueId($id)
+    {
+        if (!$this->uniqueIds) {
+            $uniqueIds = $this->getUniqueId();
+            if (is_array($uniqueIds)) {
+                $this->uniqueIds = $uniqueIds;
+            }
+        }
+        foreach ($this->uniqueIds as $k => $v) {
+            if ($v == $id) {
+                return $k;
+            }
+        }
+
+        throw new BaseException\InvalidArgumentException('unique id not found');
+    }
+
+    /**
+     * Clear cache of UniqueId which was created in method getNumberByUniqueId
+     */
+    public function clearCacheUniqueId()
+    {
+        $this->uniqueIds = [];
+    }
+
+    /**
      * Creates Message object based on the given data
      *
      * @param int   $id
@@ -404,15 +453,29 @@ class Imap extends \Zend\Mail\Storage\Imap
             $flags[] = isset(static::$knownFlags[$flag]) ? static::$knownFlags[$flag] : $flag;
         }
 
-        /** @var \Zend\Mail\Storage\Message $message */
-        $message = new $this->messageClass(
-            [
-                'handler' => $this,
-                'id'      => $id,
-                'headers' => $header,
-                'flags'   => $flags
-            ]
-        );
+        try {
+            /** @var \Oro\Bundle\ImapBundle\Mail\Storage\Message $message */
+            $message = new $this->messageClass(
+                [
+                    'handler' => $this,
+                    'id'      => $id,
+                    'headers' => $header,
+                    'flags'   => $flags
+                ]
+            );
+        } catch (InvalidMessageHeadersException $e) {
+            if (null !== $this->onConvertError) {
+                $message = $e->getEmailMessage();
+                $subjectHeader = $message->getHeaders()->get('subject');
+                $subject = $subjectHeader ? $subjectHeader->getFieldValue() : '';
+
+                foreach ($e->getExceptions() as $exception) {
+                    call_user_func($this->onConvertError, $exception, $data[self::UID], $subject);
+                }
+            } else {
+                throw $e;
+            }
+        }
 
         $headers = $message->getHeaders();
         $this->setExtHeaders($headers, $data);
@@ -426,11 +489,23 @@ class Imap extends \Zend\Mail\Storage\Imap
     public function getRawContent($id, $part = null)
     {
         if ($part !== null) {
-            // TODO: implement
             throw new BaseException\RuntimeException('not implemented');
         }
 
         return $this->protocol->fetch(self::BODY_PEEK_TEXT, $id);
+    }
+
+    /**
+     * Sets a callback function to handle message convertation errors.
+     * If this callback set then the iterator will work in fail safe mode
+     * and invalid messages will just skipped.
+     *
+     * @param \Closure|null $callback The callback function.
+     *                                function (\Exception)
+     */
+    public function setConvertErrorCallback(\Closure $callback = null)
+    {
+        $this->onConvertError = $callback;
     }
 
     /**

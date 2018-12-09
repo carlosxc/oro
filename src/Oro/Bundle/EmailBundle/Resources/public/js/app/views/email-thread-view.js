@@ -16,13 +16,13 @@ define(function(require) {
 
         events: {
             'click .email-view-toggle-all': 'onToggleAllClick',
-            'click .email-load-more': 'onLoadMoreClick',
+            'click [data-role="email-load-more"]': 'onLoadMoreClick',
             'shown.bs.dropdown .email-detailed-info-table.dropdown': 'onDetailedInfoOpen'
         },
 
         selectors: {
             emailItem: '.email-info',
-            loadMore: '.email-load-more',
+            loadMore: '[data-role="email-load-more"]',
             toggleAll: '.email-view-toggle-all'
         },
 
@@ -30,6 +30,13 @@ define(function(require) {
          * @type {string}
          */
         actionPanelSelector: null,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function EmailTreadView() {
+            EmailTreadView.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * @inheritDoc
@@ -114,8 +121,8 @@ define(function(require) {
             var target = $target[0];
             var parentRect = this.el.getBoundingClientRect();
             $target.removeAttr('data-uid').removeClass('fixed-width').css({
-                'width': '',
-                'left': ''
+                width: '',
+                left: ''
             });
             var limitWidth = Math.min(target.clientWidth, parentRect.width);
             if (target.scrollWidth > limitWidth) {
@@ -127,7 +134,7 @@ define(function(require) {
             var shift = rect.right - parentRect.right;
             if (shift > 0) {
                 $target.css({
-                    'left': left - shift + 'px'
+                    left: left - shift + 'px'
                 });
                 // move dropdown triangle to fit to open button
                 $target.attr('data-uid', uid);
@@ -180,7 +187,6 @@ define(function(require) {
                 return;
             }
             this.$(this.selectors.loadMore).removeClass('process');
-            mediator.execute('showFlashMessage', 'error', __('oro.ui.unexpected_error'));
         },
 
         /**
@@ -209,10 +215,10 @@ define(function(require) {
             });
             this.subview('email:' + emailItemView.cid, emailItemView);
             this.listenTo(emailItemView, {
-                'toggle': this.updateToggleAllAction,
-                'commentCountChanged': this.onCommentCountChange
+                toggle: this.onEmailItemToggle,
+                commentCountChanged: this.onCommentCountChange
             });
-            return emailItemView.deferredRender.promise();
+            return emailItemView.getDeferredRenderPromise();
         },
 
         /**
@@ -222,6 +228,11 @@ define(function(require) {
             _.each(this.subviews, function(emailItemView) {
                 emailItemView.refresh();
             });
+        },
+
+        onEmailItemToggle: function() {
+            this.updateToggleAllAction();
+            this.$el.trigger('content:changed');
         },
 
         /**

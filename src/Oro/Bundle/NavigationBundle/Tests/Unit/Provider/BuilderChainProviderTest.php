@@ -2,21 +2,31 @@
 namespace Oro\Bundle\NavigationBundle\Tests\Unit\Provider;
 
 use Knp\Menu\FactoryInterface;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Oro\Bundle\NavigationBundle\Provider\BuilderChainProvider;
+use Knp\Menu\Loader\ArrayLoader;
+use Knp\Menu\Util\MenuManipulator;
 use Oro\Bundle\NavigationBundle\Menu\BuilderInterface;
+use Oro\Bundle\NavigationBundle\Provider\BuilderChainProvider;
+use Oro\Bundle\NavigationBundle\Tests\Unit\Entity\Stub\MenuItemStub;
 
-class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
+/**
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
+ */
+class BuilderChainProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|FactoryInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|FactoryInterface
      */
     protected $factory;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|EventDispatcherInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|ArrayLoader
      */
-    protected $eventDispatcher;
+    protected $loader;
+
+    /**
+     * @var \PHPUnit\Framework\MockObject\MockObject|MenuManipulator
+     */
+    protected $manipulator;
 
     /**
      * @var BuilderChainProvider
@@ -27,9 +37,18 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
     {
         $this->factory = $this->getMockBuilder('Knp\Menu\MenuFactory')
             ->getMock();
-        $this->eventDispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcherInterface')
+
+        $this->loader = $this->getMockBuilder('Knp\Menu\Loader\ArrayLoader')
+            ->setConstructorArgs([$this->factory])
             ->getMock();
-        $this->provider = new BuilderChainProvider($this->factory, $this->eventDispatcher);
+        $this->manipulator = $this->getMockBuilder('Knp\Menu\Util\MenuManipulator')
+            ->getMock();
+
+        $this->provider = new BuilderChainProvider(
+            $this->factory,
+            $this->loader,
+            $this->manipulator
+        );
     }
 
     public function testAddBuilder()
@@ -39,15 +58,25 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
         $this->provider->addBuilder($builder, 'builder1');
         $this->provider->addBuilder($builder, 'builder2');
         $this->assertAttributeCount(2, 'builders', $this->provider);
-        $expectedBuilders = array('builder1' => array($builder, $builder), 'builder2' => array($builder));
+        $expectedBuilders = ['builder1' => [$builder, $builder], 'builder2' => [$builder]];
         $this->assertAttributeEquals($expectedBuilders, 'builders', $this->provider);
     }
 
     public function testHas()
     {
-        $this->provider->addBuilder($this->getMenuBuilderMock(), 'test');
-        $this->assertTrue($this->provider->has('test'));
-        $this->assertFalse($this->provider->has('unknown'));
+        $topMenu = $this->getMockBuilder('Knp\Menu\ItemInterface')
+            ->getMock();
+        $existingMenuName = 'test';
+        $notExistingMenuName = 'unknown';
+
+        $this->factory->expects($this->once())
+            ->method('createItem')
+            ->with($notExistingMenuName)
+            ->will($this->returnValue($topMenu));
+
+        $this->provider->addBuilder($this->getMenuBuilderMock(), $existingMenuName);
+        $this->assertTrue($this->provider->has($existingMenuName));
+        $this->assertFalse($this->provider->has($notExistingMenuName));
     }
 
     /**
@@ -84,10 +113,12 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
      */
     public function testGet($alias, $menuName)
     {
-        $options = array();
+        $options = [];
 
-        $menu = $this->getMockBuilder('Knp\Menu\ItemInterface')
-            ->getMock();
+        $item = new MenuItemStub();
+
+        $menu = new MenuItemStub();
+        $menu->addChild($item);
 
         $this->factory->expects($this->once())
             ->method('createItem')
@@ -100,25 +131,84 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
             ->with($menu, $options, $menuName);
         $this->provider->addBuilder($builder, $alias);
 
-        $this->eventDispatcher->expects($this->once())
-            ->method('dispatch')
-            ->with(
-                'oro_menu.configure.' . $menuName,
-                $this->isInstanceOf('Oro\Bundle\NavigationBundle\Event\ConfigureMenuEvent')
-            );
-
         $this->assertInstanceOf('Knp\Menu\ItemInterface', $this->provider->get($menuName, $options));
         $this->assertInstanceOf('Knp\Menu\ItemInterface', $this->provider->get($menuName, $options));
 
         $this->assertAttributeCount(1, 'menus', $this->provider);
     }
 
+    public function testGetOneMenuWithDifferentLocalCachePrefixes()
+    {
+        $menuName = 'menu_name';
+
+        $menu = new MenuItemStub();
+        $menu->addChild(new MenuItemStub());
+
+        $rebuildMenu = clone $menu;
+        $rebuildMenu->setAttribute('custom', true);
+
+        $this->factory->expects($this->exactly(2))
+            ->method('createItem')
+            ->with($menuName)
+            ->willReturn($menu, $rebuildMenu);
+
+        $builder = $this->getMenuBuilderMock();
+        $builder->expects($this->exactly(2))
+            ->method('build')
+            ->willReturnMap([
+                [$menu, [], $menuName],
+                [$rebuildMenu, [BuilderChainProvider::MENU_LOCAL_CACHE_PREFIX => 'custom_'], $menuName],
+            ]);
+
+        $this->provider->addBuilder($builder);
+
+        $this->assertSame($menu, $this->provider->get($menuName, []));
+        $this->assertSame($rebuildMenu, $this->provider->get($menuName, [
+            BuilderChainProvider::MENU_LOCAL_CACHE_PREFIX => 'custom_'
+        ]));
+
+        $this->assertAttributeCount(2, 'menus', $this->provider);
+    }
+
+    public function testGetOneMenuWithDifferentOptions()
+    {
+        $menuName = 'menu_name';
+
+        $menu = new MenuItemStub();
+        $menu->addChild(new MenuItemStub());
+
+        $rebuildMenu = clone $menu;
+        $rebuildMenu->setAttribute('custom', true);
+
+        $this->factory->expects($this->exactly(2))
+            ->method('createItem')
+            ->with($menuName)
+            ->willReturn($menu, $rebuildMenu);
+
+        $builder = $this->getMenuBuilderMock();
+        $builder->expects($this->exactly(2))
+            ->method('build')
+            ->willReturnMap([
+                [$menu, [], $menuName],
+                [$rebuildMenu, ['foo' => 'bar'], $menuName],
+            ]);
+
+        $this->provider->addBuilder($builder);
+
+        $this->assertSame($menu, $this->provider->get($menuName, []));
+        $this->assertSame($rebuildMenu, $this->provider->get($menuName, [
+            'foo' => 'bar'
+        ]));
+
+        $this->assertAttributeCount(2, 'menus', $this->provider);
+    }
+
     public function testGetCached()
     {
-        $options = array();
+        $options = [];
 
         $alias = 'test_menu';
-        $items = array('name' => $alias);
+        $items = ['name' => $alias];
         $menu = $this->getMockBuilder('Knp\Menu\ItemInterface')
             ->getMock();
 
@@ -135,8 +225,8 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
             ->with($alias)
             ->will($this->returnValue($items));
 
-        $this->factory->expects($this->once())
-            ->method('createFromArray')
+        $this->loader->expects($this->once())
+            ->method('load')
             ->with($items)
             ->will($this->returnValue($menu));
 
@@ -146,9 +236,6 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
         $builder = $this->getMenuBuilderMock();
         $builder->expects($this->never())
             ->method('build');
-
-        $this->eventDispatcher->expects($this->never())
-            ->method('dispatch');
 
         $this->provider->addBuilder($builder, $alias);
         $this->provider->setCache($cache);
@@ -162,14 +249,14 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
      */
     public function aliasDataProvider()
     {
-        return array(
-            'custom alias' => array('test', 'test'),
-            'global' => array(BuilderChainProvider::COMMON_BUILDER_ALIAS, 'test')
-        );
+        return [
+            'custom alias' => ['test', 'test'],
+            'global' => [BuilderChainProvider::COMMON_BUILDER_ALIAS, 'test']
+        ];
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|BuilderInterface
+     * @return \PHPUnit\Framework\MockObject\MockObject|BuilderInterface
      */
     protected function getMenuBuilderMock()
     {
@@ -180,7 +267,7 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
     public function testSorting()
     {
         $menuName = 'test_menu';
-        $options = array();
+        $options = [];
 
         $topMenu = $this->getMockBuilder('Knp\Menu\ItemInterface')
             ->getMock();
@@ -211,11 +298,11 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
 
         $menu->expects($this->any())
             ->method('getChildren')
-            ->will($this->returnValue(array($childThree, $childFour, $childTwo, $childOne)));
+            ->will($this->returnValue([$childThree, $childFour, $childTwo, $childOne]));
 
         $topMenu->expects($this->any())
             ->method('getChildren')
-            ->will($this->returnValue(array($menu)));
+            ->will($this->returnValue([$menu]));
 
         $this->factory->expects($this->once())
             ->method('createItem')
@@ -224,7 +311,7 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
 
         $menu->expects($this->once())
             ->method('reorderChildren')
-            ->with(array('child1', 'child2', 'child3', 'child4'));
+            ->with(['child1', 'child2', 'child3', 'child4']);
 
         $newMenu = $this->provider->get($menuName, $options);
         $this->assertInstanceOf('Knp\Menu\ItemInterface', $newMenu);
@@ -233,16 +320,17 @@ class BuilderChainProviderTest extends \PHPUnit_Framework_TestCase
     /**
      * @param  string                                   $name
      * @param  null|int                                 $position
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function getChildItem($name, $position = null)
     {
         $child = $this->getMockBuilder('Knp\Menu\ItemInterface')
             ->getMock();
-        $child->expects($this->once())
+        $child->expects($this->exactly(1))
             ->method('getExtra')
-            ->with('position')
-            ->will($this->returnValue($position));
+            ->will($this->returnValueMap([
+                ['position', null, $position]
+            ]));
         $child->expects($this->once())
             ->method('getName')
             ->will($this->returnValue($name));

@@ -4,7 +4,7 @@ namespace Oro\Bundle\NotificationBundle\Tests\Unit\Entity;
 
 use Oro\Bundle\NotificationBundle\Entity\SpoolItem;
 
-class SpoolItemTest extends \PHPUnit_Framework_TestCase
+class SpoolItemTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var SpoolItem
@@ -37,7 +37,7 @@ class SpoolItemTest extends \PHPUnit_Framework_TestCase
         // empty from construct
         $this->assertNull($this->entity->getMessage());
 
-        $message = $this->getMock('Swift_Mime_Message');
+        $message = $this->createMock('Swift_Mime_Message');
 
         $this->entity->setMessage($message);
         $this->assertEquals($message, $this->entity->getMessage());

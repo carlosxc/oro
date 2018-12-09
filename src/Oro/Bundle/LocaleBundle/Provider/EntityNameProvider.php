@@ -3,9 +3,10 @@
 namespace Oro\Bundle\LocaleBundle\Provider;
 
 use Oro\Bundle\EntityBundle\Provider\EntityNameProviderInterface;
-use Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink;
 use Oro\Bundle\LocaleBundle\DQL\DQLNameFormatter;
+use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\Formatter\NameFormatter;
+use Oro\Component\DependencyInjection\ServiceLink;
 
 class EntityNameProvider implements EntityNameProviderInterface
 {
@@ -34,7 +35,10 @@ class EntityNameProvider implements EntityNameProviderInterface
             /** @var NameFormatter $nameFormatter */
             $nameFormatter = $this->nameFormatterLink->getService();
 
-            return $nameFormatter->format($entity, $locale);
+            return $nameFormatter->format(
+                $entity,
+                $locale instanceof Localization ? $locale->getLanguageCode() : $locale
+            );
         }
 
         return false;
@@ -45,14 +49,18 @@ class EntityNameProvider implements EntityNameProviderInterface
      */
     public function getNameDQL($format, $locale, $className, $alias)
     {
-        if ($format === self::FULL && $this->isFullFormatSupported($className)) {
-            /** @var DQLNameFormatter $dqlNameFormatter */
-            $dqlNameFormatter = $this->dqlNameFormatterLink->getService();
-
-            return $dqlNameFormatter->getFormattedNameDQL($alias, $className, $locale);
+        if ($format !== self::FULL || !$this->isFullFormatSupported($className)) {
+            return false;
         }
 
-        return false;
+        /** @var DQLNameFormatter $dqlNameFormatter */
+        $dqlNameFormatter = $this->dqlNameFormatterLink->getService();
+
+        return $dqlNameFormatter->getFormattedNameDQL(
+            $alias,
+            $className,
+            $locale instanceof Localization ? $locale->getLanguageCode() : $locale
+        );
     }
 
     /**

@@ -3,22 +3,42 @@
 namespace Oro\Bundle\WorkflowBundle\Migrations\Schema;
 
 use Doctrine\DBAL\Schema\Schema;
-
+use Oro\Bundle\EntityBundle\EntityConfig\DatagridScope;
+use Oro\Bundle\EntityConfigBundle\Entity\ConfigModel;
+use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
+use Oro\Bundle\EntityExtendBundle\Migration\ExtendOptionsManager;
+use Oro\Bundle\EntityExtendBundle\Migration\Extension\ExtendExtension;
+use Oro\Bundle\EntityExtendBundle\Migration\Extension\ExtendExtensionAwareInterface;
+use Oro\Bundle\EntityExtendBundle\Migration\OroOptions;
 use Oro\Bundle\MigrationBundle\Migration\Installation;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
-use Oro\Bundle\WorkflowBundle\Migrations\Schema\v1_13\CreateEntityRestrictionsTable;
 
 /**
+ * Created all tables required for WorkflowBundle.
+ *
  * @SuppressWarnings(PHPMD.TooManyMethods)
  */
-class OroWorkflowBundleInstaller implements Installation
+class OroWorkflowBundleInstaller implements Installation, ExtendExtensionAwareInterface
 {
+    /**
+     * @var ExtendExtension
+     */
+    protected $extendExtension;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setExtendExtension(ExtendExtension $extendExtension)
+    {
+        $this->extendExtension = $extendExtension;
+    }
+
     /**
      * {@inheritdoc}
      */
     public function getMigrationVersion()
     {
-        return 'v1_14';
+        return 'v2_5';
     }
 
     /**
@@ -35,7 +55,11 @@ class OroWorkflowBundleInstaller implements Installation
         $this->createOroWorkflowEntityAclIdentTable($schema);
         $this->createOroWorkflowDefinitionTable($schema);
         $this->createOroProcessDefinitionTable($schema);
+        $this->createOroWorkflowRestrictionTable($schema);
+        $this->createOroWorkflowRestrictionIdentityTable($schema);
         $this->createOroWorkflowStepTable($schema);
+        $this->createOroWorkflowTransTriggerTable($schema);
+        $this->createOroWorkflowScopesTable($schema);
 
         /** Foreign keys generation **/
         $this->addOroWorkflowItemForeignKeys($schema);
@@ -45,9 +69,13 @@ class OroWorkflowBundleInstaller implements Installation
         $this->addOroProcessTriggerForeignKeys($schema);
         $this->addOroWorkflowEntityAclIdentForeignKeys($schema);
         $this->addOroWorkflowDefinitionForeignKeys($schema);
+        $this->addOroWorkflowRestrictionForeignKeys($schema);
+        $this->addOroWorkflowRestrictionIdentityForeignKeys($schema);
         $this->addOroWorkflowStepForeignKeys($schema);
+        $this->addOroWorkflowTransTriggerForeignKeys($schema);
+        $this->addOroWorkflowScopesForeignKeys($schema);
 
-        CreateEntityRestrictionsTable::createOroWorkflowEntityRestrictionsTable($schema);
+        $this->addWorkflowFieldsToEmailNotificationTable($schema);
     }
 
     /**
@@ -67,6 +95,7 @@ class OroWorkflowBundleInstaller implements Installation
         $table->addColumn('updated', 'datetime', ['notnull' => false]);
         $table->addColumn('data', 'text', ['notnull' => false]);
         $table->addIndex(['workflow_name'], 'idx_169789ae1bbc6e3d', []);
+        $table->addIndex(['entity_class', 'entity_id'], 'oro_workflow_item_entity_idx', []);
         $table->setPrimaryKey(['id']);
         $table->addIndex(['current_step_id'], 'idx_169789aed9bf9b19', []);
         $table->addUniqueIndex(['entity_id', 'workflow_name'], 'oro_workflow_item_entity_definition_unq');
@@ -142,7 +171,7 @@ class OroWorkflowBundleInstaller implements Installation
         $table->addColumn('id', 'integer', ['autoincrement' => true]);
         $table->addColumn('definition_name', 'string', ['notnull' => false, 'length' => 255]);
         $table->addColumn('event', 'string', ['length' => 255, 'notnull' => false]);
-        $table->addColumn('field', 'string', ['notnull' => false, 'length' => 255]);
+        $table->addColumn('field', 'string', ['notnull' => false, 'length' => 150]);
         $table->addColumn('queued', 'boolean', []);
         $table->addColumn('time_shift', 'integer', ['notnull' => false]);
         $table->addColumn('cron', 'string', ['length' => 100, 'notnull' => false]);
@@ -195,9 +224,17 @@ class OroWorkflowBundleInstaller implements Installation
         $table->addColumn('active', 'boolean', ['default' => false]);
         $table->addColumn('priority', 'integer', ['default' => 0]);
         $table->addColumn('configuration', 'array', ['comment' => '(DC2Type:array)']);
-        $table->addColumn('groups', 'array', ['comment' => '(DC2Type:array)']);
+        $table->addColumn('exclusive_active_groups', 'simple_array', [
+            'comment' => '(DC2Type:simple_array)',
+            'notnull' => false,
+        ]);
+        $table->addColumn('exclusive_record_groups', 'simple_array', [
+            'comment' => '(DC2Type:simple_array)',
+            'notnull' => false,
+        ]);
         $table->addColumn('created_at', 'datetime', []);
         $table->addColumn('updated_at', 'datetime', []);
+        $table->addColumn('applications', 'simple_array', ['comment' => '(DC2Type:simple_array)', 'notnull' => true]);
         $table->addIndex(['start_step_id'], 'idx_6f737c368377424f', []);
         $table->setPrimaryKey(['name']);
     }
@@ -232,6 +269,49 @@ class OroWorkflowBundleInstaller implements Installation
     }
 
     /**
+     * Create oro_workflow_restriction table
+     *
+     * @param Schema $schema
+     */
+    protected function createOroWorkflowRestrictionTable(Schema $schema)
+    {
+        $table = $schema->createTable('oro_workflow_restriction');
+        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('workflow_name', 'string', ['length' => 255]);
+        $table->addColumn('workflow_step_id', 'integer', ['notnull' => false]);
+        $table->addColumn('attribute', 'string', ['length' => 255]);
+        $table->addColumn('field', 'string', ['length' => 150]);
+        $table->addColumn('entity_class', 'string', ['length' => 255]);
+        $table->addColumn('mode', 'string', ['length' => 8]);
+        $table->addColumn('mode_values', 'json_array', ['notnull' => false, 'comment' => '(DC2Type:json_array)']);
+        $table->setPrimaryKey(['id']);
+        $table->addUniqueIndex(
+            ['workflow_name', 'workflow_step_id', 'field', 'entity_class', 'mode'],
+            'oro_workflow_restriction_idx'
+        );
+    }
+
+    /**
+     * Create oro_workflow_restriction_ident table
+     *
+     * @param Schema $schema
+     */
+    protected function createOroWorkflowRestrictionIdentityTable(Schema $schema)
+    {
+        $table = $schema->createTable('oro_workflow_restriction_ident');
+        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('workflow_restriction_id', 'integer', ['notnull' => false]);
+        $table->addColumn('workflow_item_id', 'integer');
+        $table->addColumn('entity_id', 'integer', []);
+        $table->setPrimaryKey(['id']);
+        $table->addIndex(['entity_id'], 'oro_workflow_restr_ident_idx', []);
+        $table->addUniqueIndex(
+            ['workflow_restriction_id', 'entity_id', 'workflow_item_id'],
+            'oro_workflow_restr_ident_unique_idx'
+        );
+    }
+
+    /**
      * Create oro_workflow_step table
      *
      * @param Schema $schema
@@ -249,6 +329,44 @@ class OroWorkflowBundleInstaller implements Installation
         $table->addIndex(['workflow_name'], 'idx_4a35528c1bbc6e3d', []);
         $table->setPrimaryKey(['id']);
         $table->addUniqueIndex(['workflow_name', 'name'], 'oro_workflow_step_unique_idx');
+    }
+
+    /**
+     * Create oro_workflow_trans_trigger table
+     *
+     * @param Schema $schema
+     */
+    protected function createOroWorkflowTransTriggerTable(Schema $schema)
+    {
+        $table = $schema->createTable('oro_workflow_trans_trigger');
+        $table->addColumn('id', 'integer', ['autoincrement' => true]);
+        $table->addColumn('workflow_name', 'string', ['length' => 255]);
+        $table->addColumn('entity_class', 'string', ['notnull' => false, 'length' => 255]);
+        $table->addColumn('queued', 'boolean', []);
+        $table->addColumn('transition_name', 'string', ['length' => 255]);
+        $table->addColumn('created_at', 'datetime', []);
+        $table->addColumn('updated_at', 'datetime', []);
+        $table->addColumn('type', 'string', ['length' => 255]);
+        $table->addColumn('cron', 'string', ['notnull' => false, 'length' => 100]);
+        $table->addColumn('filter', 'text', ['notnull' => false]);
+        $table->addColumn('event', 'string', ['notnull' => false, 'length' => 255]);
+        $table->addColumn('field', 'string', ['notnull' => false, 'length' => 150]);
+        $table->addColumn('require', 'text', ['notnull' => false]);
+        $table->addColumn('relation', 'text', ['notnull' => false]);
+        $table->setPrimaryKey(['id']);
+    }
+
+    /**
+     * Create oro_workflow_scopes table
+     *
+     * @param Schema $schema
+     */
+    protected function createOroWorkflowScopesTable(Schema $schema)
+    {
+        $table = $schema->createTable('oro_workflow_scopes');
+        $table->addColumn('workflow_name', 'string', ['length' => 255]);
+        $table->addColumn('scope_id', 'integer', []);
+        $table->setPrimaryKey(['workflow_name', 'scope_id']);
     }
 
     /**
@@ -394,6 +512,50 @@ class OroWorkflowBundleInstaller implements Installation
     }
 
     /**
+     * Add oro_workflow_restriction foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addOroWorkflowRestrictionForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('oro_workflow_restriction');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_step'),
+            ['workflow_step_id'],
+            ['id'],
+            ['onDelete' => 'CASCADE', 'onUpdate' => null]
+        );
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_definition'),
+            ['workflow_name'],
+            ['name'],
+            ['onDelete' => 'CASCADE', 'onUpdate' => null]
+        );
+    }
+
+    /**
+     * Add oro_workflow_restriction_ident foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addOroWorkflowRestrictionIdentityForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('oro_workflow_restriction_ident');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_restriction'),
+            ['workflow_restriction_id'],
+            ['id'],
+            ['onUpdate' => null, 'onDelete' => 'CASCADE']
+        );
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_item'),
+            ['workflow_item_id'],
+            ['id'],
+            ['onUpdate' => null, 'onDelete' => 'CASCADE']
+        );
+    }
+
+    /**
      * Add oro_workflow_step foreign keys.
      *
      * @param Schema $schema
@@ -406,6 +568,101 @@ class OroWorkflowBundleInstaller implements Installation
             ['workflow_name'],
             ['name'],
             ['onUpdate' => null, 'onDelete' => 'CASCADE']
+        );
+    }
+
+    /**
+     * Add oro_workflow_trans_trigger foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addOroWorkflowTransTriggerForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('oro_workflow_trans_trigger');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_definition'),
+            ['workflow_name'],
+            ['name'],
+            ['onDelete' => 'CASCADE', 'onUpdate' => null]
+        );
+    }
+
+    /**
+     * Add oro_workflow_scopes foreign keys.
+     *
+     * @param Schema $schema
+     */
+    protected function addOroWorkflowScopesForeignKeys(Schema $schema)
+    {
+        $table = $schema->getTable('oro_workflow_scopes');
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_scope'),
+            ['scope_id'],
+            ['id'],
+            ['onDelete' => 'CASCADE', 'onUpdate' => null]
+        );
+        $table->addForeignKeyConstraint(
+            $schema->getTable('oro_workflow_definition'),
+            ['workflow_name'],
+            ['name'],
+            ['onDelete' => 'CASCADE', 'onUpdate' => null]
+        );
+    }
+
+    /**
+     * @param Schema $schema
+     */
+    protected function addWorkflowFieldsToEmailNotificationTable(Schema $schema)
+    {
+        $this->extendExtension->addManyToOneRelation(
+            $schema,
+            'oro_notification_email_notif',
+            'workflow_definition',
+            'oro_workflow_definition',
+            'name',
+            [
+                'entity' => ['label' => 'oro.workflow.workflowdefinition.entity_label'],
+                'extend' => [
+                    'owner' => ExtendScope::OWNER_CUSTOM,
+                    'is_extend' => true,
+                    'nullable' => true
+                ],
+                'datagrid' => [
+                    'is_visible' => DatagridScope::IS_VISIBLE_TRUE,
+                    'show_filter' => true,
+                    'order' => 30
+                ],
+                'form' => ['is_enabled' => false],
+                'view' => ['is_displayable' => false],
+                'merge' => ['display' => false],
+                'dataaudit' => ['auditable' => false]
+            ]
+        );
+
+        $table = $schema->getTable('oro_notification_email_notif');
+        $table->addColumn(
+            'workflow_transition_name',
+            'string',
+            [
+                OroOptions::KEY => [
+                    ExtendOptionsManager::MODE_OPTION => ConfigModel::MODE_READONLY,
+                    'entity' => ['label' => 'oro.workflow.workflowdefinition.transition_name.label'],
+                    'extend' => [
+                        'owner' => ExtendScope::OWNER_CUSTOM,
+                        'is_extend' => true,
+                        'length' => 255
+                    ],
+                    'datagrid' => [
+                        'is_visible' => DatagridScope::IS_VISIBLE_TRUE,
+                        'show_filter' => true,
+                        'order' => 40
+                    ],
+                    'form' => ['is_enabled' => false],
+                    'view' => ['is_displayable' => false],
+                    'merge' => ['display' => false],
+                    'dataaudit' => ['auditable' => false]
+                ],
+            ]
         );
     }
 }

@@ -2,11 +2,13 @@
 
 namespace Oro\Bundle\NoteBundle\Form\Type;
 
+use Oro\Bundle\AttachmentBundle\Form\Type\ImageType;
+use Oro\Bundle\FormBundle\Form\Type\OroResizeableRichTextType;
+use Oro\Bundle\NoteBundle\Entity\Note;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
-
-use Oro\Bundle\NoteBundle\Entity\Note;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class NoteType extends AbstractType
 {
@@ -18,7 +20,7 @@ class NoteType extends AbstractType
         $builder
             ->add(
                 'message',
-                'oro_resizeable_rich_text',
+                OroResizeableRichTextType::class,
                 [
                     'required' => true,
                     'label'    => 'oro.note.message.label'
@@ -26,7 +28,7 @@ class NoteType extends AbstractType
             )
             ->add(
                 'attachment',
-                'oro_image',
+                ImageType::class,
                 [
                     'label' => 'oro.note.attachment.label',
                     'required' => false
@@ -37,16 +39,21 @@ class NoteType extends AbstractType
     /**
      * {@inheritdoc}
      */
-    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefaults(
             [
                 'data_class'              => Note::ENTITY_NAME,
-                'intention'               => 'note',
+                'csrf_token_id'           => 'note',
                 'ownership_disabled'      => true,
                 'dynamic_fields_disabled' => true,
                 'csrf_protection'         => true,
-                'cascade_validation'      => true
+                'contexts_options'        => [
+                    'constraints' => [
+                        new NotBlank()
+                    ],
+                    'required' => true
+                ]
             ]
         );
     }

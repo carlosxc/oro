@@ -2,20 +2,26 @@
 
 namespace Oro\Bundle\ApiBundle\Command;
 
+use Oro\Bundle\ApiBundle\Config\Config;
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
+use Oro\Bundle\ApiBundle\Provider\ConfigProvider;
+use Oro\Bundle\ApiBundle\Provider\RelationConfigProvider;
+use Oro\Bundle\ApiBundle\Provider\ResourcesProvider;
+use Oro\Bundle\ApiBundle\Request\RequestType;
+use Oro\Bundle\ApiBundle\Request\Version;
+use Oro\Bundle\ApiBundle\Util\ConfigUtil;
+use Oro\Component\ChainProcessor\ProcessorBagInterface;
+use ProxyManager\Proxy\VirtualProxyInterface;
+use Symfony\Component\Console\Exception\RuntimeException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Yaml\Yaml;
 
-use Oro\Component\ChainProcessor\ProcessorBagInterface;
-use Oro\Bundle\ApiBundle\Config\Config;
-use Oro\Bundle\ApiBundle\Provider\ConfigProvider;
-use Oro\Bundle\ApiBundle\Provider\RelationConfigProvider;
-use Oro\Bundle\ApiBundle\Request\RequestType;
-use Oro\Bundle\ApiBundle\Request\Version;
-use Oro\Bundle\ApiBundle\Util\ConfigUtil;
-
+/**
+ * The CLI command to show configuration of Data API resources.
+ */
 class DumpConfigCommand extends AbstractDebugCommand
 {
     /**
@@ -40,16 +46,9 @@ class DumpConfigCommand extends AbstractDebugCommand
             ->setDescription('Dumps entity configuration used in Data API.')
             ->addArgument(
                 'entity',
-                InputArgument::REQUIRED,
+                InputArgument::OPTIONAL,
                 'The entity class name or alias'
             )
-            // @todo: API version is not supported for now
-            //->addArgument(
-            //    'version',
-            //    InputArgument::OPTIONAL,
-            //    'API version',
-            //    Version::LATEST
-            //)
             ->addOption(
                 'section',
                 null,
@@ -76,6 +75,12 @@ class DumpConfigCommand extends AbstractDebugCommand
                 'The name of action for which the configuration should be displayed.' .
                 'Can be "get", "get_list", "create", "update", "delete", "delete_list", etc.',
                 'get'
+            )
+            ->addOption(
+                'documentation-resources',
+                null,
+                InputOption::VALUE_NONE,
+                'Shows the list of documentation resources'
             );
         parent::configure();
     }
@@ -86,8 +91,7 @@ class DumpConfigCommand extends AbstractDebugCommand
     public function execute(InputInterface $input, OutputInterface $output)
     {
         $requestType = $this->getRequestType($input);
-        // @todo: API version is not supported for now
-        //$version = $input->getArgument('version');
+        // API version is not supported for now
         $version = Version::normalizeVersion(null);
         $extras = $this->getConfigExtras($input);
 
@@ -96,29 +100,38 @@ class DumpConfigCommand extends AbstractDebugCommand
         $processorBag->addApplicableChecker(new Util\RequestTypeApplicableChecker());
 
         $entityClass = $this->resolveEntityClass($input->getArgument('entity'), $version, $requestType);
-
-        switch ($input->getOption('section')) {
-            case 'entities':
+        $isDocumentationResourcesRequested = $input->getOption('documentation-resources');
+        if ($isDocumentationResourcesRequested && !$entityClass) {
+            $entityClasses = $this->getEntityClasses($version, $requestType);
+            foreach ($entityClasses as $entityClass) {
                 $config = $this->getConfig($entityClass, $version, $requestType, $extras);
-                break;
-            case 'relations':
-                $config = $this->getRelationConfig($entityClass, $version, $requestType, $extras);
-                break;
-            default:
-                throw new \InvalidArgumentException(
-                    'The section should be either "entities" or "relations".'
-                );
-        }
-
-        array_walk_recursive(
-            $config,
-            function (&$val) {
-                if ($val instanceof \Closure) {
-                    $val = '\Closure';
-                }
+                $config = $this->getDocumentationResources($config);
+                $this->dumpConfig($output, $config);
             }
-        );
-        $output->write(Yaml::dump($config, 100, 4, true, true));
+        } else {
+            if (!$entityClass) {
+                throw new RuntimeException('The "entity" argument is missing.');
+            }
+
+            switch ($input->getOption('section')) {
+                case 'entities':
+                    $config = $this->getConfig($entityClass, $version, $requestType, $extras);
+                    break;
+                case 'relations':
+                    $config = $this->getRelationConfig($entityClass, $version, $requestType, $extras);
+                    break;
+                default:
+                    throw new \InvalidArgumentException(
+                        'The section should be either "entities" or "relations".'
+                    );
+            }
+
+            if ($isDocumentationResourcesRequested) {
+                $config = $this->getDocumentationResources($config);
+            }
+
+            $this->dumpConfig($output, $config);
+        }
     }
 
     /**
@@ -186,11 +199,7 @@ class DumpConfigCommand extends AbstractDebugCommand
         $config = $configProvider->getConfig($entityClass, $version, $requestType, $extras);
 
         return [
-            'oro_api' => [
-                'entities' => [
-                    $entityClass => $this->convertConfigToArray($config)
-                ]
-            ]
+            $entityClass => $this->convertConfigToArray($config)
         ];
     }
 
@@ -210,12 +219,28 @@ class DumpConfigCommand extends AbstractDebugCommand
         $config = $configProvider->getRelationConfig($entityClass, $version, $requestType, $extras);
 
         return [
-            'oro_api' => [
-                'relations' => [
-                    $entityClass => $this->convertConfigToArray($config)
-                ]
-            ]
+            $entityClass => $this->convertConfigToArray($config)
         ];
+    }
+
+    /**
+     * @param string      $version
+     * @param RequestType $requestType
+     *
+     * @return array
+     */
+    protected function getEntityClasses($version, RequestType $requestType)
+    {
+        /** @var ResourcesProvider $resourcesProvider */
+        $resourcesProvider = $this->getContainer()->get('oro_api.resources_provider');
+        $resources = $resourcesProvider->getResources($version, $requestType);
+        $entityClasses = [];
+        foreach ($resources as $resource) {
+            $entityClasses[] = $resource->getEntityClass();
+        }
+        sort($entityClasses);
+
+        return $entityClasses;
     }
 
     /**
@@ -260,5 +285,67 @@ class DumpConfigCommand extends AbstractDebugCommand
         }
 
         return $result;
+    }
+
+    /**
+     * @param mixed $val
+     *
+     * @return mixed
+     */
+    protected function convertConfigValueToHumanReadableRepresentation($val)
+    {
+        if ($val instanceof \Closure) {
+            $val = sprintf(
+                'closure from %s',
+                (new \ReflectionFunction($val))->getClosureScopeClass()->getName()
+            );
+        } elseif (is_object($val)) {
+            if ($val instanceof VirtualProxyInterface) {
+                if (!$val->isProxyInitialized()) {
+                    $val->initializeProxy();
+                }
+                $val = $val->getWrappedValueHolderValue();
+            }
+            $val = sprintf('instance of %s', get_class($val));
+        }
+
+        return $val;
+    }
+
+    /**
+     * @param OutputInterface $output
+     * @param array           $config
+     */
+    private function dumpConfig(OutputInterface $output, array $config)
+    {
+        array_walk_recursive(
+            $config,
+            function (&$val) {
+                $val = $this->convertConfigValueToHumanReadableRepresentation($val);
+            }
+        );
+        $output->write(Yaml::dump($config, 100, 4, Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE | Yaml::DUMP_OBJECT));
+    }
+
+    /**
+     * @param array $config
+     *
+     * @return array
+     */
+    private function getDocumentationResources(array $config)
+    {
+        $keys = array_keys($config);
+        $entityClass = reset($keys);
+        $config = $config[$entityClass];
+        $documentationResource = [];
+        if (array_key_exists(ConfigUtil::DOCUMENTATION_RESOURCE, $config)) {
+            $documentationResource = $config[ConfigUtil::DOCUMENTATION_RESOURCE];
+        }
+
+        return [
+            $entityClass => [
+                ConfigUtil::DOCUMENTATION_RESOURCE => $documentationResource
+            ]
+        ];
     }
 }

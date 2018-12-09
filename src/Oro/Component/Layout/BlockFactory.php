@@ -3,6 +3,9 @@
 namespace Oro\Component\Layout;
 
 use Oro\Component\Layout\Block\Type\ContainerType;
+use Oro\Component\Layout\Block\Type\Options;
+use Oro\Component\Layout\ExpressionLanguage\ExpressionProcessor;
+use Symfony\Component\ExpressionLanguage\Expression;
 
 class BlockFactory implements BlockFactoryInterface
 {
@@ -11,6 +14,9 @@ class BlockFactory implements BlockFactoryInterface
 
     /** @var DeferredLayoutManipulatorInterface */
     protected $layoutManipulator;
+
+    /** @var ExpressionProcessor */
+    protected $expressionProcessor;
 
     /** @var BlockOptionsResolver */
     protected $optionsResolver;
@@ -36,28 +42,26 @@ class BlockFactory implements BlockFactoryInterface
     /**
      * @param LayoutRegistryInterface            $registry
      * @param DeferredLayoutManipulatorInterface $layoutManipulator
+     * @param ExpressionProcessor                $expressionProcessor
      */
     public function __construct(
         LayoutRegistryInterface $registry,
-        DeferredLayoutManipulatorInterface $layoutManipulator
+        DeferredLayoutManipulatorInterface $layoutManipulator,
+        ExpressionProcessor $expressionProcessor
     ) {
-        $this->registry          = $registry;
-        $this->layoutManipulator = $layoutManipulator;
+        $this->registry            = $registry;
+        $this->layoutManipulator   = $layoutManipulator;
+        $this->expressionProcessor = $expressionProcessor;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function createBlockView(RawLayout $rawLayout, ContextInterface $context, $rootId = null)
+    public function createBlockView(RawLayout $rawLayout, ContextInterface $context)
     {
         $this->initializeState($rawLayout, $context);
         try {
-            if ($rootId === null) {
-                $rootId = $context->getOr('root_id');
-            }
-            $rootId = $rootId
-                ? $this->rawLayout->resolveId($rootId)
-                : $this->rawLayout->getRootId();
+            $rootId = $this->rawLayout->getRootId();
 
             $this->buildBlocks($rootId);
             $this->layoutManipulator->applyChanges($this->context, true);
@@ -131,7 +135,7 @@ class BlockFactory implements BlockFactoryInterface
         // build child blocks
         $iterator = $this->rawLayout->getHierarchyIterator($rootId);
         foreach ($iterator as $id) {
-            if ($this->rawLayout->hasProperty($id, RawLayout::RESOLVED_OPTIONS, true)) {
+            if (!$this->rawLayout->has($id) || $this->rawLayout->hasProperty($id, RawLayout::RESOLVED_OPTIONS, true)) {
                 // the block is already built
                 continue;
             }
@@ -184,7 +188,7 @@ class BlockFactory implements BlockFactoryInterface
             $views[$id]                = $view;
         }
 
-        $viewsCollection = new ArrayCollection($views);
+        $viewsCollection = new BlockViewCollection($views);
         foreach ($views as $view) {
             $view->blocks = $viewsCollection;
         }
@@ -210,18 +214,7 @@ class BlockFactory implements BlockFactoryInterface
         $options   = $this->rawLayout->getProperty($id, RawLayout::OPTIONS, true);
         $types     = $this->typeHelper->getTypes($blockType);
 
-        // resolve options
-        $resolvedOptions = $this->optionsResolver->resolveOptions($blockType, $options);
-
-        // point the block builder state to the current block
-        $this->blockBuilder->initialize($id);
-        // iterate from parent to current
-        foreach ($types as $type) {
-            $this->registry->normalizeOptions($type->getName(), $resolvedOptions, $this->context, $this->dataAccessor);
-            $type->buildBlock($this->blockBuilder, $resolvedOptions);
-            $this->registry->buildBlock($type->getName(), $this->blockBuilder, $resolvedOptions);
-        }
-        $this->rawLayout->setProperty($id, RawLayout::RESOLVED_OPTIONS, $resolvedOptions);
+        $this->setBlockResolvedOptions($id, $blockType, $options, $types);
     }
 
     /**
@@ -234,18 +227,32 @@ class BlockFactory implements BlockFactoryInterface
      */
     protected function buildBlockView($id, BlockView $parentView = null)
     {
-        $blockType = $this->rawLayout->getProperty($id, RawLayout::BLOCK_TYPE, true);
-        $options   = $this->rawLayout->getProperty($id, RawLayout::RESOLVED_OPTIONS, true);
-        $types     = $this->typeHelper->getTypes($blockType);
-        $view      = new BlockView($parentView);
+        $blockType       = $this->rawLayout->getProperty($id, RawLayout::BLOCK_TYPE, true);
+        $resolvedOptions = $this->rawLayout->getProperty($id, RawLayout::RESOLVED_OPTIONS, true);
+        $types           = $this->typeHelper->getTypes($blockType);
+        $view            = new BlockView($parentView);
+
+        if (is_null($resolvedOptions)) { // Try to resolve options again to render block
+            $options  = $this->rawLayout->getProperty($id, RawLayout::OPTIONS, true);
+            $resolvedOptions = $this->setBlockResolvedOptions($id, $blockType, $options, $types);
+        }
 
         // point the block view state to the current block
         $this->block->initialize($id);
         // build the view
         foreach ($types as $type) {
-            $type->buildView($view, $this->block, $options);
-            $this->registry->buildView($type->getName(), $view, $this->block, $options);
+            $type->buildView($view, $this->block, $resolvedOptions);
+            $this->registry->buildView($type->getName(), $view, $this->block, $resolvedOptions);
         }
+
+        array_walk_recursive(
+            $view->vars,
+            function (&$var) {
+                if ($var instanceof Options) {
+                    $var = $var->toArray();
+                }
+            }
+        );
 
         return $view;
     }
@@ -259,15 +266,14 @@ class BlockFactory implements BlockFactoryInterface
     protected function finishBlockView(BlockView $view, $id)
     {
         $blockType = $this->rawLayout->getProperty($id, RawLayout::BLOCK_TYPE, true);
-        $options   = $this->rawLayout->getProperty($id, RawLayout::RESOLVED_OPTIONS, true);
         $types     = $this->typeHelper->getTypes($blockType);
 
         // point the block view state to the current block
         $this->block->initialize($id);
         // finish the view
         foreach ($types as $type) {
-            $type->finishView($view, $this->block, $options);
-            $this->registry->finishView($type->getName(), $view, $this->block, $options);
+            $type->finishView($view, $this->block);
+            $this->registry->finishView($type->getName(), $view, $this->block);
         }
     }
 
@@ -284,5 +290,88 @@ class BlockFactory implements BlockFactoryInterface
             $this->rawLayout->getProperty($id, RawLayout::BLOCK_TYPE, true),
             ContainerType::NAME
         );
+    }
+
+    /**
+     * Processes expressions that don't work with data
+     *
+     * @param Options $options
+     */
+    protected function processExpressions(Options $options)
+    {
+        if (!$this->context->getOr('expressions_evaluate')) {
+            return;
+        }
+
+        $values = $options->toArray();
+
+        if ($this->context->getOr('expressions_evaluate_deferred')) {
+            $this->expressionProcessor->processExpressions($values, $this->context, null, true, null);
+        } else {
+            $this->expressionProcessor->processExpressions(
+                $values,
+                $this->context,
+                $this->dataAccessor,
+                true,
+                $this->context->getOr('expressions_encoding')
+            );
+        }
+
+        $options->setMultiple($values);
+    }
+
+    /**
+     * @param Options $options
+     * @return Options
+     */
+    protected function resolveValueBags(Options $options)
+    {
+        foreach ($options as $key => $value) {
+            if ($value instanceof Expression) {
+                continue;
+            }
+
+            if ($value instanceof Options) {
+                $options[$key] = $this->resolveValueBags($value);
+            } elseif ($value instanceof OptionValueBag) {
+                $options[$key] = $value->buildValue();
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Setting resolved options for block
+     *
+     * @param string $id
+     * @param string $blockType
+     * @param array  $options
+     * @param array  $types
+     *
+     * @return Options
+     */
+    protected function setBlockResolvedOptions($id, $blockType, $options, $types)
+    {
+        // resolve options
+        $resolvedOptions = new Options($this->optionsResolver->resolveOptions($blockType, $options));
+
+        $this->processExpressions($resolvedOptions);
+        $resolvedOptions = $this->resolveValueBags($resolvedOptions);
+
+        if ($resolvedOptions->get('visible', false) !== false) {
+            // point the block builder state to the current block
+            $this->blockBuilder->initialize($id);
+            // iterate from parent to current
+            foreach ($types as $type) {
+                $type->buildBlock($this->blockBuilder, $resolvedOptions);
+                $this->registry->buildBlock($type->getName(), $this->blockBuilder, $resolvedOptions);
+            }
+            $this->rawLayout->setProperty($id, RawLayout::RESOLVED_OPTIONS, $resolvedOptions);
+        } else {
+            $this->rawLayout->remove($id);
+        }
+
+        return $resolvedOptions;
     }
 }

@@ -5,16 +5,24 @@ define(function(require) {
     var _ = require('underscore');
     var tools = require('oroui/js/tools');
     var BaseView = require('oroui/js/app/views/base/view');
+    var mediator = require('oroui/js/mediator');
     require('jquery.validate');
 
     BaseSetupView = BaseView.extend({
         tagName: 'form',
 
         listen: {
-            'ok': 'onOk'
+            ok: 'onOk'
         },
 
         validation: {},
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function BaseSetupView() {
+            BaseSetupView.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * @inheritDoc
@@ -28,6 +36,11 @@ define(function(require) {
             this.$el.validate({
                 submitHandler: _.bind(this.onSubmit, this)
             });
+
+            if (!_.isMobile()) {
+                mediator.execute('layout:adjustLabelsWidth', this.$el);
+            }
+
             return this;
         },
 

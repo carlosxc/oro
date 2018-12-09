@@ -10,18 +10,18 @@ use Symfony\Component\Security\Acl\Domain\Acl;
 use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
 use Symfony\Component\Security\Acl\Exception\AclNotFoundException;
 
-class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
+class RootBasedAclProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var RootBasedAclProvider */
     private $provider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $baseProvider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $strategy;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $underlyingCache;
 
     protected function setUp()
@@ -59,7 +59,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
     public function testFindAcls()
     {
         $oids = array(new ObjectIdentity(123, 'Test'));
-        $sids = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $this->baseProvider->expects($this->once())
             ->method('findAcls')
             ->with($this->equalTo($oids), $this->equalTo($sids))
@@ -70,7 +70,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithRoot()
     {
-        $sids    = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids    = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid     = new ObjectIdentity(123, 'Test');
         $rootOid = new ObjectIdentity('entity', ObjectIdentityFactory::ROOT_IDENTITY_TYPE);
         $acl     = $this->getAcl($oid);
@@ -105,7 +105,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithNoRoot()
     {
-        $sids = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid  = new ObjectIdentity(123, 'Test');
         $acl  = $this->getAcl($oid);
 
@@ -132,7 +132,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithNoAclAndUnderlyingAndRoot()
     {
-        $sids          = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids          = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid           = new ObjectIdentity(123, 'Test');
         $rootOid       = new ObjectIdentity('entity', ObjectIdentityFactory::ROOT_IDENTITY_TYPE);
         $underlyingOid = new ObjectIdentity('entity', 'Test');
@@ -173,7 +173,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithReplaceWithUnderlyingAndRoot()
     {
-        $sids          = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids          = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid           = new ObjectIdentity(123, 'Test');
         $rootOid       = new ObjectIdentity('entity', ObjectIdentityFactory::ROOT_IDENTITY_TYPE);
         $underlyingOid = new ObjectIdentity('entity', 'Test');
@@ -215,7 +215,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithNoAclAndUnderlyingAndNoRoot()
     {
-        $sids          = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids          = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid           = new ObjectIdentity(123, 'Test');
         $underlyingOid = new ObjectIdentity('entity', 'Test');
         $underlyingAcl = $this->getAcl($underlyingOid);
@@ -248,7 +248,7 @@ class RootBasedAclProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testFindAclWithNoAclAndNoUnderlyingAndRoot()
     {
-        $sids          = array($this->getMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
+        $sids          = array($this->createMock('Symfony\Component\Security\Acl\Model\SecurityIdentityInterface'));
         $oid           = new ObjectIdentity(123, 'Test');
         $rootOid       = new ObjectIdentity('entity', ObjectIdentityFactory::ROOT_IDENTITY_TYPE);
         $rootAcl       = $this->getAcl($rootOid);

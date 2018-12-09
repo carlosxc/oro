@@ -2,11 +2,11 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Metadata;
 
-use Oro\Bundle\SecurityBundle\Metadata\AclAnnotationStorage;
 use Oro\Bundle\SecurityBundle\Annotation\Acl as AclAnnotation;
 use Oro\Bundle\SecurityBundle\Annotation\AclAncestor as AclAnnotationAncestor;
+use Oro\Bundle\SecurityBundle\Metadata\AclAnnotationStorage;
 
-class AclAnnotationStorageTest extends \PHPUnit_Framework_TestCase
+class AclAnnotationStorageTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
@@ -114,7 +114,7 @@ class AclAnnotationStorageTest extends \PHPUnit_Framework_TestCase
             'Acme\SomeClass1',
             'SomeMethod'
         );
-        $this->setExpectedException('\RuntimeException');
+        $this->expectException('\RuntimeException');
         $storage->addAncestor(
             new AclAnnotationAncestor(array('value' => 'annotation1')),
             'Acme\SomeClass1',

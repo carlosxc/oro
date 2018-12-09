@@ -3,10 +3,12 @@
 namespace Oro\Bundle\UIBundle\Command;
 
 use FOS\JsRoutingBundle\Command\DumpCommand;
-
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Dump routes to use from JavaScript
+ */
 class JsRoutingDumpCommand extends DumpCommand
 {
     /**
@@ -16,9 +18,9 @@ class JsRoutingDumpCommand extends DumpCommand
     {
         // override default target file
         if (!$input->getOption('target')) {
-            $webRootDir = $this->getContainer()->getParameter('assetic.read_from');
+            $webRootDir = $this->getContainer()->getParameter('kernel.project_dir');
             if ($webRootDir) {
-                $input->setOption('target', $webRootDir . '/js/routes.js');
+                $input->setOption('target', $webRootDir . '/public/js/routes.js');
             }
         }
 

@@ -2,24 +2,45 @@
 
 namespace Oro\Component\Layout\Tests\Unit;
 
+use Oro\Component\Layout\Block\Type\Options;
 use Oro\Component\Layout\BlockBuilderInterface;
 use Oro\Component\Layout\BlockTypeExtensionInterface;
 use Oro\Component\Layout\BlockTypeInterface;
+use Oro\Component\Layout\BlockViewCache;
+use Oro\Component\Layout\DeferredLayoutManipulatorInterface;
+use Oro\Component\Layout\ExpressionLanguage\ExpressionProcessor;
 use Oro\Component\Layout\Extension\ExtensionInterface;
+use Oro\Component\Layout\LayoutFactory;
 use Oro\Component\Layout\LayoutFactoryBuilder;
 use Oro\Component\Layout\LayoutItemInterface;
+use Oro\Component\Layout\LayoutRegistry;
 use Oro\Component\Layout\LayoutRendererInterface;
+use Oro\Component\Layout\LayoutRendererRegistry;
 use Oro\Component\Layout\LayoutUpdateInterface;
-use Oro\Component\Layout\DeferredLayoutManipulatorInterface;
 
-class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
+class LayoutFactoryBuilderTest extends \PHPUnit\Framework\TestCase
 {
+    /** @var ExpressionProcessor|\PHPUnit\Framework\MockObject\MockObject */
+    protected $expressionProcessor;
+
+    /** @var BlockViewCache|\PHPUnit\Framework\MockObject\MockObject */
+    protected $blockViewCache;
+
     /** @var LayoutFactoryBuilder */
     protected $layoutFactoryBuilder;
 
     protected function setUp()
     {
-        $this->layoutFactoryBuilder = new LayoutFactoryBuilder();
+        $this->expressionProcessor = $this
+            ->getMockBuilder('Oro\Component\Layout\ExpressionLanguage\ExpressionProcessor')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $this->blockViewCache = $this
+            ->getMockBuilder('Oro\Component\Layout\BlockViewCache')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->layoutFactoryBuilder = new LayoutFactoryBuilder($this->expressionProcessor, $this->blockViewCache);
     }
 
     public function testGetEmptyLayoutFactory()
@@ -31,9 +52,9 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
     public function testGetLayoutFactoryWithImplicitSetOfDefaultRenderer()
     {
         /** @var LayoutRendererInterface $renderer1 */
-        $renderer1 = $this->getMock('Oro\Component\Layout\LayoutRendererInterface');
+        $renderer1 = $this->createMock('Oro\Component\Layout\LayoutRendererInterface');
         /** @var LayoutRendererInterface $renderer2 */
-        $renderer2 = $this->getMock('Oro\Component\Layout\LayoutRendererInterface');
+        $renderer2 = $this->createMock('Oro\Component\Layout\LayoutRendererInterface');
         $this->layoutFactoryBuilder
             ->addRenderer('renderer1', $renderer1)
             ->addRenderer('renderer2', $renderer2);
@@ -57,9 +78,9 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
     public function testGetLayoutFactoryWithExplicitSetOfDefaultRenderer()
     {
         /** @var LayoutRendererInterface $renderer1 */
-        $renderer1 = $this->getMock('Oro\Component\Layout\LayoutRendererInterface');
+        $renderer1 = $this->createMock('Oro\Component\Layout\LayoutRendererInterface');
         /** @var LayoutRendererInterface $renderer2 */
-        $renderer2 = $this->getMock('Oro\Component\Layout\LayoutRendererInterface');
+        $renderer2 = $this->createMock('Oro\Component\Layout\LayoutRendererInterface');
         $this->layoutFactoryBuilder
             ->addRenderer('renderer1', $renderer1)
             ->addRenderer('renderer2', $renderer2)
@@ -81,13 +102,38 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
         );
     }
 
+    public function testGetLayoutFactoryWithDebug()
+    {
+        $this->layoutFactoryBuilder->setDebug(true);
+        $layoutFactory = $this->layoutFactoryBuilder->getLayoutFactory();
+
+        $registry = new LayoutRegistry();
+        $rendererRegistry = new LayoutRendererRegistry();
+        $this->assertEquals(
+            new LayoutFactory($registry, $rendererRegistry, $this->expressionProcessor),
+            $layoutFactory
+        );
+    }
+
+    public function testGetLayoutFactoryWithoutDebug()
+    {
+        $layoutFactory = $this->layoutFactoryBuilder->getLayoutFactory();
+
+        $registry = new LayoutRegistry();
+        $rendererRegistry = new LayoutRendererRegistry();
+        $this->assertEquals(
+            new LayoutFactory($registry, $rendererRegistry, $this->expressionProcessor, $this->blockViewCache),
+            $layoutFactory
+        );
+    }
+
     public function testAddExtension()
     {
         $name = 'test';
-        $type = $this->getMock('Oro\Component\Layout\BlockTypeInterface');
+        $type = $this->createMock('Oro\Component\Layout\BlockTypeInterface');
 
-        /** @var ExtensionInterface|\PHPUnit_Framework_MockObject_MockObject $extension */
-        $extension     = $this->getMock('Oro\Component\Layout\Extension\ExtensionInterface');
+        /** @var ExtensionInterface|\PHPUnit\Framework\MockObject\MockObject $extension */
+        $extension     = $this->createMock('Oro\Component\Layout\Extension\ExtensionInterface');
         $layoutFactory = $this->layoutFactoryBuilder
             ->addExtension($extension)
             ->getLayoutFactory();
@@ -110,8 +156,8 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
     public function testAddType()
     {
         $name = 'test';
-        /** @var BlockTypeInterface|\PHPUnit_Framework_MockObject_MockObject $type */
-        $type = $this->getMock('Oro\Component\Layout\BlockTypeInterface');
+        /** @var BlockTypeInterface|\PHPUnit\Framework\MockObject\MockObject $type */
+        $type = $this->createMock('Oro\Component\Layout\BlockTypeInterface');
         $type->expects($this->once())
             ->method('getName')
             ->will($this->returnValue($name));
@@ -129,13 +175,13 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
     public function testAddTypeExtension()
     {
         $name          = 'test';
-        /** @var BlockTypeExtensionInterface|\PHPUnit_Framework_MockObject_MockObject $typeExtension */
-        $typeExtension = $this->getMock('Oro\Component\Layout\BlockTypeExtensionInterface');
+        /** @var BlockTypeExtensionInterface|\PHPUnit\Framework\MockObject\MockObject $typeExtension */
+        $typeExtension = $this->createMock('Oro\Component\Layout\BlockTypeExtensionInterface');
         $typeExtension->expects($this->once())
             ->method('getExtendedType')
             ->will($this->returnValue($name));
         /** @var BlockBuilderInterface $blockBuilder */
-        $blockBuilder = $this->getMock('Oro\Component\Layout\BlockBuilderInterface');
+        $blockBuilder = $this->createMock('Oro\Component\Layout\BlockBuilderInterface');
 
         $layoutFactory = $this->layoutFactoryBuilder
             ->addTypeExtension($typeExtension)
@@ -143,21 +189,20 @@ class LayoutFactoryBuilderTest extends \PHPUnit_Framework_TestCase
 
         $typeExtension->expects($this->once())
             ->method('buildBlock')
-            ->with($this->identicalTo($blockBuilder), []);
+            ->with($this->identicalTo($blockBuilder), new Options());
 
-        $options = [];
-        $layoutFactory->getRegistry()->buildBlock($name, $blockBuilder, $options);
+        $layoutFactory->getRegistry()->buildBlock($name, $blockBuilder, new Options());
     }
 
     public function testAddLayoutUpdate()
     {
         $id                = 'test';
-        /** @var LayoutUpdateInterface|\PHPUnit_Framework_MockObject_MockObject $layoutUpdate */
-        $layoutUpdate      = $this->getMock('Oro\Component\Layout\LayoutUpdateInterface');
+        /** @var LayoutUpdateInterface|\PHPUnit\Framework\MockObject\MockObject $layoutUpdate */
+        $layoutUpdate      = $this->createMock('Oro\Component\Layout\LayoutUpdateInterface');
         /** @var DeferredLayoutManipulatorInterface $layoutManipulator */
-        $layoutManipulator = $this->getMock('Oro\Component\Layout\DeferredLayoutManipulatorInterface');
-        /** @var LayoutItemInterface|\PHPUnit_Framework_MockObject_MockObject $layoutItem */
-        $layoutItem        = $this->getMock('Oro\Component\Layout\LayoutItemInterface');
+        $layoutManipulator = $this->createMock('Oro\Component\Layout\DeferredLayoutManipulatorInterface');
+        /** @var LayoutItemInterface|\PHPUnit\Framework\MockObject\MockObject $layoutItem */
+        $layoutItem        = $this->createMock('Oro\Component\Layout\LayoutItemInterface');
         $layoutItem->expects($this->any())->method('getId')->willReturn($id);
 
         $layoutFactory = $this->layoutFactoryBuilder

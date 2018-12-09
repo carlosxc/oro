@@ -10,7 +10,7 @@ use Oro\Component\Config\CumulativeResourceManager;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
-class ConfigurationPassTest extends \PHPUnit_Framework_TestCase
+class ConfigurationPassTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ConfigurationPass
@@ -48,7 +48,7 @@ class ConfigurationPassTest extends \PHPUnit_Framework_TestCase
             ]
         ];
 
-        /** @var ContainerBuilder|\PHPUnit_Framework_MockObject_MockObject $container **/
+        /** @var ContainerBuilder|\PHPUnit\Framework\MockObject\MockObject $container **/
         $container = $this->getMockBuilder(ContainerBuilder::class)
             ->disableOriginalConstructor()
             ->getMock();
@@ -60,7 +60,7 @@ class ConfigurationPassTest extends \PHPUnit_Framework_TestCase
         $bundle1 = new TestBundle1();
         $bundle2 = new TestBundle2();
 
-        $cache = $this->getMock(ClearableCache::class);
+        $cache = $this->createMock(ClearableCache::class);
         $cache->expects($this->once())
             ->method('deleteAll')
             ->willReturn(true);

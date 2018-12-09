@@ -10,8 +10,7 @@
                     {# Transaltions temporary disabled due to BAP-5355 #}
                     {% set transitionData = {
                         'enabled': data.isAllowed,
-                        'transition-label': data.transition.label,
-                        'message': data.transition.message|nl2br,
+                        'message': data.transition.message|trans({},'workflows')|nl2br,
                         'transition-condition-messages': data.errors
                     } %}
 
@@ -68,18 +67,6 @@
                         transitionData
                     ) }}
                 {% endfor %}
-
-            {{ workflowMacros.renderTransitionsJs(workflow.transitionsData, blockId) }}
-
-            {% if workflow.resetAllowed and workflow.workflowItem %}
-                {% set data = {
-                    'url': path('oro_api_workflow_delete', {workflowItemId: workflow.workflowItem.id}),
-                    'title': 'oro.workflow.action.workflow.reset_data'|trans({'{workflow}' : workflow.label}),
-                    'workflow_item_id': workflow.workflowItem.id,
-                } %}
-
-                {{ workflowMacros.renderResetButton(data, blockId) }}
-            {% endif %}
             </div>
         {% endif %}
     {% endfor %}

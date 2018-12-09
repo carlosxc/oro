@@ -2,155 +2,158 @@
 
 namespace Oro\Bundle\SearchBundle\Tests\Unit\Engine;
 
-use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Doctrine\Common\Persistence\ManagerRegistry;
+use Doctrine\Common\Persistence\ObjectManager;
 use Oro\Bundle\SearchBundle\Engine\ObjectMapper;
 use Oro\Bundle\SearchBundle\Engine\Orm;
-use Oro\Bundle\SearchBundle\Provider\SearchMappingProvider;
-use Oro\Bundle\SearchBundle\Resolver\EntityTitleResolverInterface;
+use Oro\Bundle\SearchBundle\Entity\Repository\SearchIndexRepository;
+use Oro\Bundle\SearchBundle\Query\LazyResult;
+use Oro\Bundle\SearchBundle\Query\Query;
+use Oro\Bundle\SearchBundle\Query\Result\Item;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-class OrmTest extends \PHPUnit_Framework_TestCase
+class OrmTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $registry;
+    const TEST_CLASS = 'Stub\TestEntity';
+    const TEST_ALIAS = 'test_entity';
+    const TEST_INDEX = 'test_index';
 
-    /** @var DoctrineHelper */
-    protected $doctrineHelper;
+    /** @var SearchIndexRepository|\PHPUnit\Framework\MockObject\MockObject */
+    protected $repository;
 
-    /** @var ObjectMapper */
+    /** @var ObjectMapper|\PHPUnit\Framework\MockObject\MockObject */
     protected $mapper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $eventDispatcher;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $entityTitleResolver;
+    /** @var Orm */
+    protected $engine;
 
     protected function setUp()
     {
-        $config                = require rtrim(__DIR__, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'searchConfig.php';
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-        $this->registry        = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
-        $this->mapper          = new ObjectMapper($this->eventDispatcher, $config);
+        $this->repository = $this->createMock(SearchIndexRepository::class);
 
-        $eventDispatcher = $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcher')
-            ->disableOriginalConstructor()->getMock();
-        $mapperProvider = new SearchMappingProvider($eventDispatcher);
-        $mapperProvider->setMappingConfig($config);
-        $this->mapper->setMappingProvider($mapperProvider);
-        $this->doctrineHelper  = new DoctrineHelper($this->registry);
-        $this->entityTitleResolver = $this->getMock(EntityTitleResolverInterface::class);
-    }
+        $manager = $this->createMock(ObjectManager::class);
+        $manager->expects($this->any())
+            ->method('getRepository')
+            ->with('OroSearchBundle:Item')
+            ->willReturn($this->repository);
 
-    protected function tearDown()
-    {
-        unset(
-            $this->doctrineHelper,
-            $this->mapper,
-            $this->registry,
-            $this->eventDispatcher,
-            $this->entityTitleResolver
-        );
-    }
+        /** @var ManagerRegistry|\PHPUnit\Framework\MockObject\MockObject $registry */
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects($this->any())
+            ->method('getManagerForClass')
+            ->with('OroSearchBundle:Item')
+            ->willReturn($manager);
 
-    public function testReindexAll()
-    {
-        $processedEntities = [];
-        $engine            = $this->getEngineMock();
+        $this->mapper = $this->createMock(ObjectMapper::class);
+        $this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
 
-        $engine->expects($this->any())->method('reindexSingleEntity')
-            ->willReturnCallback(
-                function ($class) use (&$processedEntities) {
-                    $processedEntities[] = $class;
-                }
-            );
-
-        $engine->reindex();
-        $this->assertSame(
-            [
-                'Oro\Bundle\DataBundle\Entity\Product',
-                'Oro\Bundle\DataBundle\Entity\Customer',
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Customer',
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ConcreteCustomer',
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\RepeatableTask',
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ScheduledTask'
-            ],
-            $processedEntities
-        );
+        $this->engine = new Orm($registry, $this->mapper, $this->eventDispatcher);
     }
 
     /**
-     * @dataProvider entityModeDataProvider
+     * @param array $response
+     * @param array $items
+     * @param int $count
+     * @param array $aggregatedData
      *
-     * @param string $entity
-     * @param array  $expectedEntitiesToProcess
+     * @dataProvider searchDataProvider
      */
-    public function testReindexEntityWithMode($entity, array $expectedEntitiesToProcess)
+    public function testSearch(array $response, array $items, $count, array $aggregatedData = [])
     {
-        $processedEntities = $clearedEntities = [];
+        $query = new Query();
 
-        $engine = $this->getEngineMock();
-        $engine->expects($this->never())->method('clearAllSearchIndexes');
-        $engine->expects($this->any())->method('clearSearchIndexForEntity')
-            ->willReturnCallback(
-                function ($class) use (&$clearedEntities) {
-                    $clearedEntities[] = $class;
-                }
-            );
-        $engine->expects($this->any())->method('reindexSingleEntity')
-            ->willReturnCallback(
-                function ($class) use (&$processedEntities) {
-                    $processedEntities[] = $class;
-                }
-            );
+        $entityConfiguration = [
+            'alias' => self::TEST_ALIAS,
+            'fields' => [['name' => 'property', 'target_type' => 'text']]
+        ];
 
-        $engine->reindex($entity);
-        $this->assertSame($expectedEntitiesToProcess, $processedEntities);
-        $this->assertSame($expectedEntitiesToProcess, $clearedEntities);
+        $this->mapper->expects($this->any())
+            ->method('getEntityConfig')
+            ->with(self::TEST_CLASS)
+            ->willReturn($entityConfiguration);
+        $this->mapper->expects($this->any())
+            ->method('mapSelectedData')
+            ->willReturn([]);
+
+        $this->repository->expects($this->any())
+            ->method('search')
+            ->with($query)
+            ->willReturn($response);
+        $this->repository->expects($this->any())
+            ->method('getRecordsCount')
+            ->with($query)
+            ->willReturn($count);
+        $this->repository->expects($this->any())
+            ->method('getAggregatedData')
+            ->with($query)
+            ->willReturn($aggregatedData);
+
+        $expectedItems = [];
+        foreach ($items as $item) {
+            $expectedItems[] = new Item(
+                $item['class'],
+                $item['id'],
+                null,
+                null,
+                [],
+                $entityConfiguration
+            );
+        }
+
+        $result = $this->engine->search($query);
+
+        $this->assertInstanceOf(LazyResult::class, $result);
+        $this->assertEquals($query, $result->getQuery());
+
+        $this->assertEquals($expectedItems, $result->getElements());
+        $this->assertEquals($count, $result->getRecordsCount());
+        $this->assertEquals($aggregatedData, $result->getAggregatedData());
     }
 
     /**
      * @return array
      */
-    public function entityModeDataProvider()
+    public function searchDataProvider()
     {
         return [
-            'with normal mode'                => [
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ConcreteCustomer',
-                ['Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ConcreteCustomer']
-            ],
-            'with mode only descendants'      => [
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\AbstractTask',
-                [
-                    'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\RepeatableTask',
-                    'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ScheduledTask'
+            'valid response' => [
+                'response' => [
+                    [
+                        'item' => [
+                            'entity' => self::TEST_CLASS,
+                            'recordId' => 1,
+                            'title' => null,
+                        ],
+                    ],
+                    [
+                        'item' => [
+                            'entity' => self::TEST_CLASS,
+                            'recordId' => 2,
+                            'title' => null,
+                        ],
+                    ]
+                ],
+                'items' => [
+                    ['class' => self::TEST_CLASS, 'id' => 1],
+                    ['class' => self::TEST_CLASS, 'id' => 2],
+                ],
+                'count' => 5,
+                'aggregatedData' => [
+                    'sum_field' => 42,
+                    'count_filed' => [
+                        'firstValue' => 1001,
+                        'secondValue' => 2002,
+                    ]
                 ]
             ],
-            'with mode including descendants' => [
-                'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Customer',
-                [
-                    'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\Customer',
-                    'Oro\Bundle\SearchBundle\Tests\Unit\Fixture\Entity\ConcreteCustomer'
-                ]
-            ],
+            'empty response' => [
+                'response' => [],
+                'items' => [],
+                'count' => 0
+            ]
         ];
-    }
-
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|Orm
-     */
-    protected function getEngineMock()
-    {
-        $arguments = [
-            $this->registry,
-            $this->eventDispatcher,
-            $this->doctrineHelper,
-            $this->mapper,
-            $this->entityTitleResolver
-        ];
-
-        return $this->getMockBuilder('Oro\Bundle\SearchBundle\Engine\Orm')
-            ->setConstructorArgs($arguments)
-            ->setMethods(['clearAllSearchIndexes', 'clearSearchIndexForEntity', 'reindexSingleEntity'])
-            ->getMock();
     }
 }

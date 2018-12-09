@@ -3,8 +3,10 @@
 namespace Oro\Bundle\AttachmentBundle\Tests\Unit\Form\Type;
 
 use Oro\Bundle\AttachmentBundle\Form\Type\AttachmentType;
+use Oro\Bundle\AttachmentBundle\Form\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 
-class AttachmentTypeTest extends \PHPUnit_Framework_TestCase
+class AttachmentTypeTest extends \PHPUnit\Framework\TestCase
 {
     /** @var AttachmentType */
     protected $attachmentType;
@@ -14,39 +16,33 @@ class AttachmentTypeTest extends \PHPUnit_Framework_TestCase
         $this->attachmentType = new AttachmentType();
     }
 
-    public function testGetName()
+    public function testConfigureOptions()
     {
-        $this->assertEquals('oro_attachment', $this->attachmentType->getName());
-    }
-
-    public function testSetDefaultOptions()
-    {
-        $resolver = $this->getMock('Symfony\Component\OptionsResolver\OptionsResolverInterface');
+        $resolver = $this->createMock('Symfony\Component\OptionsResolver\OptionsResolver');
         $resolver->expects($this->once())
             ->method('setDefaults')
             ->with(
                 [
                     'data_class' => 'Oro\Bundle\AttachmentBundle\Entity\Attachment',
-                    'cascade_validation' => true,
                     'parentEntityClass' => '',
                     'checkEmptyFile' => false,
                     'allowDelete' => true
                 ]
             );
 
-        $this->attachmentType->setDefaultOptions($resolver);
+        $this->attachmentType->configureOptions($resolver);
     }
 
     public function testBuildForm()
     {
-        $builder = $this->getMock('Symfony\Component\Form\Test\FormBuilderInterface');
+        $builder = $this->createMock('Symfony\Component\Form\Test\FormBuilderInterface');
         $builder->expects($this->at(0))
             ->method('add')
-            ->with('file', 'oro_file');
+            ->with('file', FileType::class);
 
         $builder->expects($this->at(1))
             ->method('add')
-            ->with('comment', 'textarea');
+            ->with('comment', TextareaType::class);
 
         $this->attachmentType->buildForm($builder, ['checkEmptyFile' => true, 'allowDelete' => true]);
     }

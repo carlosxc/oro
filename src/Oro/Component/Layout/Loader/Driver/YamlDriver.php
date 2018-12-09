@@ -2,9 +2,8 @@
 
 namespace Oro\Component\Layout\Loader\Driver;
 
-use Symfony\Component\Yaml\Yaml;
-
 use Oro\Component\Layout\Loader\Generator\GeneratorData;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Generates layout update object and instantiate it based on yml configuration file content.
@@ -14,7 +13,7 @@ use Oro\Component\Layout\Loader\Generator\GeneratorData;
  * Example:
  *    layout:
  *        actions:
- *            - @add:
+ *            - `@add`:
  *              id:        test
  *              parent:    root
  *              blockType: block

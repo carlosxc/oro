@@ -2,28 +2,16 @@
 
 namespace Oro\Bundle\TranslationBundle\Strategy;
 
+use Oro\Bundle\LocaleBundle\Translation\Strategy\LocalizationFallbackStrategy;
+use Oro\Bundle\TranslationBundle\Translation\Translator;
+
 class TranslationStrategyProvider
 {
-    /**
-     * @var TranslationStrategyInterface
-     */
+    /** @var TranslationStrategyInterface */
     protected $strategy;
 
-    /**
-     * @param TranslationStrategyInterface $defaultStrategy
-     */
-    public function __construct(TranslationStrategyInterface $defaultStrategy)
-    {
-        $this->strategy = $defaultStrategy;
-    }
-
-    /**
-     * @return TranslationStrategyInterface
-     */
-    public function getStrategy()
-    {
-        return $this->strategy;
-    }
+    /** @var TranslationStrategyInterface[] */
+    protected $strategies = [];
 
     /**
      * @param TranslationStrategyInterface $strategy
@@ -31,6 +19,39 @@ class TranslationStrategyProvider
     public function setStrategy(TranslationStrategyInterface $strategy)
     {
         $this->strategy = $strategy;
+    }
+
+    /**
+     * @return TranslationStrategyInterface
+     */
+    public function getStrategy()
+    {
+        if (!$this->strategy) {
+            foreach ($this->strategies as $strategy) {
+                if ($strategy->isApplicable()) {
+                    $this->strategy = $strategy;
+                    break;
+                }
+            }
+        }
+
+        return $this->strategy;
+    }
+
+    /**
+     * @param TranslationStrategyInterface $strategy
+     */
+    public function addStrategy(TranslationStrategyInterface $strategy)
+    {
+        $this->strategies[$strategy->getName()] = $strategy;
+    }
+
+    /**
+     * @return TranslationStrategyInterface[]
+     */
+    public function getStrategies()
+    {
+        return $this->strategies;
     }
 
     /**
@@ -44,7 +65,7 @@ class TranslationStrategyProvider
 
         $fallback = $this->findPathToLocale($fallbackTree, $locale);
         if (!$fallback) {
-            return [];
+            return $locale !== Translator::DEFAULT_LOCALE ? [Translator::DEFAULT_LOCALE] : [];
         }
 
         // remove current locale
@@ -56,6 +77,10 @@ class TranslationStrategyProvider
 
         // set order from most specific to most common
         $fallback = array_reverse($fallback);
+
+        if ($strategy->getName() === LocalizationFallbackStrategy::NAME) {
+            $fallback = array_unique($fallback);
+        }
 
         return $fallback;
     }
@@ -70,7 +95,7 @@ class TranslationStrategyProvider
     {
         $fallbackTree = $strategy->getLocaleFallbacks();
 
-        return array_unique($this->convertTreeToPlainArray($fallbackTree));
+        return array_values(array_unique($this->convertTreeToPlainArray($fallbackTree)));
     }
 
     /**

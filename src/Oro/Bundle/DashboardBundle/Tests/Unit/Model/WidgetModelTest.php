@@ -4,7 +4,7 @@ namespace Oro\Bundle\DashboardBundle\Tests\Unit\Model;
 
 use Oro\Bundle\DashboardBundle\Model\WidgetModel;
 
-class WidgetModelTest extends \PHPUnit_Framework_TestCase
+class WidgetModelTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var array
@@ -12,12 +12,12 @@ class WidgetModelTest extends \PHPUnit_Framework_TestCase
     public static $expanded = true;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $widgetEntity;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $widgetState;
 
@@ -35,8 +35,8 @@ class WidgetModelTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->widgetEntity = $this->getMock('Oro\Bundle\DashboardBundle\Entity\Widget');
-        $this->widgetState  = $this->getMock('Oro\Bundle\DashboardBundle\Entity\WidgetState');
+        $this->widgetEntity = $this->createMock('Oro\Bundle\DashboardBundle\Entity\Widget');
+        $this->widgetState  = $this->createMock('Oro\Bundle\DashboardBundle\Entity\WidgetState');
 
         $this->widgetState
             ->expects($this->any())

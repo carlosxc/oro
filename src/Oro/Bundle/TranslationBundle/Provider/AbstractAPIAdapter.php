@@ -2,12 +2,11 @@
 
 namespace Oro\Bundle\TranslationBundle\Provider;
 
+use Guzzle\Http\Client;
+use Guzzle\Http\Exception\BadResponseException;
+use Guzzle\Http\Message\Request;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\NullLogger;
-
-use Guzzle\Http\Exception\BadResponseException;
-use Guzzle\Http\Client;
-use Guzzle\Http\Message\Request;
 
 abstract class AbstractAPIAdapter implements APIAdapterInterface
 {
@@ -22,9 +21,9 @@ abstract class AbstractAPIAdapter implements APIAdapterInterface
     /** @var Client */
     protected $client;
 
-    public function __construct()
+    public function __construct(Client $client)
     {
-        $this->client = new Client();
+        $this->client = $client;
         $this->setLogger(new NullLogger());
     }
 
@@ -112,18 +111,19 @@ abstract class AbstractAPIAdapter implements APIAdapterInterface
         $dirs = [];
 
         foreach ($files as $remotePath) {
-            $subFolders = explode(DIRECTORY_SEPARATOR, dirname($remotePath));
+            $remotePath = str_replace(DIRECTORY_SEPARATOR, '/', dirname($remotePath));
+            $subFolders = array_filter(explode('/', $remotePath));
 
             $currentDir = [];
             foreach ($subFolders as $folderName) {
                 $currentDir[] = $folderName;
 
                 // crowdin understand only "/" as directory separator
-                $path         = implode('/', $currentDir);
-                $dirs[]  = $path;
+                $path = implode('/', $currentDir);
+                $dirs[] = $path;
             }
         }
 
-        return $dirs;
+        return array_unique($dirs);
     }
 }

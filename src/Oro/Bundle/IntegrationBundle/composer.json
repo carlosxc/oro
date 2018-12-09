@@ -5,8 +5,8 @@
     "keywords": ["BAP", "Integration"],
     "license": "MIT",
     "require": {
-        "php": ">=5.5.9",
-        "symfony/symfony": "2.8.*, !=2.8.10",
+        "php": "7.1.*",
+        "symfony/symfony": "^3.4",
         "doctrine/orm": ">=2.3,<2.4-dev",
         "oro/log": "dev-master",
         "oro/workflow-bundle": "dev-master"
@@ -17,7 +17,6 @@
         }
     },
     "target-dir": "Oro/Bundle/IntegrationBundle",
-    "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
             "dev-master": "1.0-dev"

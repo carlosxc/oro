@@ -3,35 +3,43 @@
 namespace Oro\Bundle\ActionBundle\Datagrid\Extension;
 
 use Oro\Bundle\ActionBundle\Helper\ContextHelper;
+use Oro\Bundle\ActionBundle\Model\Criteria\OperationFindCriteria;
 use Oro\Bundle\ActionBundle\Model\Operation;
-use Oro\Bundle\ActionBundle\Model\OperationManager;
+use Oro\Bundle\ActionBundle\Model\OperationRegistry;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
-use Oro\Bundle\DataGridBundle\Extension\Action\ActionExtension as DatagridActionExtension;
 use Oro\Bundle\DataGridBundle\Extension\MassAction\DeleteMassActionExtension as BaseDeleteMassActionExtension;
-use Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper;
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
 
 class DeleteMassActionExtension extends BaseDeleteMassActionExtension
 {
-    /** @var OperationManager */
-    protected $operationManager;
+    const OPERATION_NAME = 'DELETE';
+
+    /** @var OperationRegistry */
+    protected $operationRegistry;
+
+    /** @var ContextHelper */
+    private $contextHelper;
 
     /** @var array */
     protected $groups;
 
     /**
      * @param DoctrineHelper $doctrineHelper
-     * @param GridConfigurationHelper $gridConfigurationHelper
-     * @param OperationManager $operationManager
+     * @param EntityClassResolver $entityClassResolver
+     * @param OperationRegistry $operationRegistry
+     * @param ContextHelper $contextHelper
      */
     public function __construct(
         DoctrineHelper $doctrineHelper,
-        GridConfigurationHelper $gridConfigurationHelper,
-        OperationManager $operationManager
+        EntityClassResolver $entityClassResolver,
+        OperationRegistry $operationRegistry,
+        ContextHelper $contextHelper
     ) {
-        parent::__construct($doctrineHelper, $gridConfigurationHelper);
+        parent::__construct($doctrineHelper, $entityClassResolver);
 
-        $this->operationManager = $operationManager;
+        $this->operationRegistry = $operationRegistry;
+        $this->contextHelper = $contextHelper;
     }
 
     /**
@@ -43,41 +51,20 @@ class DeleteMassActionExtension extends BaseDeleteMassActionExtension
             return parent::isDeleteActionExists($config, $key);
         }
 
-        $datagridContext = $this->getDatagridContext($config);
-        $operations = $this->getOperations(
-            $config->offsetGetOr(DatagridActionExtension::ACTION_KEY, []),
-            $datagridContext
+        $operation = $this->operationRegistry->findByName(
+            self::OPERATION_NAME,
+            new OperationFindCriteria($this->getEntity($config), null, $config->getName(), $this->groups)
         );
 
-        foreach ($operations as $operation) {
-            if (strtolower($operation->getName()) === static::ACTION_TYPE_DELETE) {
-                return true;
-            }
+        if (!$operation instanceof Operation) {
+            return false;
         }
 
-        return false;
-    }
-
-    /**
-     * Gets operations from registry if they not already exist in datagrid config as actions
-     * @param array $datagridActionsConfig
-     * @param array $datagridContext
-     * @return Operation[]
-     */
-    protected function getOperations(array $datagridActionsConfig, array $datagridContext)
-    {
-        $result = [];
-
-        $operations = $this->operationManager->getOperations($datagridContext);
-
-        foreach ($operations as $operationName => $action) {
-            $operationName = strtolower($operationName);
-            if (array_key_exists($operationName, $datagridActionsConfig)) {
-                $result[$operationName] = $action;
-            }
-        }
-
-        return $result;
+        return $operation->isAvailable(
+            $this->contextHelper->getActionData(
+                $this->getDatagridContext($config)
+            )
+        );
     }
 
     /**
@@ -95,7 +82,7 @@ class DeleteMassActionExtension extends BaseDeleteMassActionExtension
     protected function getDatagridContext(DatagridConfiguration $config)
     {
         return [
-            ContextHelper::ENTITY_CLASS_PARAM => $this->gridConfigurationHelper->getEntity($config),
+            ContextHelper::ENTITY_CLASS_PARAM => $this->getEntity($config),
             ContextHelper::DATAGRID_PARAM => $config->getName(),
             ContextHelper::GROUP_PARAM => $this->groups,
         ];

@@ -2,17 +2,18 @@
 
 namespace Oro\Bundle\EntityBundle\DependencyInjection;
 
+use Oro\Component\Config\CumulativeResourceInfo;
+use Oro\Component\Config\Loader\CumulativeConfigLoader;
+use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
-use Oro\Component\Config\CumulativeResourceInfo;
-use Oro\Component\Config\Loader\CumulativeConfigLoader;
-use Oro\Component\Config\Loader\YamlCumulativeFileLoader;
-
 class OroEntityExtension extends Extension
 {
+    public const DEFAULT_QUERY_CACHE_LIFETIME_PARAM_NAME = 'oro_entity.default_query_cache_lifetime';
+
     /**
      * {@inheritdoc}
      */
@@ -31,6 +32,14 @@ class OroEntityExtension extends Extension
         $loader->load('orm.yml');
         $loader->load('form_type.yml');
         $loader->load('services.yml');
+        $loader->load('fallbacks.yml');
+        $loader->load('services_api.yml');
+        $loader->load('commands.yml');
+
+        $container->setParameter(
+            self::DEFAULT_QUERY_CACHE_LIFETIME_PARAM_NAME,
+            $config['default_query_cache_lifetime']
+        );
 
         $container->setParameter('oro_entity.exclusions', $config['exclusions']);
         $container->setParameter('oro_entity.virtual_fields', $config['virtual_fields']);
@@ -41,28 +50,16 @@ class OroEntityExtension extends Extension
         $container->setParameter('oro_entity.entity_name_format.default', 'full');
 
         $loader->load('collectors.yml');
-        $hydrators = [];
-        foreach ($container->getParameter('oro_entity.orm.hydrators') as $key => $value) {
-            if (defined($key)) {
-                $key = constant($key);
-            }
-            $value['loggingClass'] = 'OroLoggingHydrator\Logging' . $value['name'];
-
-            $hydrators[$key] = $value;
-        }
-        $container->setParameter('oro_entity.orm.hydrators', $hydrators);
 
         $this->addClassesToCompile(['Oro\Bundle\EntityBundle\ORM\OroEntityManager']);
     }
 
     /**
-     * Loads configuration of entity
-     *
      * @param ContainerBuilder $container
      *
      * @return array
      */
-    protected function loadEntityConfigs(ContainerBuilder $container)
+    private function loadEntityConfigs(ContainerBuilder $container)
     {
         $configLoader = new CumulativeConfigLoader(
             'oro_entity',
@@ -105,14 +102,15 @@ class OroEntityExtension extends Extension
 
     /**
      * @param CumulativeResourceInfo $resource
-     * @param string $section
-     * @param array $data
+     * @param string                 $section
+     * @param array                  $data
+     *
      * @return array
      */
-    protected function mergeEntityConfiguration(CumulativeResourceInfo $resource, $section, array $data)
+    private function mergeEntityConfiguration(CumulativeResourceInfo $resource, $section, array $data)
     {
         if (!empty($resource->data['oro_entity'][$section])) {
-            $data = array_merge(
+            $data = array_merge_recursive(
                 $data,
                 $resource->data['oro_entity'][$section]
             );
@@ -122,13 +120,9 @@ class OroEntityExtension extends Extension
     }
 
     /**
-     * Loads configuration of entity hidden fields
-     *
-     * @todo: declaration of hidden fields is a temporary solution (https://magecore.atlassian.net/browse/BAP-4142)
-     *
      * @param ContainerBuilder $container
      */
-    protected function loadHiddenFieldConfigs(ContainerBuilder $container)
+    private function loadHiddenFieldConfigs(ContainerBuilder $container)
     {
         $hiddenFieldConfigs = [];
 

@@ -3,7 +3,7 @@ define(function(require) {
 
     var CommentsHeaderView;
     var BaseView = require('oroui/js/app/views/base/view');
-    var template = require('text!../../../templates/comment/comments-header-view.html');
+    var template = require('text!orocomment/templates/comment/comments-header-view.html');
 
     CommentsHeaderView = BaseView.extend({
         template: template,
@@ -18,6 +18,13 @@ define(function(require) {
 
         events: {
             'click a.load-more': 'onLoadMoreClick'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function CommentsHeaderView() {
+            CommentsHeaderView.__super__.constructor.apply(this, arguments);
         },
 
         onLoadMoreClick: function(e) {

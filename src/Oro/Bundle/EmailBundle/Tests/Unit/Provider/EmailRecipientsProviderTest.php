@@ -2,10 +2,10 @@
 
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Provider;
 
-use Oro\Bundle\EmailBundle\Provider\EmailRecipientsProvider;
 use Oro\Bundle\EmailBundle\Model\Recipient;
+use Oro\Bundle\EmailBundle\Provider\EmailRecipientsProvider;
 
-class EmailRecipientsProviderTest extends \PHPUnit_Framework_TestCase
+class EmailRecipientsProviderTest extends \PHPUnit\Framework\TestCase
 {
     protected $emailRecipientsHelper;
 
@@ -13,7 +13,7 @@ class EmailRecipientsProviderTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $translator->expects($this->any())
             ->method('trans')
             ->will($this->returnCallback(function ($id) {
@@ -147,11 +147,11 @@ class EmailRecipientsProviderTest extends \PHPUnit_Framework_TestCase
      * @param array     $provided
      * @param int       $recipientExactly
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function createProvider($section, array $provided, $recipientExactly = 1)
     {
-        $provider = $this->getMock('Oro\Bundle\EmailBundle\Provider\EmailRecipientsProviderInterface');
+        $provider = $this->createMock('Oro\Bundle\EmailBundle\Provider\EmailRecipientsProviderInterface');
         $provider->expects($this->any())
             ->method('getSection')
             ->will($this->returnValue($section));

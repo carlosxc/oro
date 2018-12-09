@@ -4,12 +4,12 @@ namespace Oro\Bundle\DistributionBundle\Script;
 
 use Composer\Installer\InstallationManager;
 use Composer\Package\PackageInterface;
+use Oro\Bundle\InstallerBundle\Process\PhpExecutableFinder;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
-use Oro\Bundle\InstallerBundle\Process\PhpExecutableFinder;
 
 class Runner
 {
@@ -21,7 +21,7 @@ class Runner
     /**
      * @var string|null
      */
-    protected $applicationRootDir;
+    protected $applicationProjectDir;
 
     /**
      * @var LoggerInterface
@@ -34,20 +34,25 @@ class Runner
     protected $environment;
 
     /**
+     * @var int
+     */
+    public $timeout = 600;
+
+    /**
      * @param InstallationManager $installationManager
-     * @param LoggerInterface $logger
-     * @param string $applicationRootDir
-     * @param string $environment
+     * @param LoggerInterface     $logger
+     * @param string              $applicationProjectDir
+     * @param string              $environment
      */
     public function __construct(
         InstallationManager $installationManager,
         LoggerInterface $logger,
-        $applicationRootDir,
+        $applicationProjectDir,
         $environment
     ) {
         $this->installationManager = $installationManager;
         $this->logger = $logger;
-        $this->applicationRootDir = realpath($applicationRootDir);
+        $this->applicationProjectDir = realpath($applicationProjectDir);
         $this->environment = $environment;
     }
 
@@ -101,7 +106,12 @@ class Runner
      */
     public function runPlatformUpdate()
     {
-        return $this->runCommand('leme:platform:update --force');
+        return $this->runCommand(
+            sprintf(
+                'oro:platform:update --force --timeout=%s',
+                $this->timeout
+            )
+        );
     }
 
     /**
@@ -124,16 +134,16 @@ class Runner
 
     /**
      * Removes dependency container an bundles definitions from the main application cache.
-     * Needed to be executed after package has been uninstalled so that main application (app/console) could be built
+     * Needed to be executed after package has been uninstalled so that main application (bin/console) could be built
      */
     public function removeCachedFiles()
     {
-        if (!$this->applicationRootDir) {
+        if (!$this->applicationProjectDir) {
             return;
         }
         $finder = new Finder();
         $finder->files()
-            ->in($this->applicationRootDir)
+            ->in($this->applicationProjectDir)
             ->name('bundles.php')
             ->name('*ProjectContainer.php');
 
@@ -196,7 +206,7 @@ class Runner
         $command = sprintf(
             '"%s" "%s/%s" %s --env=%s',
             $phpPath,
-            $this->applicationRootDir,
+            $this->applicationProjectDir . '/bin',
             $application,
             $command,
             $this->environment
@@ -205,8 +215,8 @@ class Runner
         $this->logger->info(sprintf('Executing "%s"', $command));
 
         $process = new Process($command);
-        $process->setWorkingDirectory(realpath($this->applicationRootDir . '/..')); // project root
-        $process->setTimeout(600);
+        $process->setWorkingDirectory(realpath($this->applicationProjectDir)); // project root
+        $process->setTimeout($this->timeout);
 
         $process->run();
 
@@ -256,7 +266,6 @@ class Runner
             preg_match($regexp, $item, $itemMatches);
 
             return $itemMatches[1];
-
         };
         $files = array_filter(
             $files,

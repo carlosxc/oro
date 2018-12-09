@@ -3,11 +3,11 @@
 namespace Oro\Bundle\EntityConfigBundle\Tests\Unit\Event;
 
 use Oro\Bundle\EntityConfigBundle\Config\Config;
-use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
+use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\EntityConfigBundle\Event\PersistConfigEvent;
 
-class PersistConfigEventTest extends \PHPUnit_Framework_TestCase
+class PersistConfigEventTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ConfigManager
@@ -21,7 +21,6 @@ class PersistConfigEventTest extends \PHPUnit_Framework_TestCase
             ->getMock();
 
         $this->configManager->expects($this->any())->method('flush')->will($this->returnValue(true));
-
     }
 
     public function testEvent()

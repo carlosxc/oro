@@ -1,9 +1,12 @@
 define([
     'jquery',
     'underscore',
+    'orotranslation/js/translator',
     'oroui/js/modal',
+    'oroui/js/tools',
+    'backbone',
     'oroworkflow/js/transition-executor'
-], function($, _, Modal, performTransition) {
+], function($, _, __, Modal, tools, Backbone, performTransition) {
     'use strict';
 
     /**
@@ -12,68 +15,112 @@ define([
      * @export  oroworkflow/js/transition-handler
      * @class   oroworkflow.WorkflowTransitionHandler
      */
-    return function() {
+    return function(pageRefresh) {
         var element = $(this);
-        if (element.data('_in-progress')) {
-            return;
-        }
-        element.data('_in-progress', true);
+        pageRefresh = _.isUndefined(pageRefresh) ? true : pageRefresh;
+
         var resetInProgress = function() {
             element.data('_in-progress', false);
         };
+
+        var showDialog = function() {
+            var dialogOptions = {
+                title: element.data('transition-label') || element.html(),
+                url: element.data('dialog-url'),
+                stateEnabled: false,
+                incrementalPosition: false,
+                loadingMaskEnabled: true,
+                dialogOptions: {
+                    modal: true,
+                    resizable: true,
+                    width: 475,
+                    autoResize: true
+                }
+            };
+            var additionalOptions = element.data('dialog-options');
+            if (additionalOptions) {
+                if (!_.isUndefined(additionalOptions)) {
+                    additionalOptions.dialogOptions = _.extend(
+                        dialogOptions.dialogOptions,
+                        additionalOptions.dialogOptions
+                    );
+                }
+                dialogOptions = _.extend(dialogOptions, additionalOptions);
+            }
+
+            tools.loadModules('oroworkflow/transition-dialog-widget', function(Widget) {
+                var _widget = new Widget(dialogOptions);
+                Backbone.listenTo(_widget, 'widgetRemove', _.bind(function() {
+                    resetInProgress();
+                }, this));
+
+                _widget.render();
+            });
+        };
+
+        /**
+         * @param {function} callback
+         */
+        var showConfirmationModal = function(callback) {
+            var message = element.data('message');
+            var modalOptions = {};
+            if (typeof message === 'string') {
+                modalOptions = {
+                    content: message,
+                    title: element.data('transition-label')
+                };
+            } else {
+                modalOptions = message;
+            }
+
+            var confirmation = element.data('confirmation') || {};
+            var placeholders = {};
+            if (confirmation.message_parameters !== undefined) {
+                placeholders = confirmation.message_parameters;
+            }
+            if (confirmation.title || '') {
+                modalOptions.title = __(confirmation.title, $.extend({}, placeholders));
+            }
+            if (confirmation.message || '') {
+                modalOptions.content = __(confirmation.message, $.extend({}, placeholders));
+            }
+            if (confirmation.okText || '') {
+                modalOptions.okText = __(confirmation.okText, $.extend({}, placeholders));
+            }
+            if (confirmation.cancelText || '') {
+                modalOptions.cancelText = __(confirmation.cancelText, $.extend({}, placeholders));
+            }
+
+            var confirm = new Modal(modalOptions);
+
+            if (callback) {
+                confirm.on('ok', callback);
+            } else {
+                confirm.on('ok', function() {
+                    performTransition(element, null, pageRefresh);
+                });
+            }
+            confirm.on('cancel', function() {
+                resetInProgress();
+            });
+            confirm.open();
+        };
+
+        if (element.data('_in-progress')) {
+            return;
+        }
+
+        element.data('_in-progress', true);
         element.one('transitions_success', resetInProgress);
         element.one('transitions_failure', resetInProgress);
-        if (element.data('dialog-url')) {
-            require(['oro/dialog-widget'],
-            function(DialogWidget) {
-                var dialogOptions = {
-                    title: element.data('transition-label') || element.html(),
-                    url: element.data('dialog-url'),
-                    stateEnabled: false,
-                    incrementalPosition: false,
-                    loadingMaskEnabled: true,
-                    dialogOptions: {
-                        modal: true,
-                        resizable: true,
-                        width: 475,
-                        autoResize: true
-                    }
-                };
-                var additionalOptions = element.data('dialog-options');
-                if (additionalOptions) {
-                    if (additionalOptions.dialogOptions !== undefined) {
-                        additionalOptions.dialogOptions = _.extend(
-                            dialogOptions.dialogOptions,
-                            additionalOptions.dialogOptions
-                        );
-                    }
-                    dialogOptions = _.extend(dialogOptions, additionalOptions);
-                }
-                var transitionFormWidget = new DialogWidget(dialogOptions);
-                transitionFormWidget.on('widgetRemove', resetInProgress);
-                transitionFormWidget.on('formSave', function(data) {
-                    transitionFormWidget.remove();
-                    performTransition(element, data);
-                });
-                transitionFormWidget.render();
-            });
+
+        var dialogUrl = element.data('dialogUrl');
+        if (!_.isEmpty(element.data('confirmation')) || !dialogUrl && !_.isEmpty(element.data('message'))) {
+            showConfirmationModal(dialogUrl ? showDialog : null);
+        } else if (dialogUrl) {
+            showDialog();
         } else {
-            var message = element.data('message');
-            if (message) {
-                var confirm = new Modal({
-                    title: element.data('transition-label'),
-                    content: message
-                });
-                confirm.on('ok', function() {
-                    performTransition(element);
-                });
-                confirm.on('cancel', function() {
-                    resetInProgress();
-                });
-                confirm.open();
-            } else {
-                performTransition(element);
-            }
+            performTransition(element, null, pageRefresh);
         }
     };
 });

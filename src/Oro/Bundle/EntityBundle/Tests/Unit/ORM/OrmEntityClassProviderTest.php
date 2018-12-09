@@ -5,22 +5,22 @@ namespace Oro\Bundle\EntityBundle\Tests\Unit\ORM;
 use Oro\Bundle\EntityBundle\ORM\OrmEntityClassProvider;
 use Oro\Bundle\EntityBundle\ORM\ShortClassMetadata;
 
-class OrmEntityClassProviderTest extends \PHPUnit_Framework_TestCase
+class OrmEntityClassProviderTest extends \PHPUnit\Framework\TestCase
 {
     public function testGetClassNames()
     {
         $doctrineHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\ORM\DoctrineHelper')
             ->disableOriginalConstructor()
             ->getMock();
-        $em = $this->getMock('Doctrine\Common\Persistence\ObjectManager');
-        $managerBag = $this->getMock('Oro\Bundle\EntityBundle\ORM\ManagerBagInterface');
+        $em = $this->createMock('Doctrine\Common\Persistence\ObjectManager');
+        $managerBag = $this->createMock('Oro\Bundle\EntityBundle\ORM\ManagerBagInterface');
         $managerBag->expects($this->any())
             ->method('getManagers')
             ->willReturn([$em]);
 
         $doctrineHelper->expects($this->once())
             ->method('getAllShortMetadata')
-            ->with($this->identicalTo($em), false)
+            ->with($this->identicalTo($em))
             ->willReturn(
                 [
                     new ShortClassMetadata('Test\Entity1'),

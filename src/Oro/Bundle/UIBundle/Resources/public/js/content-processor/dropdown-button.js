@@ -8,15 +8,16 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
     $.widget('oroui.dropdownButtonProcessor', {
         options: {
             separator: '.separator-btn',
-            includeButtons: '.btn, .divider, .dropdown-menu>li>*',
+            includeButtons: '.btn, .divider, .dropdown-divider, .dropdown-menu>li>*',
             excludeButtons: '.dropdown-toggle',
             mainButtons: '.main-group:not(.more-group)',
             useMainButtonsClone: false,
             truncateLength: null,
             moreLabel: '',
-            groupContainer: '<div class="btn-group pull-right"></div>',
+            groupContainer: '<div class="btn-group"></div>',
             minItemQuantity: 1,
-            moreButtonAttrs: {}
+            moreButtonAttrs: {},
+            decoreClass: null
         },
 
         group: null,
@@ -27,7 +28,7 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
 
         _create: function() {
             // replaces button's separators
-            this.element.find(this.options.separator).replaceWith('<li class="divider"></li>');
+            this.element.find(this.options.separator).replaceWith('<div class="dropdown-divider"></div>');
 
             this._renderButtons();
         },
@@ -41,6 +42,7 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
         _renderButtons: function() {
             var $elems = this._collectButtons();
             if ($elems.length <= 1) {
+                this._removeDropdownMenu();
                 return;
             }
 
@@ -51,7 +53,7 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
                 this.main = this._prepareMainButton(this.main);
             }
 
-            this.group.append(this.main);
+            this.group.append(this.main.addClass(this.options.decoreClass || ''));
 
             // pushes rest buttons to dropdown
             $elems = $elems.not(this.group);
@@ -62,6 +64,15 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
             this.group.append($elems);
 
             this.element.find('.btn-group').remove().end().prepend(this.group);
+        },
+
+        /**
+         * Checks if the button processor has grouped buttons
+         *
+         * @return {boolean}
+         */
+        isGrouped: function() {
+            return Boolean(this.group);
         },
 
         /**
@@ -91,6 +102,7 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
             if (!$main.length) {
                 $main = $buttons.first();
             }
+
             return $main;
         },
 
@@ -103,11 +115,15 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
         _moreButton: function() {
             var $button = $('<a href="#"/>');
             $button
-                .attr(this.options.moreButtonAttrs)
-                .attr({'data-toggle': 'dropdown'})
-                .addClass('btn dropdown-toggle')
-                .append(this.options.moreLabel)
-                .append('<span class="caret"></span>');
+                .attr($.extend({
+                    'role': 'button',
+                    'data-toggle': 'dropdown',
+                    'data-placement': 'bottom-end',
+                    'data-inherit-parent-width': 'loosely'
+                }, this.options.moreButtonAttrs))
+                .addClass('btn dropdown-toggle btn-more-actions')
+                .addClass(this.options.decoreClass || '')
+                .append(this.options.moreLabel);
 
             return $button;
         },
@@ -120,8 +136,15 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
          * @private
          */
         _dropdownMenu: function($buttons) {
-            return $('<ul class="dropdown-menu"></ul>')
-                .append(this._prepareButtons($buttons));
+            return $('<ul></ul>', {
+                'class': 'dropdown-menu'
+            }).append(this._prepareButtons($buttons));
+        },
+
+        _removeDropdownMenu: function() {
+            if (this.element.find('[data-toggle="dropdown"]').length) {
+                this.element.find('[data-toggle="dropdown"], .dropdown-menu').remove();
+            }
         },
 
         _prepareMainButton: function($main) {
@@ -139,6 +162,7 @@ define(['jquery', 'underscore', 'jquery-ui'], function($, _) {
         },
 
         _prepareButtons: function($buttons) {
+            $buttons.filter(':not(.dropdown-divider)').addClass('dropdown-item');
             return $buttons.filter('.btn')
                 .removeClass(function(index, css) {
                     return (css.match(/\bbtn(-\S+)?/g) || []).join(' ');

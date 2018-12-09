@@ -4,9 +4,7 @@ namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\Entity\Manager;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
-use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
 use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
@@ -14,24 +12,26 @@ use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityExtendBundle\Entity\Manager\AssociationManager;
 use Oro\Bundle\EntityExtendBundle\Extend\RelationType;
 use Oro\Bundle\EntityExtendBundle\Tools\ExtendHelper;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\OrmTestCase;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\Mocks\EntityManagerMock;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureChecker;
+use Oro\Component\DependencyInjection\ServiceLink;
+use Oro\Component\TestUtils\ORM\Mocks\EntityManagerMock;
+use Oro\Component\TestUtils\ORM\OrmTestCase;
 
 class AssociationManagerTest extends OrmTestCase
 {
     /** @var EntityManagerMock */
     private $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $configManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $aclHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $doctrineHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $entityNameResolver;
 
     /** @var AssociationManager */
@@ -70,18 +70,24 @@ class AssociationManagerTest extends OrmTestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $aclHelperLink = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $aclHelperLink = $this->createMock(ServiceLink::class);
         $aclHelperLink->expects($this->any())
             ->method('getService')
             ->willReturn($this->aclHelper);
+
+        $featureChecker = $this->getMockBuilder(FeatureChecker::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $featureChecker->expects($this->any())
+            ->method('isResourceEnabled')
+            ->will($this->returnValue(true));
 
         $this->associationManager = new AssociationManager(
             $this->configManager,
             $aclHelperLink,
             $this->doctrineHelper,
-            $this->entityNameResolver
+            $this->entityNameResolver,
+            $featureChecker
         );
     }
 
@@ -386,10 +392,21 @@ class AssociationManagerTest extends OrmTestCase
             ->method('getNameDQL')
             ->with($targetClass1, 'target')
             ->willReturn('CONCAT(target.firstName, CONCAT(\' \', target.lastName))');
-        $this->entityNameResolver->expects($this->at(1))
+        $this->entityNameResolver->expects($this->at(2))
             ->method('getNameDQL')
             ->with($targetClass2, 'target')
             ->willReturn('CONCAT(target.firstName, CONCAT(\' \', target.lastName))');
+        $this->entityNameResolver->expects($this->any())
+            ->method('prepareNameDQL')
+            ->willReturnCallback(
+                function ($expr, $castToString) {
+                    self::assertTrue($castToString);
+
+                    return $expr
+                        ? sprintf('CAST(%s AS string)', $expr)
+                        : '\'\'';
+                }
+            );
 
         $result = $this->associationManager->getMultiAssociationsQueryBuilder(
             $ownerClass,
@@ -402,25 +419,25 @@ class AssociationManagerTest extends OrmTestCase
         );
 
         $this->assertEquals(
-            'SELECT entity.id_1 AS id, entity.sclr_2 AS entity, entity.sclr_3 AS title '
+            'SELECT entity.id_0 AS ownerId, entity.id_1 AS id, entity.sclr_2 AS entity, entity.sclr_3 AS title '
             . 'FROM ('
-            . 'SELECT DISTINCT t0_.id AS id_0, t1_.id AS id_1, '
+            . '(SELECT DISTINCT t0_.id AS id_0, t1_.id AS id_1, '
             . '\'' . $targetClass1 . '\' AS sclr_2, '
-            . 't1_.firstName || \' \' || t1_.lastName || \'\' AS sclr_3 '
+            . 'CAST(t1_.firstName || \' \' || t1_.lastName AS char) AS sclr_3 '
             . 'FROM test_owner1 t0_ '
             . 'INNER JOIN test_owner1_to_target1 t2_ ON t0_.id = t2_.owner_id '
             . 'INNER JOIN test_target1 t1_ ON t1_.id = t2_.target_id '
             . 'LEFT JOIN test_phone t3_ ON t0_.id = t3_.owner_id '
-            . 'WHERE (t0_.name = \'test\' AND t3_.phone = \'123-456\') AND t1_.age = 10'
+            . 'WHERE (t0_.name = \'test\' AND t3_.phone = \'123-456\') AND t1_.age = 10)'
             . ' UNION ALL '
-            . 'SELECT DISTINCT t0_.id AS id_0, t1_.id AS id_1, '
+            . '(SELECT DISTINCT t0_.id AS id_0, t1_.id AS id_1, '
             . '\'' . $targetClass2 . '\' AS sclr_2, '
-            . 't1_.firstName || \' \' || t1_.lastName || \'\' AS sclr_3 '
+            . 'CAST(t1_.firstName || \' \' || t1_.lastName AS char) AS sclr_3 '
             . 'FROM test_owner1 t0_ '
             . 'INNER JOIN test_owner1_to_target2 t2_ ON t0_.id = t2_.owner_id '
             . 'INNER JOIN test_target2 t1_ ON t1_.id = t2_.target_id '
             . 'LEFT JOIN test_phone t3_ ON t0_.id = t3_.owner_id '
-            . 'WHERE (t0_.name = \'test\' AND t3_.phone = \'123-456\') AND t1_.age = 100'
+            . 'WHERE (t0_.name = \'test\' AND t3_.phone = \'123-456\') AND t1_.age = 100)'
             . ') entity ORDER BY title ASC LIMIT 5 OFFSET 5',
             $result->getSQL()
         );
@@ -454,10 +471,21 @@ class AssociationManagerTest extends OrmTestCase
             ->method('getNameDQL')
             ->with($ownerClass1, 'e')
             ->willReturn('e.name');
-        $this->entityNameResolver->expects($this->at(1))
+        $this->entityNameResolver->expects($this->at(2))
             ->method('getNameDQL')
             ->with($ownerClass2, 'e')
             ->willReturn('e.name');
+        $this->entityNameResolver->expects($this->any())
+            ->method('prepareNameDQL')
+            ->willReturnCallback(
+                function ($expr, $castToString) {
+                    self::assertTrue($castToString);
+
+                    return $expr
+                        ? sprintf('CAST(%s AS string)', $expr)
+                        : '\'\'';
+                }
+            );
 
         $result = $this->associationManager->getMultiAssociationOwnersQueryBuilder(
             $targetClass,
@@ -470,23 +498,23 @@ class AssociationManagerTest extends OrmTestCase
         );
 
         $this->assertEquals(
-            'SELECT entity.id_1 AS id, entity.sclr_2 AS entity, entity.name_3 AS title '
+            'SELECT entity.id_1 AS id, entity.sclr_2 AS entity, entity.sclr_3 AS title '
             . 'FROM ('
-            . 'SELECT t0_.id AS id_0, t1_.id AS id_1, '
+            . '(SELECT t0_.id AS id_0, t1_.id AS id_1, '
             . '\'' . $ownerClass1 . '\' AS sclr_2, '
-            . 't1_.name AS name_3 '
+            . 'CAST(t1_.name AS char) AS sclr_3 '
             . 'FROM test_owner1 t1_ '
             . 'INNER JOIN test_owner1_to_target1 t2_ ON t1_.id = t2_.owner_id '
             . 'INNER JOIN test_target1 t0_ ON t0_.id = t2_.target_id '
-            . 'WHERE t1_.name = \'test\' AND t0_.age = 10'
+            . 'WHERE t1_.name = \'test\' AND t0_.age = 10)'
             . ' UNION ALL '
-            . 'SELECT t0_.id AS id_0, t1_.id AS id_1, '
+            . '(SELECT t0_.id AS id_0, t1_.id AS id_1, '
             . '\'' . $ownerClass2 . '\' AS sclr_2, '
-            . 't1_.name AS name_3 '
+            . 'CAST(t1_.name AS char) AS sclr_3 '
             . 'FROM test_owner2 t1_ '
             . 'INNER JOIN test_owner2_to_target1 t2_ ON t1_.id = t2_.owner_id '
             . 'INNER JOIN test_target1 t0_ ON t0_.id = t2_.target_id '
-            . 'WHERE t1_.name = \'test\' AND t0_.age = 100'
+            . 'WHERE t1_.name = \'test\' AND t0_.age = 100)'
             . ') entity ORDER BY title ASC LIMIT 5 OFFSET 5',
             $result->getSQL()
         );

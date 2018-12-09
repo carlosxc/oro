@@ -4,28 +4,28 @@ namespace Oro\Bundle\TranslationBundle\Translation;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityManager;
-
+use Oro\Bundle\EntityBundle\Tools\DatabaseChecker;
+use Oro\Bundle\TranslationBundle\Entity\Repository\TranslationRepository;
+use Oro\Bundle\TranslationBundle\Entity\Translation;
 use Symfony\Component\Translation\Loader\LoaderInterface;
 use Symfony\Component\Translation\MessageCatalogue;
-
-use Oro\Bundle\EntityBundle\Tools\SafeDatabaseChecker;
-use Oro\Bundle\TranslationBundle\Entity\Translation;
-use Oro\Bundle\TranslationBundle\Entity\Repository\TranslationRepository;
 
 class OrmTranslationLoader implements LoaderInterface
 {
     /** @var ManagerRegistry */
     protected $doctrine;
 
-    /** @var bool|null */
-    protected $dbCheck;
+    /** @var DatabaseChecker */
+    protected $databaseChecker;
 
     /**
      * @param ManagerRegistry $doctrine
+     * @param DatabaseChecker $databaseChecker
      */
-    public function __construct(ManagerRegistry $doctrine)
+    public function __construct(ManagerRegistry $doctrine, DatabaseChecker $databaseChecker)
     {
         $this->doctrine = $doctrine;
+        $this->databaseChecker = $databaseChecker;
     }
 
     /**
@@ -38,15 +38,9 @@ class OrmTranslationLoader implements LoaderInterface
 
         if ($this->checkDatabase()) {
             $messages = [];
-            /** @var TranslationRepository $translationRepo */
-            $translationRepo = $this->getEntityManager()->getRepository(Translation::ENTITY_NAME);
-            /** @var Translation[] $translations */
-            $translations = $translationRepo->findValues($locale, $domain);
+            $translations = $this->getTranslationRepository()->findAllByLanguageAndDomain($locale, $domain);
             foreach ($translations as $translation) {
-                // UI scope should override SYSTEM values if exist
-                if (!isset($messages[$translation->getKey()]) || $translation->getScope() == Translation::SCOPE_UI) {
-                    $messages[$translation->getKey()] = $translation->getValue();
-                }
+                $messages[$translation['key']] = $translation['value'];
             }
 
             $catalogue->add($messages, $domain);
@@ -62,14 +56,7 @@ class OrmTranslationLoader implements LoaderInterface
      */
     protected function checkDatabase()
     {
-        if (null === $this->dbCheck) {
-            $this->dbCheck = SafeDatabaseChecker::tablesExist(
-                $this->getEntityManager()->getConnection(),
-                SafeDatabaseChecker::getTableName($this->doctrine, Translation::ENTITY_NAME)
-            );
-        }
-
-        return $this->dbCheck;
+        return $this->databaseChecker->checkDatabase();
     }
 
     /**
@@ -77,6 +64,14 @@ class OrmTranslationLoader implements LoaderInterface
      */
     protected function getEntityManager()
     {
-        return $this->doctrine->getManagerForClass(Translation::ENTITY_NAME);
+        return $this->doctrine->getManagerForClass(Translation::class);
+    }
+
+    /**
+     * @return TranslationRepository
+     */
+    protected function getTranslationRepository()
+    {
+        return $this->getEntityManager()->getRepository(Translation::class);
     }
 }

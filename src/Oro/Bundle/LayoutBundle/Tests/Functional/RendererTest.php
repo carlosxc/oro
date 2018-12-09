@@ -2,17 +2,16 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Functional;
 
-use Symfony\Component\Form\FormFactoryInterface;
-use Symfony\Component\Form\FormInterface;
-
+use Oro\Bundle\LayoutBundle\Tests\Fixtures\UserNameType;
 use Oro\Component\Layout\ContextInterface;
 use Oro\Component\Layout\Layout;
 use Oro\Component\Layout\LayoutContext;
 use Oro\Component\Layout\LayoutManager;
-
-use Oro\Bundle\LayoutBundle\Layout\Form\FormAccessor;
-use Oro\Bundle\LayoutBundle\Layout\Form\FormAction;
-use Oro\Bundle\LayoutBundle\Tests\Fixtures\UserNameType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
 
 class RendererTest extends LayoutTestCase
 {
@@ -28,14 +27,14 @@ class RendererTest extends LayoutTestCase
         }
 
         $context = new LayoutContext();
-        $context->getResolver()->setOptional(['form', 'body_class']);
+        $context->getResolver()->setDefined(['form', 'body_class']);
         $form = $this->getTestForm();
-        $context->set('form', new FormAccessor($form));
+        $context->data()->set('form', $form->createView());
         $context->set('body_class', 'test-body');
 
         // revert TWIG form renderer to Symfony's default theme
-        $this->getContainer()->get('twig.form.renderer')->setTheme(
-            $context->get('form')->getView(),
+        $this->getContainer()->get('twig.form.renderer.alias')->setTheme(
+            $context->data()->get('form'),
             'form_div_layout.html.twig'
         );
 
@@ -54,9 +53,9 @@ class RendererTest extends LayoutTestCase
         }
 
         $context = new LayoutContext();
-        $context->getResolver()->setOptional(['form', 'body_class']);
+        $context->getResolver()->setDefined(['form', 'body_class']);
         $form = $this->getTestForm();
-        $context->set('form', new FormAccessor($form));
+        $context->data()->set('form', $form->createView());
         $context->set('body_class', 'test-body');
 
         $result   = $this->getCoreBlocksTestLayout($context)->setRenderer('php')->render();
@@ -74,19 +73,19 @@ class RendererTest extends LayoutTestCase
         }
 
         $context = new LayoutContext();
-        $context->getResolver()->setOptional(['form']);
-        $form = $this->getTestForm();
-        $context->set('form', new FormAccessor($form, FormAction::createByPath('test.php'), 'patch'));
+        $context->getResolver()->setDefined(['form']);
+        $form = $this->getTestForm('test.php', 'patch');
+        $context->data()->set('form', $form->createView());
 
         // revert TWIG form renderer to Symfony's default theme
-        $this->getContainer()->get('twig.form.renderer')->setTheme(
-            $context->get('form')->getView(),
+        $this->getContainer()->get('twig.form.renderer.alias')->setTheme(
+            $context->data()->get('form'),
             'form_div_layout.html.twig'
         );
 
         $layoutManager = $this->getContainer()->get('oro_layout.layout_manager');
         $result        = $layoutManager->getLayoutBuilder()
-            ->add('form:start', null, 'form_start')
+            ->add('form:start', null, 'form_start', ['form' => '=data["form"]'])
             ->getLayout($context)
             ->setRenderer('twig')
             ->render();
@@ -103,19 +102,19 @@ class RendererTest extends LayoutTestCase
         }
 
         $context = new LayoutContext();
-        $context->getResolver()->setOptional(['form']);
-        $form = $this->getTestForm();
-        $context->set('form', new FormAccessor($form, FormAction::createByPath('test.php'), 'patch'));
+        $context->getResolver()->setDefined(['form']);
+        $form = $this->getTestForm('test.php', 'patch');
+        $context->data()->set('form', $form->createView());
 
         // revert TWIG form renderer to Symfony's default theme
-        $this->getContainer()->get('twig.form.renderer')->setTheme(
-            $context->get('form')->getView(),
+        $this->getContainer()->get('twig.form.renderer.alias')->setTheme(
+            $context->data()->get('form'),
             'form_div_layout.html.twig'
         );
 
         $layoutManager = $this->getContainer()->get('oro_layout.layout_manager');
         $result        = $layoutManager->getLayoutBuilder()
-            ->add('form:start', null, 'form_start')
+            ->add('form:start', null, 'form_start', ['form' => '=data["form"]'])
             ->getLayout($context)
             ->setRenderer('php')
             ->render();
@@ -144,7 +143,7 @@ class RendererTest extends LayoutTestCase
                 'title',
                 'head',
                 'title',
-                ['value' => ['First', 'Second'], 'separator' => ' - ', 'reverse' => true]
+                ['value' => 'Page Title']
             )
             ->add('meta', 'head', 'meta', ['charset' => 'UTF-8'])
             ->add('style', 'head', 'style', ['content' => 'body { color: red; }', 'scoped' => true])
@@ -249,23 +248,8 @@ class RendererTest extends LayoutTestCase
                 'form',
                 'content',
                 'form_fields',
-                [
-                    'preferred_fields' => ['jobTitle', 'user.lastName'],
-                    'groups'           => [
-                        'general'    => [
-                            'title'  => 'General Info',
-                            'fields' => ['user.firstName', 'user.lastName']
-                        ],
-                        'additional' => [
-                            'title'   => 'Additional Info',
-                            'default' => true
-                        ]
-                    ]
-                ]
+                ['form'=> '=data["form"]']
             )
-            // swap 'general' and 'additional' groups to check that a layout update
-            // can be applied for items added by a block type
-            ->move('form_fields:group_general', null, 'form_fields:group_additional')
             // test 'visible' option
             ->add('invisible_container', 'root', 'head', ['visible' => false])
             ->add('invisible_child', 'invisible_container', 'meta', ['charset' => 'invisible'])
@@ -317,28 +301,38 @@ class RendererTest extends LayoutTestCase
     }
 
     /**
+     * @param string|null $action
+     * @param string|null $method
+     *
      * @return FormInterface
      */
-    protected function getTestForm()
+    protected function getTestForm($action = null, $method = null)
     {
+        $options = ['csrf_protection' => false];
+        if ($action) {
+            $options['action'] = $action;
+        }
+        if ($method) {
+            $options['method'] = $method;
+        }
         /** @var FormFactoryInterface $formFactory */
         $formFactory = $this->getContainer()->get('form.factory');
 
         $form = $formFactory->createNamedBuilder(
             'form_for_layout_renderer_test',
-            'form',
+            FormType::class,
             null,
-            ['csrf_protection' => false]
+            $options
         )
-            ->add('user', new UserNameType())
-            ->add('jobTitle', 'text', ['label' => 'Job Title', 'required' => false])
+            ->add('user', UserNameType::class)
+            ->add('jobTitle', TextType::class, ['label' => 'Job Title', 'required' => false])
             ->add(
                 'gender',
-                'choice',
+                ChoiceType::class,
                 [
                     'label'    => 'Gender',
                     'required' => false,
-                    'choices'  => ['male' => 'Male', 'female' => 'Female'],
+                    'choices'  => ['Male' => 'male', 'Female' => 'female'],
                     'expanded' => true
                 ]
             )
@@ -358,7 +352,7 @@ class RendererTest extends LayoutTestCase
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Second - First</title>
+        <title>Page Title</title>
         <meta charset="UTF-8"/>
         <style type="text/css" scoped="scoped">
             body { color: red; }
@@ -370,7 +364,7 @@ class RendererTest extends LayoutTestCase
         <link rel="stylesheet" href="test_external.css"/>
     </head>
 <body class="content-body test-body class2" data-json="{&quot;0&quot;:&quot;test1&quot;}">
-    <button type="button" name="btn1"><i class="icon-plus hide-text"></i>Btn1</button>
+    <button type="button" name="btn1"><i class="fa-plus hide-text"></i>Btn1</button>
     <input type="text" name="search"/>
     <input type="submit" name="btn2" value="Btn2"/>
     <ul>
@@ -465,10 +459,10 @@ HTML;
         $expected = <<<HTML
 <div id="form_for_layout_renderer_test" data-ftid="form_for_layout_renderer_test" data-name="form__form-for-layout-renderer-test">
     <div>
-        <label class="required">User</label>
+        <label data-ftid="form_for_layout_renderer_test_user" data-name="field__user" class="required">User</label>
         <div id="form_for_layout_renderer_test_user" data-ftid="form_for_layout_renderer_test_user" data-name="field__user">
             <div>
-                <label class="required" for="form_for_layout_renderer_test_user_firstName">First Name</label>
+                <label data-ftid="form_for_layout_renderer_test_user_firstName" data-name="field__first-name" class="required" for="form_for_layout_renderer_test_user_firstName">First Name</label>
                 <input type="text"
                     id="form_for_layout_renderer_test_user_firstName"
                     name="form_for_layout_renderer_test[user][firstName]"
@@ -476,7 +470,7 @@ HTML;
                     data-ftid="form_for_layout_renderer_test_user_firstName" data-name="field__first-name"/>
             </div>
             <div>
-                <label class="required" for="form_for_layout_renderer_test_user_lastName">Last Name</label>
+                <label data-ftid="form_for_layout_renderer_test_user_lastName" data-name="field__last-name" class="required" for="form_for_layout_renderer_test_user_lastName">Last Name</label>
                 <input type="text"
                     id="form_for_layout_renderer_test_user_lastName"
                     name="form_for_layout_renderer_test[user][lastName]"
@@ -486,7 +480,7 @@ HTML;
         </div>
     </div>
     <div>
-        <label for="form_for_layout_renderer_test_jobTitle">Job Title</label>
+        <label data-ftid="form_for_layout_renderer_test_jobTitle" data-name="field__job-title" for="form_for_layout_renderer_test_jobTitle">Job Title</label>
         <input type="text"
             id="form_for_layout_renderer_test_jobTitle"
             name="form_for_layout_renderer_test[jobTitle]"
@@ -500,19 +494,19 @@ HTML;
                 name="form_for_layout_renderer_test[gender]"
                 data-ftid="form_for_layout_renderer_test_gender_placeholder" data-name="field__placeholder"
                 value=""  checked="checked"/>
-            <label for="form_for_layout_renderer_test_gender_placeholder">None</label>
+            <label data-ftid="form_for_layout_renderer_test_gender_placeholder" data-name="field__placeholder" for="form_for_layout_renderer_test_gender_placeholder">None</label>
             <input type="radio"
                 id="form_for_layout_renderer_test_gender_0"
                 name="form_for_layout_renderer_test[gender]"
                 data-ftid="form_for_layout_renderer_test_gender_0" data-name="field__0"
                 value="male"/>
-            <label for="form_for_layout_renderer_test_gender_0">Male</label>
+            <label data-ftid="form_for_layout_renderer_test_gender_0" data-name="field__0" for="form_for_layout_renderer_test_gender_0">Male</label>
             <input type="radio"
                 id="form_for_layout_renderer_test_gender_1"
                 name="form_for_layout_renderer_test[gender]"
                 data-ftid="form_for_layout_renderer_test_gender_1" data-name="field__1"
                 value="female"/>
-            <label for="form_for_layout_renderer_test_gender_1">Female</label>
+            <label data-ftid="form_for_layout_renderer_test_gender_1" data-name="field__1" for="form_for_layout_renderer_test_gender_1">Female</label>
         </div>
     </div>
 </div>
@@ -529,7 +523,7 @@ HTML;
     {
         // @codingStandardsIgnoreStart
         $expected = <<<HTML
-<form data-ftid="form_for_layout_renderer_test" data-name="form__form-for-layout-renderer-test" action="test.php" method="post">
+<form name="form_for_layout_renderer_test" method="post" action="test.php" data-ftid="form_for_layout_renderer_test" data-name="form__form-for-layout-renderer-test" id="form_for_layout_renderer_test">
 <input type="hidden" name="_method" value="PATCH"/>
 HTML;
         // @codingStandardsIgnoreEnd

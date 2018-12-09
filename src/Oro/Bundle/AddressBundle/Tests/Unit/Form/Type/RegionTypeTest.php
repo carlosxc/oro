@@ -2,11 +2,11 @@
 
 namespace Oro\Bundle\AddressBundle\Tests\Unit\Form\Type;
 
+use Oro\Bundle\AddressBundle\Form\Type\RegionType;
+use Oro\Bundle\TranslationBundle\Form\Type\Select2TranslatableEntityType;
 use Symfony\Component\Form\FormView;
 
-use Oro\Bundle\AddressBundle\Form\Type\RegionType;
-
-class RegionTypeTest extends \PHPUnit_Framework_TestCase
+class RegionTypeTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var RegionType
@@ -24,18 +24,18 @@ class RegionTypeTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    public function testSetDefaultOptions()
+    public function testConfigureOptions()
     {
-        $resolver = $this->getMock('Symfony\Component\OptionsResolver\OptionsResolverInterface');
+        $resolver = $this->createMock('Symfony\Component\OptionsResolver\OptionsResolver');
         $resolver->expects($this->once())
             ->method('setDefaults')
             ->with($this->isType('array'));
-        $this->type->setDefaultOptions($resolver);
+        $this->type->configureOptions($resolver);
     }
 
     public function testGetParent()
     {
-        $this->assertEquals('genemu_jqueryselect2_translatable_entity', $this->type->getParent());
+        $this->assertEquals(Select2TranslatableEntityType::class, $this->type->getParent());
     }
 
     public function testGetName()
@@ -45,7 +45,7 @@ class RegionTypeTest extends \PHPUnit_Framework_TestCase
 
     public function testBuildForm()
     {
-        $builderMock = $this->getMock('Symfony\Component\Form\Test\FormBuilderInterface');
+        $builderMock = $this->createMock('Symfony\Component\Form\Test\FormBuilderInterface');
         $options = array(RegionType::COUNTRY_OPTION_KEY => 'test');
 
         $builderMock->expects($this->once())
@@ -60,7 +60,7 @@ class RegionTypeTest extends \PHPUnit_Framework_TestCase
     {
         $optionKey = 'countryFieldName';
 
-        $formConfigMock = $this->getMock('Symfony\Component\Form\FormConfigInterface');
+        $formConfigMock = $this->createMock('Symfony\Component\Form\FormConfigInterface');
         $formConfigMock->expects($this->once())
             ->method('getAttribute')
             ->with($this->equalTo(RegionType::COUNTRY_OPTION_KEY))

@@ -5,9 +5,15 @@ namespace Oro\Bundle\ImapBundle\Connector;
 
 use Oro\Bundle\ImapBundle\Mail\Storage\Imap;
 use Oro\Bundle\ImapBundle\Mail\Storage\Message;
+use Psr\Log\LoggerAwareTrait;
 
+/**
+ * Iterator for Imap messages.
+ */
 class ImapMessageIterator implements \Iterator, \Countable
 {
+    use LoggerAwareTrait;
+
     /** @var Imap */
     private $imap;
 
@@ -87,6 +93,21 @@ class ImapMessageIterator implements \Iterator, \Countable
     }
 
     /**
+     * Sets a callback function to handle message convertation errors.
+     * If this callback set then the iterator will work in fail safe mode
+     * and invalid messages will just skipped.
+     *
+     * @param \Closure|null $callback The callback function.
+     *                                function (\Exception)
+     */
+    public function setConvertErrorCallback(\Closure $callback = null)
+    {
+        if (null !== $callback) {
+            $this->imap->setConvertErrorCallback($callback);
+        }
+    }
+
+    /**
      * The number of messages in this iterator
      *
      * @return int
@@ -131,7 +152,11 @@ class ImapMessageIterator implements \Iterator, \Countable
                 }
                 $messages = $this->imap->getMessages(array_values($ids));
                 foreach ($ids as $pos => $id) {
-                    $this->batch[$pos] = isset($messages[$id]) ? $messages[$id] : null;
+                    if (!isset($messages[$id])) {
+                        $this->logUnsupportedFormatMessage($id);
+                        continue;
+                    }
+                    $this->batch[$pos] = $messages[$id];
                 }
             } else {
                 $this->batch[$this->iterationPos] = $this->imap->getMessage(
@@ -204,6 +229,8 @@ class ImapMessageIterator implements \Iterator, \Countable
             $this->iterationMin = 0;
             $this->iterationMax = count($this->ids) - 1;
         }
+
+        $this->imap->clearCacheUniqueId();
     }
 
     /**
@@ -263,5 +290,15 @@ class ImapMessageIterator implements \Iterator, \Countable
             $pos !== null
             && $pos >= $this->iterationMin
             && $pos <= $this->iterationMax;
+    }
+
+    /**
+     * @param string $id
+     */
+    protected function logUnsupportedFormatMessage($id)
+    {
+        if ($this->logger) {
+            $this->logger->error(sprintf('An email #%s was skipped due to unsupported format', $id));
+        }
     }
 }

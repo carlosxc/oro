@@ -118,17 +118,17 @@ For example:
 Check Field ACL in php code
 ---------------------------
 
-You can check access to some field with `oro_security.security_facade` service. To do this, you should create an instance of FieldVote class and pass it as the second parameter of isGranted method:
+You can check access to some field with `security.authorization_checker` service. To do this, you should create an instance of `FieldVote` class and pass it as the second parameter of `isGranted` method:
 
 
 ``` php
 <?php
 ....
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Acl\Voter\FieldVote;
 ...
  
-$isGranted = $this->securityFacade->isGranted('VIEW', new FieldVote($entity, 'fieldName'));
+$isGranted = $this->authorizationChecker->isGranted('VIEW', new FieldVote($entity, 'fieldName'));
 
 ```
 
@@ -136,28 +136,28 @@ As result, $isGranted variable will contain true value if access is granted and 
 
 $entity parameter should contain an instance of entity you want to check.
 
-In case if you does not have entity instance but have the class name, id of record, owner and organization ids of this record, you can use `EntityObjectReference` class:
+In case if you does not have entity instance but have the class name, id of record, owner and organization ids of this record, you can use `DomainObjectReference` class:
  
 ``` php
 <?php
 ....
-use Oro\Bundle\SecurityBundle\Acl\Domain\EntityObjectReference;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
+use Oro\Bundle\SecurityBundle\Acl\Domain\DomainObjectReference;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Acl\Voter\FieldVote;
 ...
 
-$entityReference = new EntityObjectReference($entityClassName, $entityId, $ownerId, $organizationId);
-$isGranted = $this->securityFacade->isGranted('VIEW', new FieldVote($entityReference, 'fieldName'));
+$entityReference = new DomainObjectReference($entityClassName, $entityId, $ownerId, $organizationId);
+$isGranted = $this->authorizationChecker->isGranted('VIEW', new FieldVote($entityReference, 'fieldName'));
 
 ``` 
 
 Check Field ACL in twig templates
 ---------------------------------
 
-In twig templates you can use `resource_granted` twig function with the field name as the third parameter:
+In twig templates you can use `is_granted` twig function with the field name as the third parameter:
  
 ``` php
-{% if  resource_granted('VIEW', entity, 'fieldName') %}
+{% if is_granted('VIEW', entity, 'fieldName') %}
     {# do some job #}
 {% endif %}
 ```

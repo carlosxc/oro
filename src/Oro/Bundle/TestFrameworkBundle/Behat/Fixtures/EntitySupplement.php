@@ -2,23 +2,24 @@
 
 namespace Oro\Bundle\TestFrameworkBundle\Behat\Fixtures;
 
+use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Faker\Factory;
 use Faker\ORM\Doctrine\ColumnTypeGuesser;
 use Nelmio\Alice\Instances\Collection as AliceCollection;
-use Oro\Bundle\EntityBundle\ORM\Registry;
-use Oro\Bundle\SecurityBundle\Owner\Metadata\MetadataProviderInterface;
 use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadata;
+use Oro\Bundle\SecurityBundle\Owner\Metadata\OwnershipMetadataProviderInterface;
+use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
-use Symfony\Component\Security\Core\Util\ClassUtils;
+use Symfony\Component\Security\Acl\Util\ClassUtils;
 
 class EntitySupplement
 {
     /**
-     * @var Registry
+     * @var KernelInterface
      */
-    protected $registry;
+    protected $kernel;
 
     /**
      * @var AliceCollection
@@ -41,22 +42,21 @@ class EntitySupplement
     protected $columnTypeGuesser;
 
     /**
-     * @var MetadataProviderInterface
+     * @var OwnershipMetadataProviderInterface
      */
     protected $metadataProvider;
 
     /**
-     * EntitySupplement constructor.
-     * @param Registry $registry
+     * @param KernelInterface $kernel
      * @param AliceCollection $referenceRepository
-     * @param MetadataProviderInterface $metadataProvider
+     * @param OwnershipMetadataProviderInterface $metadataProvider
      */
     public function __construct(
-        Registry $registry,
+        KernelInterface $kernel,
         AliceCollection $referenceRepository,
-        MetadataProviderInterface $metadataProvider
+        OwnershipMetadataProviderInterface $metadataProvider
     ) {
-        $this->registry = $registry;
+        $this->kernel = $kernel;
         $this->referenceRepository = $referenceRepository;
         $this->accessor = PropertyAccess::createPropertyAccessor();
         $this->faker = Factory::create();
@@ -72,11 +72,19 @@ class EntitySupplement
     {
         $className = get_class($entity);
         /** @var ClassMetadataInfo $metadata */
-        $metadata = $this->registry->getManagerForClass($className)->getClassMetadata($className);
+        $metadata = $this->getEntityManager()->getClassMetadata($className);
 
         $this->setValues($entity, $values);
         $this->completeFields($entity, $metadata);
         $this->setOwnership($entity);
+    }
+
+    /**
+     * @return EntityManager
+     */
+    protected function getEntityManager()
+    {
+        return $this->kernel->getContainer()->get('doctrine')->getManager();
     }
 
     /**
@@ -87,12 +95,12 @@ class EntitySupplement
         /** @var OwnershipMetadata $ownershipMetadata */
         $ownershipMetadata = $this->metadataProvider->getMetadata(ClassUtils::getRealClass($entity));
         $ownerField = $ownershipMetadata->getOwnerFieldName();
-        $organizationField = $ownershipMetadata->getGlobalOwnerFieldName();
+        $organizationField = $ownershipMetadata->getOrganizationFieldName();
 
         if ($ownerField && !$this->accessor->getValue($entity, $ownerField)) {
-            if ($ownershipMetadata->isBasicLevelOwned()) {
+            if ($ownershipMetadata->isUserOwned()) {
                 $this->accessor->setValue($entity, $ownerField, $this->referenceRepository->get('admin'));
-            } elseif ($ownershipMetadata->isLocalLevelOwned()) {
+            } elseif ($ownershipMetadata->isBusinessUnitOwned()) {
                 $entity->setOwner($this->referenceRepository->get('business_unit'));
             }
         }

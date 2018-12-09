@@ -3,25 +3,22 @@
 namespace Oro\Bundle\DataGridBundle\Entity\Manager;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
-
-use Symfony\Component\Translation\TranslatorInterface;
-
-
+use Doctrine\Common\Persistence\ObjectRepository;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Datagrid\Manager;
+use Oro\Bundle\DataGridBundle\Entity\AbstractGridViewUser;
 use Oro\Bundle\DataGridBundle\Entity\GridView;
 use Oro\Bundle\DataGridBundle\Entity\GridViewUser;
-use Oro\Bundle\DataGridBundle\Entity\AppearanceType;
 use Oro\Bundle\DataGridBundle\Entity\Repository\GridViewRepository;
+use Oro\Bundle\DataGridBundle\Entity\Repository\GridViewUserRepository;
+use Oro\Bundle\DataGridBundle\Extension\Board\BoardExtension;
+use Oro\Bundle\DataGridBundle\Extension\Board\RestrictionManager;
 use Oro\Bundle\DataGridBundle\Extension\GridViews\GridViewsExtension;
 use Oro\Bundle\DataGridBundle\Extension\GridViews\View;
 use Oro\Bundle\DataGridBundle\Extension\GridViews\ViewInterface;
-use Oro\Bundle\DataGridBundle\Extension\Board\RestrictionManager;
-use Oro\Bundle\DataGridBundle\Extension\Board\BoardExtension;
 use Oro\Bundle\SecurityBundle\ORM\Walker\AclHelper;
+use Oro\Bundle\UserBundle\Entity\AbstractUser;
 use Oro\Bundle\UserBundle\Entity\UserInterface;
-use Oro\Bundle\UserBundle\Entity\User;
-
 use Oro\Component\PhpUtils\ArrayUtil;
 
 class GridViewManager
@@ -39,7 +36,8 @@ class GridViewManager
     /** @var  Manager */
     protected $gridManager;
 
-    protected $cacheData;
+    /** @var array */
+    protected $cacheData = [];
 
     /** @var  array */
     protected $appearanceTypes;
@@ -47,40 +45,57 @@ class GridViewManager
     /** @var RestrictionManager */
     protected $restrictionManager;
 
-    /** @var TranslatorInterface */
-    protected $translator;
-
-    /** @var array  */
+    /** @var array */
     protected $gridConfigurations = [];
+
+    /** @var string */
+    protected $gridViewClassName;
+
+    /** @var string */
+    protected $gridViewUserClassName;
 
     /**
      * @param AclHelper $aclHelper
      * @param Registry $registry
      * @param Manager $gridManager
      * @param RestrictionManager $restrictionManager
-     * @param TranslatorInterface $translator
      */
     public function __construct(
         AclHelper $aclHelper,
         Registry $registry,
         Manager $gridManager,
-        RestrictionManager $restrictionManager,
-        TranslatorInterface $translator
+        RestrictionManager $restrictionManager
     ) {
         $this->aclHelper = $aclHelper;
-        $this->registry  = $registry;
         $this->registry = $registry;
         $this->gridManager = $gridManager;
         $this->restrictionManager = $restrictionManager;
-        $this->translator = $translator;
+        $this->gridViewClassName = GridView::class;
+        $this->gridViewUserClassName = GridViewUser::class;
     }
 
     /**
-     * @param User $user
+     * @param string $gridViewClassName
+     */
+    public function setGridViewClassName($gridViewClassName)
+    {
+        $this->gridViewClassName = $gridViewClassName;
+    }
+
+    /**
+     * @param string $gridViewUserClassName
+     */
+    public function setGridViewUserClassName($gridViewUserClassName)
+    {
+        $this->gridViewUserClassName = $gridViewUserClassName;
+    }
+
+    /**
+     * @param AbstractUser $user
      * @param ViewInterface $gridView
      * @param bool $default
      */
-    public function setDefaultGridView(User $user, ViewInterface $gridView, $default = true)
+    public function setDefaultGridView(AbstractUser $user, ViewInterface $gridView, $default = true)
     {
         if ($default) {
             $isGridViewDefault = $this->isViewDefault($gridView, $user);
@@ -88,18 +103,18 @@ class GridViewManager
             if (!$isGridViewDefault) {
                 /** @var GridViewRepository $repository */
                 $gridName = $gridView->getGridName();
-                $om = $this->registry->getManagerForClass('OroDataGridBundle:GridViewUser');
-                $repository = $om->getRepository('OroDataGridBundle:GridViewUser');
+                $om = $this->registry->getManagerForClass($this->gridViewUserClassName);
+                $repository = $om->getRepository($this->gridViewUserClassName);
                 $userViews = $repository->findDefaultGridViews($this->aclHelper, $user, $gridName, false);
                 foreach ($userViews as $userView) {
                     $om->remove($userView);
                 }
 
-                $userView = new GridViewUser();
+                $userView = $this->createGridViewUser();
                 $userView->setAlias($gridView->getName());
                 $userView->setUser($user);
                 $userView->setGridName($gridName);
-                if ($gridView instanceof GridView) {
+                if (is_a($gridView, $this->gridViewClassName, true)) {
                     $userView->setGridView($gridView);
                 }
                 $om->persist($userView);
@@ -109,22 +124,15 @@ class GridViewManager
 
     /**
      * @param ViewInterface $view
-     * @param User $user
+     * @param AbstractUser $user
      * @return bool
      */
-    protected function isViewDefault(ViewInterface $view, User $user)
+    protected function isViewDefault(ViewInterface $view, AbstractUser $user)
     {
-        if ($view instanceof GridView) {
-            $isDefault = $view->getUsers()->contains($user);
-        } else {
-            $defaultViews = $this->registry
-                ->getManagerForClass('OroDataGridBundle:GridViewUser')
-                ->getRepository('OroDataGridBundle:GridViewUser')
-                ->findBy(['user' => $user, 'alias' => $view->getName(), 'gridName' => $view->getGridName()]);
-            $isDefault = count($defaultViews) ? true : false;
-        }
+        /** @var GridViewUserRepository $repository */
+        $repository = $this->getRepository($this->gridViewUserClassName);
 
-        return $isDefault;
+        return (bool) $repository->findByGridViewAndUser($view, $user);
     }
 
     /**
@@ -152,62 +160,64 @@ class GridViewManager
      */
     public function getSystemViews($gridName)
     {
-        if (!isset($this->cacheData[self::SYSTEM_VIEWS_KEY])) {
+        $cacheKey = sprintf('%s.%s', self::SYSTEM_VIEWS_KEY, $gridName);
+        if (!isset($this->cacheData[$cacheKey])) {
             $config = $this->getConfigurationForGrid($gridName);
             $list = $config->offsetGetOr(GridViewsExtension::VIEWS_LIST_KEY, false);
-            $systemGridView = new View(GridViewsExtension::DEFAULT_VIEW_ID);
-            if ($config->offsetGetByPath('[options][gridViews][allLabel]')) {
-                $systemGridView->setLabel($this->translator->trans($config['options']['gridViews']['allLabel']));
-            }
-            $gridViews[] = $systemGridView;
-
+            $gridViews[] = new View(GridViewsExtension::DEFAULT_VIEW_ID);
             if ($list) {
                 $list = $this->applyAppearanceRestrictions($list->getList()->getValues(), $gridName);
                 $gridViews = array_merge($gridViews, $list);
             }
-            $this->cacheData[self::SYSTEM_VIEWS_KEY] = $gridViews;
+            $this->cacheData[$cacheKey] = $gridViews;
         }
 
-        return $this->cacheData[self::SYSTEM_VIEWS_KEY];
+        return $this->cacheData[$cacheKey];
     }
 
     /**
-     * @param $user
-     * @param $gridName
+     * @param AbstractUser|null  $user
+     * @param string $gridName
+     *
      * @return array
      */
-    public function getAllGridViews($user, $gridName)
+    public function getAllGridViews(AbstractUser $user = null, $gridName = null)
     {
-        if (!isset($this->cacheData[self::ALL_VIEWS_KEY])) {
+        $cacheKey = sprintf('%s.%s.%s', self::ALL_VIEWS_KEY, $user ? $user->getUsername() : (string) $user, $gridName);
+        if (!isset($this->cacheData[$cacheKey])) {
             $systemViews = $this->getSystemViews($gridName);
             $gridViews = [];
             if ($user instanceof UserInterface) {
-                $gridViews = $this->registry
-                    ->getRepository('OroDataGridBundle:GridView')
-                    ->findGridViews($this->aclHelper, $user, $gridName);
+                /** @var GridViewRepository $repository */
+                $repository = $this->getRepository($this->gridViewClassName);
+
+                $gridViews = $repository->findGridViews($this->aclHelper, $user, $gridName);
                 $gridViews = $this->applyAppearanceRestrictions($gridViews, $gridName);
             }
-            $this->cacheData[self::ALL_VIEWS_KEY] = [
+            $this->cacheData[$cacheKey] = [
                 'system' => $systemViews,
                 'user' => $gridViews
             ];
         }
 
-        return $this->cacheData[self::ALL_VIEWS_KEY];
+        return $this->cacheData[$cacheKey];
     }
 
     /**
      * Get default view from all views (user made, system, etc)
      *
-     * @param $user
-     * @param $gridName
+     * @param AbstractUser $user
+     * @param string $gridName
+     *
      * @return mixed
      */
-    public function getDefaultView($user, $gridName)
+    public function getDefaultView(AbstractUser $user, $gridName)
     {
-        if (!isset($this->cacheData[self::DEFAULT_VIEW_KEY])) {
-            $gridViewRepository = $this->registry->getRepository('OroDataGridBundle:GridViewUser');
-            $default = $gridViewRepository->findDefaultGridView($this->aclHelper, $user, $gridName, false);
+        $cacheKey = sprintf('%s.%s.%s', self::DEFAULT_VIEW_KEY, $user->getUsername(), $gridName);
+        if (!array_key_exists($cacheKey, $this->cacheData)) {
+            /** @var GridViewUserRepository $gridViewRepository */
+            $gridViewRepository = $this->getRepository($this->gridViewUserClassName);
+            $default = $gridViewRepository->findDefaultGridView($this->aclHelper, $user, $gridName);
             $systemViews = $this->getSystemViews($gridName);
             if (!$default) {
                 $defaultView = ArrayUtil::find(
@@ -217,9 +227,7 @@ class GridViewManager
                     $systemViews
                 );
             } elseif ($default->getGridView()) {
-                $defaultView = $this->registry
-                    ->getRepository('OroDataGridBundle:GridView')
-                    ->find($default->getGridView());
+                $defaultView = $this->getRepository($this->gridViewClassName)->find($default->getGridView());
             } else {
                 $defaultView = ArrayUtil::find(
                     function ($systemView) use ($default) {
@@ -239,10 +247,10 @@ class GridViewManager
                     $systemViews
                 );
             }
-            $this->cacheData[self::DEFAULT_VIEW_KEY] = $defaultView;
+            $this->cacheData[$cacheKey] = $defaultView;
         }
 
-        return $this->cacheData[self::DEFAULT_VIEW_KEY];
+        return $this->cacheData[$cacheKey];
     }
 
     /**
@@ -258,9 +266,7 @@ class GridViewManager
         } else {
             $gridView = $this->getSystemView($id, $gridName);
             if (!$gridView) {
-                $gridView = $this->registry
-                    ->getRepository('OroDataGridBundle:GridView')
-                    ->find($id);
+                $gridView = $this->getRepository($this->gridViewClassName)->find($id);
             }
         }
 
@@ -299,5 +305,22 @@ class GridViewManager
         }
 
         return $views;
+    }
+
+    /**
+     * @return AbstractGridViewUser
+     */
+    private function createGridViewUser()
+    {
+        return new $this->gridViewUserClassName();
+    }
+
+    /**
+     * @param string $className
+     * @return ObjectRepository
+     */
+    private function getRepository($className)
+    {
+        return $this->registry->getManagerForClass($className)->getRepository($className);
     }
 }

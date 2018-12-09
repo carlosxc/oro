@@ -2,11 +2,10 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Entity;
 
+use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 
-use Oro\Bundle\WorkflowBundle\Entity\WorkflowStep;
-
-class WorkflowStepTest extends \PHPUnit_Framework_TestCase
+class WorkflowStepTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var WorkflowStep
@@ -52,7 +51,7 @@ class WorkflowStepTest extends \PHPUnit_Framework_TestCase
             array('name', 'test'),
             array('label', 'test'),
             array('stepOrder', 1),
-            array('definition', $this->getMock('Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition')),
+            array('definition', $this->createMock('Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition')),
             array('final', true)
         );
     }

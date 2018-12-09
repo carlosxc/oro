@@ -1,10 +1,9 @@
 <?php
 
-namespace OroCRM\Bundle\EmbeddedForm\Migrations\Data\ORM;
+namespace Oro\Bundle\EmbeddedForm\Migrations\Data\ORM;
 
-use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
-
+use Doctrine\Common\Persistence\ObjectManager;
 use Oro\Bundle\OrganizationBundle\Migrations\Data\ORM\UpdateWithOrganization;
 
 class UpdateEmbeddedFormWithOrganization extends UpdateWithOrganization implements DependentFixtureInterface

@@ -2,26 +2,19 @@
 
 namespace Oro\Bundle\IntegrationBundle\Controller;
 
-use Oro\Bundle\IntegrationBundle\Entity\Channel;
-use Oro\Bundle\IntegrationBundle\Manager\GenuineSyncScheduler;
-use Oro\Bundle\IntegrationBundle\Utils\EditModeUtils;
-use Symfony\Component\Form\FormInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Symfony\Component\HttpFoundation\JsonResponse;
-
 use FOS\RestBundle\Util\Codes;
-
-use JMS\JobQueueBundle\Entity\Job;
-
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
-
+use Oro\Bundle\IntegrationBundle\Entity\Channel as Integration;
+use Oro\Bundle\IntegrationBundle\Form\Handler\ChannelHandler;
+use Oro\Bundle\IntegrationBundle\Form\Type\ChannelType;
 use Oro\Bundle\SecurityBundle\Annotation\Acl;
 use Oro\Bundle\SecurityBundle\Annotation\AclAncestor;
-use Oro\Bundle\IntegrationBundle\Entity\Channel as Integration;
-use Oro\Bundle\IntegrationBundle\Command\SyncCommand;
-use Oro\Bundle\IntegrationBundle\Form\Handler\ChannelHandler;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * @Route("/integration")
@@ -81,42 +74,48 @@ class IntegrationController extends Controller
      */
     public function scheduleAction(Integration $integration, Request $request)
     {
-        if (false === $integration->isEnabled()) {
-            return new JsonResponse([
+        if ($integration->isEnabled()) {
+            try {
+                $this->get('oro_integration.genuine_sync_scheduler')->schedule(
+                    $integration->getId(),
+                    null,
+                    ['force' => (bool)$request->get('force', false)]
+                );
+                $checkJobProgressUrl = $this->generateUrl(
+                    'oro_message_queue_root_jobs',
+                    [],
+                    UrlGeneratorInterface::ABSOLUTE_URL
+                );
+
+                $status = Codes::HTTP_OK;
+                $response = [
+                    'successful' => true,
+                    'message'    => $this->get('translator')->trans(
+                        'oro.integration.scheduled',
+                        ['%url%' => $checkJobProgressUrl]
+                    )
+                ];
+            } catch (\Exception $e) {
+                $this->get('logger')->error(
+                    sprintf(
+                        'Failed to schedule integration synchronization. Integration Id: %s.',
+                        $integration->getId()
+                    ),
+                    ['e' => $e]
+                );
+
+                $status = Codes::HTTP_BAD_REQUEST;
+                $response = [
+                    'successful' => false,
+                    'message'    => $this->get('translator')->trans('oro.integration.sync_error')
+                ];
+            }
+        } else {
+            $status = Codes::HTTP_OK;
+            $response = [
                 'successful' => false,
-                'message'    => $this->get('translator')->trans('oro.integration.sync_error_integration_deactivated'),
-            ], Codes::HTTP_BAD_REQUEST);
-        }
-        
-        $status  = Codes::HTTP_OK;
-        $response = [
-            'successful' => true,
-            'message'    => '',
-        ];
-
-        try {
-            $job = $this->getSyncScheduler()->schedule($integration, (bool) $request->get('force', false));
-            
-            $jobViewLink = sprintf(
-                '<a href="%s" class="job-view-link">%s</a>',
-                $this->get('router')->generate('oro_cron_job_view', ['id' => $job->getId()]),
-                $this->get('translator')->trans('oro.integration.progress')
-            );
-
-            $response['message'] = str_replace(
-                '{{ job_view_link }}',
-                $jobViewLink,
-                $this->get('translator')->trans('oro.integration.sync')
-            );
-            $response['job_id'] = $job->getId();
-        } catch (\Exception $e) {
-            $status  = Codes::HTTP_BAD_REQUEST;
-
-            $response['successful'] = false;
-            $response['message']    = sprintf(
-                $this->get('translator')->trans('oro.integration.sync_error'),
-                $e->getMessage()
-            );
+                'message'    => $this->get('translator')->trans('oro.integration.sync_error_integration_deactivated')
+            ];
         }
 
         return new JsonResponse($response, $status);
@@ -152,23 +151,15 @@ class IntegrationController extends Controller
      */
     protected function getForm()
     {
-        $isUpdateOnly = $this->get('request')->get(ChannelHandler::UPDATE_MARKER, false);
+        $isUpdateOnly = $this->get('request_stack')->getCurrentRequest()->get(ChannelHandler::UPDATE_MARKER, false);
 
         $form = $this->get('oro_integration.form.channel');
         // take different form due to JS validation should be shown even in case when it was not validated on backend
         if ($isUpdateOnly) {
             $form = $this->get('form.factory')
-                ->createNamed('oro_integration_channel_form', 'oro_integration_channel_form', $form->getData());
+                ->createNamed('oro_integration_channel_form', ChannelType::class, $form->getData());
         }
 
         return $form;
-    }
-
-    /**
-     * @return GenuineSyncScheduler
-     */
-    protected function getSyncScheduler()
-    {
-        return $this->get('oro_integration.genuine_sync_scheduler');
     }
 }

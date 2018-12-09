@@ -1,6 +1,16 @@
-"Export started, please wait...": "Export started, please wait..."
-"Export performed successfully, {{ count }} entities were exported.": "Export performed successfully, {{ count }} entities were exported."
-"Export operation fails, {{ count }} error(s) found.": "Export operation fails, {{ count }} error(s) found."
-"Download error log": "Download error log"
-"Download result file": "Download result file"
-"No entities found for export.": "No entities found for export."
+oro:
+    importexport:
+        export:
+            success.message: 'Export started successfully. You will receive email notification upon completion.'
+            fail.message: 'Could not start export, please try again.'
+            error_template_download.message: 'Errors occured while downloading the template.'
+        import:
+            starting.message: 'Starting import...'
+            success.message: 'Import started successfully. You will receive email notification upon completion.'
+            fail.message: 'Could not start import, please try again.'
+            form_fail.message: 'Error: Bad or missing file,  Please choose a valid file to import.'
+        import_validation:
+            starting.message: 'Starting import validation...'
+            success.message: 'Import validation started successfully. You will receive email notification upon completion.'
+            fail.message: 'Could not start import validation, please try again.'
+            form_fail.message: 'Error: Bad or missing file,  Please choose a valid file for import validation.'

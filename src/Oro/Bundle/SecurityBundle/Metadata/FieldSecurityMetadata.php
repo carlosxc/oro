@@ -2,6 +2,9 @@
 
 namespace Oro\Bundle\SecurityBundle\Metadata;
 
+/**
+ * Model that contains security metadata for field by security type
+ */
 class FieldSecurityMetadata implements \Serializable
 {
     /** @var string */
@@ -10,22 +13,48 @@ class FieldSecurityMetadata implements \Serializable
     /** @var string */
     protected $label;
 
+    /** @var string|null */
+    protected $description;
+
     /** @var string[] */
     protected $permissions;
 
     /**
-     * @param string $fieldName
-     * @param string $label
-     * @param array  $permissions
+     * Field name. If set, the permission check will be performed by it.
+     *
+     * @var $string
+     */
+    protected $alias;
+
+    /**
+     * Determinate if field should be shown or not on permissions list.
+     *
+     * @var bool
+     */
+    protected $isHidden;
+
+    /**
+     * @param string      $fieldName
+     * @param string      $label
+     * @param array       $permissions
+     * @param string|null $description
+     * @param string      $alias
+     * @param bool        $isHidden
      */
     public function __construct(
         $fieldName = '',
         $label = '',
-        $permissions = []
+        $permissions = [],
+        $description = null,
+        $alias = null,
+        $isHidden = false
     ) {
         $this->fieldName = $fieldName;
         $this->label = $label;
+        $this->description = $description;
         $this->permissions = $permissions;
+        $this->alias    = $alias;
+        $this->isHidden = $isHidden;
     }
 
     /**
@@ -49,6 +78,27 @@ class FieldSecurityMetadata implements \Serializable
     }
 
     /**
+     * @param string $label
+     * @return FieldSecurityMetadata
+     */
+    public function setLabel(string $label)
+    {
+        $this->label = $label;
+
+        return $this;
+    }
+
+    /**
+     * Returns field description
+     *
+     * @return string|null
+     */
+    public function getDescription()
+    {
+        return $this->description;
+    }
+
+    /**
      * Returns available field permissions
      *
      * @return string[]
@@ -56,6 +106,22 @@ class FieldSecurityMetadata implements \Serializable
     public function getPermissions()
     {
         return $this->permissions;
+    }
+
+    /**
+     * @return string
+     */
+    public function getAlias()
+    {
+        return $this->alias;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isHidden()
+    {
+        return $this->isHidden;
     }
 
     /**
@@ -67,7 +133,10 @@ class FieldSecurityMetadata implements \Serializable
             [
                 $this->fieldName,
                 $this->label,
-                $this->permissions
+                $this->permissions,
+                $this->description,
+                $this->alias,
+                $this->isHidden
             ]
         );
     }
@@ -80,8 +149,11 @@ class FieldSecurityMetadata implements \Serializable
         list(
             $this->fieldName,
             $this->label,
-            $this->permissions
-            ) = unserialize($serialized);
+            $this->permissions,
+            $this->description,
+            $this->alias,
+            $this->isHidden
+        ) = unserialize($serialized);
     }
 
     /**
@@ -98,6 +170,9 @@ class FieldSecurityMetadata implements \Serializable
         $result->fieldName = $data['fieldName'];
         $result->label = $data['label'];
         $result->permissions = $data['permissions'];
+        $result->description = $data['description'];
+        $result->alias = $data['alias'];
+        $result->isHidden = $data['isHidden'];
 
         return $result;
     }

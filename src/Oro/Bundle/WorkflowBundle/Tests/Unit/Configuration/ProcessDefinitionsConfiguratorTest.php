@@ -5,50 +5,57 @@ namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Persistence\ObjectManager;
 use Doctrine\Common\Persistence\ObjectRepository;
-
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessConfigurationBuilder;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessDefinitionsConfigurator;
 use Oro\Bundle\WorkflowBundle\Entity\ProcessDefinition;
 use Oro\Component\Testing\Unit\EntityTrait;
+use Psr\Log\LoggerInterface;
 
-class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
+class ProcessDefinitionsConfiguratorTest extends \PHPUnit\Framework\TestCase
 {
     use EntityTrait;
 
-    /** @var ProcessConfigurationBuilder|\PHPUnit_Framework_MockObject_MockObject */
-    protected $configurationBuilder;
+    /** @var ProcessConfigurationBuilder|\PHPUnit\Framework\MockObject\MockObject */
+    private $configurationBuilder;
 
-    /** @var ManagerRegistry|\PHPUnit_Framework_MockObject_MockObject */
-    protected $managerRegistry;
+    /** @var ManagerRegistry|\PHPUnit\Framework\MockObject\MockObject */
+    private $managerRegistry;
 
-    /** @var string|\PHPUnit_Framework_MockObject_MockObject */
-    protected $definitionClass;
+    /** @var string|\PHPUnit\Framework\MockObject\MockObject */
+    private $definitionClass;
 
     /** @var ProcessDefinitionsConfigurator */
-    protected $processDefinitionsConfigurator;
+    private $processDefinitionsConfigurator;
 
-    /** @var ObjectRepository|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ObjectRepository|\PHPUnit\Framework\MockObject\MockObject */
     private $repository;
 
-    /** @var ObjectManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ObjectManager|\PHPUnit\Framework\MockObject\MockObject */
     private $objectManager;
+
+    /** @var LoggerInterface|\PHPUnit\Framework\MockObject\MockObject */
+    private $logger;
 
     protected function setUp()
     {
-        $this->configurationBuilder = $this->getMock(
+        $this->configurationBuilder = $this->createMock(
             'Oro\Bundle\WorkflowBundle\Configuration\ProcessConfigurationBuilder'
         );
 
-        $this->repository = $this->getMock('Doctrine\Common\Persistence\ObjectRepository');
-        $this->objectManager = $this->getMock('Doctrine\Common\Persistence\ObjectManager');
+        $this->repository = $this->createMock('Doctrine\Common\Persistence\ObjectRepository');
+        $this->objectManager = $this->createMock('Doctrine\Common\Persistence\ObjectManager');
 
-        $this->managerRegistry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $this->managerRegistry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
         $this->definitionClass = 'Oro\Bundle\WorkflowBundle\Entity\ProcessDefinition';
+
+        $this->logger = $this->createMock(LoggerInterface::class);
+
         $this->processDefinitionsConfigurator = new ProcessDefinitionsConfigurator(
             $this->configurationBuilder,
             $this->managerRegistry,
             $this->definitionClass
         );
+        $this->processDefinitionsConfigurator->setLogger($this->logger);
     }
 
     public function testConfigureDefinitions()
@@ -58,8 +65,7 @@ class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
         $this->assertManagerRegistryCalled($this->definitionClass);
         $this->assertObjectManagerCalledForRepository($this->definitionClass);
 
-        /**@var ProcessDefinition|\PHPUnit_Framework_MockObject_MockObject $definitionStoredExistent */
-        $definitionStoredExistent = $this->getMock($this->definitionClass);
+        $definitionStoredExistent = new ProcessDefinition();
 
         $newDefinitionExistent = new ProcessDefinition();
         $newDefinitionExistent->setName('existent');
@@ -76,8 +82,21 @@ class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
             ['nonExistent', null]
         ]);
 
-        $definitionStoredExistent->expects($this->once())->method('import')->with($newDefinitionExistent);
+        $this->logger->expects($this->at(0))
+            ->method('info')
+            ->with(
+                '> process definition: "{definition_name}" - {action}',
+                ['definition_name' => $newDefinitionExistent->getName(), 'action' => 'updated']
+            );
+        $this->logger->expects($this->at(1))
+            ->method('info')
+            ->with(
+                '> process definition: "{definition_name}" - {action}',
+                ['definition_name' => $newDefinitionNonExistent->getName(), 'action' => 'created']
+            );
+
         $this->processDefinitionsConfigurator->configureDefinitions($definitionsConfiguration);
+        $this->assertEquals($newDefinitionExistent, $definitionStoredExistent);
 
         $this->assertAttributeEquals(true, 'dirty', $this->processDefinitionsConfigurator);
         $this->assertAttributeEquals([$newDefinitionNonExistent], 'toPersist', $this->processDefinitionsConfigurator);
@@ -110,6 +129,10 @@ class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
         $this->objectManager->expects($this->once())->method('remove')->with($processDefinitionToRemove);
         $this->objectManager->expects($this->once())->method('flush');
 
+        $this->logger->expects($this->once())
+            ->method('info')
+            ->with('Process definitions configuration updates are stored into database');
+
         $this->processDefinitionsConfigurator->flush();
 
         $this->assertAttributeEquals(false, 'dirty', $this->processDefinitionsConfigurator);
@@ -119,6 +142,11 @@ class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertManagerRegistryCalled($this->definitionClass);
         $this->objectManager->expects($this->never())->method($this->anything());
+
+        $this->logger->expects($this->once())
+            ->method('info')
+            ->with('No process definitions configuration updates detected. Nothing flushed into DB');
+
         $this->processDefinitionsConfigurator->flush();
     }
 
@@ -156,6 +184,13 @@ class ProcessDefinitionsConfiguratorTest extends \PHPUnit_Framework_TestCase
             ->method('find')
             ->with($definitionName)
             ->willReturn($definitionObject);
+
+        $this->logger->expects($this->at(0))
+            ->method('info')
+            ->with(
+                '> process definition: "{definition_name}" - {action}',
+                ['definition_name' => $definitionName, 'action' => 'deleted']
+            );
 
         $this->processDefinitionsConfigurator->removeDefinition($definitionName);
 

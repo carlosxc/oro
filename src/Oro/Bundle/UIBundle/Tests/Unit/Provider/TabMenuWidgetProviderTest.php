@@ -6,20 +6,20 @@ use Oro\Bundle\UIBundle\Provider\TabMenuWidgetProvider;
 use Oro\Bundle\UIBundle\Tests\Unit\Fixture\TestBaseClass;
 use Oro\Bundle\UIBundle\Tests\Unit\Fixture\TestClass;
 
-class TabMenuWidgetProviderTest extends \PHPUnit_Framework_TestCase
+class TabMenuWidgetProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var TabMenuWidgetProvider */
     protected $provider;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $objectIdAccessor;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $widgetProvider;
 
     protected function setUp()
     {
-        $this->objectIdAccessor = $this->getMock('Oro\Bundle\UIBundle\Provider\ObjectIdAccessorInterface');
+        $this->objectIdAccessor = $this->createMock('Oro\Bundle\UIBundle\Provider\ObjectIdAccessorInterface');
         $this->widgetProvider   = $this->getMockBuilder('Oro\Bundle\UIBundle\Twig\TabExtension')
             ->disableOriginalConstructor()
             ->getMock();

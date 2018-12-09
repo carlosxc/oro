@@ -3,29 +3,26 @@
 namespace Oro\Bundle\EmailBundle\EventListener;
 
 use Doctrine\ORM\Event\PostFlushEventArgs;
-
-use JMS\JobQueueBundle\Entity\Job;
-
-use Oro\Bundle\EmailBundle\Command\AutoResponseCommand;
-use Oro\Bundle\EmailBundle\Entity\EmailBody;
-use Oro\Bundle\EmailBundle\Entity\EmailUser;
+use Oro\Bundle\EmailBundle\Async\Topics;
 use Oro\Bundle\EmailBundle\Manager\AutoResponseManager;
-use Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureCheckerHolderTrait;
+use Oro\Bundle\FeatureToggleBundle\Checker\FeatureToggleableInterface;
+use Oro\Component\MessageQueue\Client\MessageProducerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class AutoResponseListener extends MailboxEmailListener
+class AutoResponseListener extends MailboxEmailListener implements FeatureToggleableInterface
 {
-    /** @var ServiceLink */
-    private $autoResponseManagerLink;
+    use FeatureCheckerHolderTrait;
 
-    /** @var EmailUser[] */
-    protected $emailUsers = [];
+    /** @var ContainerInterface */
+    private $container;
 
     /**
-     * @param ServiceLink $autoResponseManagerLink
+     * @param ContainerInterface $container
      */
-    public function __construct(ServiceLink $autoResponseManagerLink)
+    public function __construct(ContainerInterface $container)
     {
-        $this->autoResponseManagerLink = $autoResponseManagerLink;
+        $this->container = $container;
     }
 
     /**
@@ -33,19 +30,16 @@ class AutoResponseListener extends MailboxEmailListener
      */
     public function postFlush(PostFlushEventArgs $args)
     {
+        if (!$this->isFeaturesEnabled()) {
+            return;
+        }
+
         $emailIds = $this->popEmailIds();
         if (!$emailIds) {
             return;
         }
-
-        $jobArgs = array_map(function ($id) {
-            return sprintf('--%s=%s', AutoResponseCommand::OPTION_ID, $id);
-        }, $emailIds);
-        $job = new Job(AutoResponseCommand::NAME, $jobArgs);
-
-        $em = $args->getEntityManager();
-        $em->persist($job);
-        $em->flush();
+        
+        $this->getProducer()->send(Topics::SEND_AUTO_RESPONSES, ['ids' => $emailIds]);
     }
 
     /**
@@ -53,28 +47,34 @@ class AutoResponseListener extends MailboxEmailListener
      */
     protected function popEmailIds()
     {
-        $emailIds = array_map(
-            function (EmailBody $emailBody) {
-                return $emailBody->getEmail()->getId();
-            },
-            array_filter(
-                $this->emailBodies,
-                function (EmailBody $emailBody) {
-                    return $this->getAutoResponseManager()->hasAutoResponses($emailBody->getEmail());
+        $emailIds = [];
+        if (!empty($this->emailBodies)) {
+            $autoResponseManager = $this->getAutoResponseManager();
+            foreach ($this->emailBodies as $emailBody) {
+                $email = $emailBody->getEmail();
+                if ($autoResponseManager->hasAutoResponses($email)) {
+                    $emailIds[] = $email->getId();
                 }
-            )
-        );
-        $this->emailBodies = [];
+            }
+            $this->emailBodies = [];
+        }
 
-        return array_values($emailIds);
+        return $emailIds;
     }
-
 
     /**
      * @return AutoResponseManager
      */
     protected function getAutoResponseManager()
     {
-        return $this->autoResponseManagerLink->getService();
+        return $this->container->get('oro_email.autoresponserule_manager');
+    }
+
+    /**
+     * @return MessageProducerInterface
+     */
+    protected function getProducer()
+    {
+        return $this->container->get('oro_message_queue.client.message_producer');
     }
 }

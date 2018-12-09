@@ -4,35 +4,46 @@ namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
-
-use Oro\Component\ChainProcessor\ContextInterface;
-use Oro\Component\ChainProcessor\ProcessorInterface;
-use Oro\Component\DoctrineUtils\ORM\SqlQuery;
-use Oro\Component\DoctrineUtils\ORM\SqlQueryBuilder;
+use Doctrine\ORM\Tools\Pagination\Paginator;
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
 use Oro\Bundle\ApiBundle\Processor\Context;
 use Oro\Bundle\ApiBundle\Processor\ListContext;
 use Oro\Bundle\BatchBundle\ORM\Query\QueryCountCalculator;
 use Oro\Bundle\BatchBundle\ORM\QueryBuilder\CountQueryBuilderOptimizer;
+use Oro\Component\ChainProcessor\ContextInterface;
+use Oro\Component\ChainProcessor\ProcessorInterface;
+use Oro\Component\DoctrineUtils\ORM\QueryUtil;
+use Oro\Component\DoctrineUtils\ORM\SqlQuery;
+use Oro\Component\DoctrineUtils\ORM\SqlQueryBuilder;
+use Oro\Component\EntitySerializer\QueryResolver;
+use Oro\Component\PhpUtils\ReflectionUtil;
 
 /**
  * Calculates the total number of records and sets it
- * to "X-Include-Total-Count" response header,
- * in case if it was requested by "X-Include: totalCount" request header.
+ * to "X-Include-Total-Count" response header
+ * if it was requested by "X-Include: totalCount" request header.
  */
 class SetTotalCountHeader implements ProcessorInterface
 {
-    const RESPONSE_HEADER_NAME = 'X-Include-Total-Count';
-    const REQUEST_HEADER_VALUE = 'totalCount';
+    public const RESPONSE_HEADER_NAME = 'X-Include-Total-Count';
+    public const REQUEST_HEADER_VALUE = 'totalCount';
 
     /** @var CountQueryBuilderOptimizer */
-    protected $countQueryBuilderOptimizer;
+    private $countQueryBuilderOptimizer;
+
+    /** @var QueryResolver */
+    private $queryResolver;
 
     /**
      * @param CountQueryBuilderOptimizer $countQueryOptimizer
+     * @param QueryResolver              $queryResolver
      */
-    public function __construct(CountQueryBuilderOptimizer $countQueryOptimizer)
-    {
+    public function __construct(
+        CountQueryBuilderOptimizer $countQueryOptimizer,
+        QueryResolver $queryResolver
+    ) {
         $this->countQueryBuilderOptimizer = $countQueryOptimizer;
+        $this->queryResolver = $queryResolver;
     }
 
     /**
@@ -48,7 +59,7 @@ class SetTotalCountHeader implements ProcessorInterface
         }
 
         $xInclude = $context->getRequestHeaders()->get(Context::INCLUDE_HEADER);
-        if (empty($xInclude) || !in_array(self::REQUEST_HEADER_VALUE, $xInclude, true)) {
+        if (empty($xInclude) || !\in_array(self::REQUEST_HEADER_VALUE, $xInclude, true)) {
             // total count is not requested
             return;
         }
@@ -62,7 +73,7 @@ class SetTotalCountHeader implements ProcessorInterface
 
         $query = $context->getQuery();
         if (null !== $query && null === $totalCount) {
-            $totalCount = $this->calculateTotalCount($query);
+            $totalCount = $this->calculateTotalCount($query, $context->getConfig());
         }
 
         if (null !== $totalCount) {
@@ -75,45 +86,46 @@ class SetTotalCountHeader implements ProcessorInterface
      *
      * @return int
      */
-    protected function executeTotalCountCallback($callback)
+    private function executeTotalCountCallback($callback)
     {
-        if (!is_callable($callback)) {
-            throw new \RuntimeException(
-                sprintf(
-                    'Expected callable for "totalCount", "%s" given.',
-                    is_object($callback) ? get_class($callback) : gettype($callback)
-                )
-            );
+        if (!\is_callable($callback)) {
+            throw new \RuntimeException(\sprintf(
+                'Expected callable for "totalCount", "%s" given.',
+                \is_object($callback) ? \get_class($callback) : gettype($callback)
+            ));
         }
 
-        $totalCount = call_user_func($callback);
-        if (!is_int($totalCount)) {
-            throw new \RuntimeException(
-                sprintf(
-                    'Expected integer as result of "totalCount" callback, "%s" given.',
-                    is_object($totalCount) ? get_class($totalCount) : gettype($totalCount)
-                )
-            );
+        $totalCount = \call_user_func($callback);
+        if (!\is_int($totalCount)) {
+            throw new \RuntimeException(\sprintf(
+                'Expected integer as result of "totalCount" callback, "%s" given.',
+                \is_object($totalCount) ? \get_class($totalCount) : gettype($totalCount)
+            ));
         }
 
         return $totalCount;
     }
 
     /**
-     * @param mixed $query
+     * @param mixed                       $query
+     * @param EntityDefinitionConfig|null $config
      *
      * @return int
      */
-    protected function calculateTotalCount($query)
+    private function calculateTotalCount($query, EntityDefinitionConfig $config = null)
     {
         if ($query instanceof QueryBuilder) {
             $countQuery = $this->countQueryBuilderOptimizer
                 ->getCountQueryBuilder($query)
-                ->getQuery();
+                ->getQuery()
+                ->setMaxResults(null)
+                ->setFirstResult(null);
+            $this->resolveQuery($countQuery, $config);
         } elseif ($query instanceof Query) {
             $countQuery = $this->cloneQuery($query)
                 ->setMaxResults(null)
                 ->setFirstResult(null);
+            $this->resolveQuery($countQuery, $config);
         } elseif ($query instanceof SqlQueryBuilder) {
             $countQuery = $this->cloneQuery($query)
                 ->setMaxResults(null)
@@ -125,37 +137,74 @@ class SetTotalCountHeader implements ProcessorInterface
                 ->setMaxResults(null)
                 ->setFirstResult(null);
         } else {
-            throw new \RuntimeException(
-                sprintf(
-                    'Expected instance of Doctrine\ORM\QueryBuilder, Doctrine\ORM\Query'
-                    . ', Oro\Bundle\EntityBundle\ORM\SqlQueryBuilder'
-                    . ' or Oro\Bundle\EntityBundle\ORM\SqlQuery, "%s" given.',
-                    is_object($query) ? get_class($query) : gettype($query)
-                )
-            );
+            throw new \RuntimeException(\sprintf(
+                'Expected instance of Doctrine\ORM\QueryBuilder, Doctrine\ORM\Query'
+                . ', Oro\Bundle\EntityBundle\ORM\SqlQueryBuilder'
+                . ' or Oro\Bundle\EntityBundle\ORM\SqlQuery, "%s" given.',
+                \is_object($query) ? \get_class($query) : gettype($query)
+            ));
         }
 
-        return QueryCountCalculator::calculateCount($countQuery);
+        return $this->executeCountQuery($countQuery);
     }
 
     /**
+     * @param $countQuery
+     *
+     * @return int
+     */
+    private function executeCountQuery($countQuery)
+    {
+        if ($countQuery instanceof Query) {
+            $paginator = new Paginator($countQuery);
+            $paginator->setUseOutputWalkers(false);
+
+            // the result-set mapping is not relevant and should be rebuilt
+            // because the query will be changed by Doctrine\ORM\Tools\Pagination\Paginator
+            // unfortunately the reflection is the only way to clear the result-set mapping
+            $resultSetMappingProperty = ReflectionUtil::getProperty(
+                new \ReflectionClass($countQuery),
+                '_resultSetMapping'
+            );
+            if (null === $resultSetMappingProperty) {
+                throw new \LogicException(sprintf(
+                    'The "_resultSetMapping" property does not exist in %s.',
+                    get_class($countQuery)
+                ));
+            }
+            $resultSetMappingProperty->setAccessible(true);
+            $resultSetMappingProperty->setValue($countQuery, null);
+
+            return $paginator->count();
+        }
+
+        return QueryCountCalculator::calculateCount($countQuery, false);
+    }
+
+    /**
+     * @param Query                       $query
+     * @param EntityDefinitionConfig|null $config
+     */
+    private function resolveQuery(Query $query, EntityDefinitionConfig $config = null)
+    {
+        if (null !== $config) {
+            $this->queryResolver->resolveQuery($query, $config);
+        }
+    }
+
+    /**
+     * Makes full clone of the given query, including its parameters and hints
+     *
      * @param object $query
      *
      * @return object
      */
-    protected function cloneQuery($query)
+    private function cloneQuery($query)
     {
-        $result = clone $query;
-
-        if ($result instanceof Query) {
-            // clone parameters
-            $result->setParameters(clone $query->getParameters());
-            // clone hints
-            foreach ($query->getHints() as $name => $value) {
-                $result->setHint($name, $value);
-            }
+        if ($query instanceof Query) {
+            return QueryUtil::cloneQuery($query);
         }
 
-        return $result;
+        return clone $query;
     }
 }

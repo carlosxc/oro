@@ -3,20 +3,21 @@
 namespace Oro\Bundle\AttachmentBundle\Entity\Manager;
 
 use Doctrine\Common\Persistence\ObjectManager;
-
-use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
-
 use Oro\Bundle\AttachmentBundle\Manager\AttachmentManager;
 use Oro\Bundle\AttachmentBundle\Manager\FileManager;
 use Oro\Bundle\AttachmentBundle\Model\FileContentProvider;
-use Oro\Bundle\SecurityBundle\SecurityFacade;
 use Oro\Bundle\SoapBundle\Entity\Manager\ApiEntityManager;
+use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+/**
+ * The API manager for File entity.
+ */
 class FileApiEntityManager extends ApiEntityManager
 {
-    /** @var SecurityFacade */
-    protected $securityFacade;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
 
     /** @var AttachmentManager */
     protected $attachmentManager;
@@ -25,21 +26,21 @@ class FileApiEntityManager extends ApiEntityManager
     protected $fileManager;
 
     /**
-     * @param string            $class
-     * @param ObjectManager     $om
-     * @param SecurityFacade    $securityFacade
-     * @param FileManager       $fileManager
-     * @param AttachmentManager $attachmentManager
+     * @param string                        $class
+     * @param ObjectManager                 $om
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param FileManager                   $fileManager
+     * @param AttachmentManager             $attachmentManager
      */
     public function __construct(
         $class,
         ObjectManager $om,
-        SecurityFacade $securityFacade,
+        AuthorizationCheckerInterface $authorizationChecker,
         FileManager $fileManager,
         AttachmentManager $attachmentManager
     ) {
         parent::__construct($class, $om);
-        $this->securityFacade    = $securityFacade;
+        $this->authorizationChecker = $authorizationChecker;
         $this->attachmentManager = $attachmentManager;
         $this->fileManager = $fileManager;
     }
@@ -51,7 +52,7 @@ class FileApiEntityManager extends ApiEntityManager
     {
         list($fileId, $ownerEntityClass, $ownerEntityId) = $this->attachmentManager->parseFileKey($id);
 
-        if (!$this->securityFacade->isGranted('VIEW', new ObjectIdentity($ownerEntityId, $ownerEntityClass))) {
+        if (!$this->authorizationChecker->isGranted('VIEW', new ObjectIdentity($ownerEntityId, $ownerEntityClass))) {
             throw new AccessDeniedException();
         }
 
@@ -67,8 +68,8 @@ class FileApiEntityManager extends ApiEntityManager
             'fields'         => [
                 'owner' => ['fields' => 'id']
             ],
-            'post_serialize' => function (array &$result) {
-                $this->postSerializeFile($result);
+            'post_serialize' => function (array $result) {
+                return $this->postSerializeFile($result);
             }
         ];
 
@@ -77,9 +78,13 @@ class FileApiEntityManager extends ApiEntityManager
 
     /**
      * @param array $result
+     *
+     * @return array
      */
-    protected function postSerializeFile(array &$result)
+    protected function postSerializeFile(array $result): array
     {
         $result['content'] = new FileContentProvider($result['filename'], $this->fileManager);
+
+        return $result;
     }
 }

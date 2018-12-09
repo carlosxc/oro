@@ -2,12 +2,10 @@
 
 namespace Oro\Bundle\IntegrationBundle\Manager;
 
-use Doctrine\Common\Util\ClassUtils;
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\IntegrationBundle\Exception\LogicException;
-use Oro\Bundle\IntegrationBundle\Entity\Channel as Integration;
+use Doctrine\Common\Util\ClassUtils;
 use Oro\Bundle\IntegrationBundle\Entity\Transport;
+use Oro\Bundle\IntegrationBundle\Exception\LogicException;
 use Oro\Bundle\IntegrationBundle\Provider\ChannelInterface as IntegrationInterface;
 use Oro\Bundle\IntegrationBundle\Provider\ConnectorInterface;
 use Oro\Bundle\IntegrationBundle\Provider\DefaultOwnerTypeAwareInterface;
@@ -62,6 +60,25 @@ class TypesRegistry
     }
 
     /**
+     * @param string $typeName
+     *
+     * @return IntegrationInterface
+     */
+    public function getIntegrationByType($typeName)
+    {
+        if ($this->integrationTypes->containsKey($typeName)) {
+            return $this->integrationTypes->get($typeName);
+        } else {
+            throw new LogicException(
+                sprintf(
+                    'Integration type "%s" not found.',
+                    $typeName
+                )
+            );
+        }
+    }
+
+    /**
      * Collect available types for choice field
      *
      * @return array
@@ -70,14 +87,14 @@ class TypesRegistry
     {
         /** @var ArrayCollection $types */
         $types  = $this->getAvailableIntegrationTypes();
-        $keys   = $types->getKeys();
-        $values = $types->map(
+        $values = $types->getKeys();
+        $labels = $types->map(
             function (IntegrationInterface $type) {
                 return $type->getLabel();
             }
         )->toArray();
 
-        return array_combine($keys, $values);
+        return array_combine($labels, $values);
     }
 
     /**
@@ -259,6 +276,7 @@ class TypesRegistry
      * @param string $type
      *
      * @return ConnectorInterface
+     *
      * @throws LogicException
      */
     public function getConnectorType($integrationType, $type)
@@ -323,13 +341,13 @@ class TypesRegistry
     /**
      * Checks if there is at least one connector that supports force sync.
      *
-     * @param Integration $integration
+     * @param string $integrationType
      *
      * @return boolean
      */
-    public function supportsForceSync(Integration $integration)
+    public function supportsForceSync($integrationType)
     {
-        $connectors = $this->getRegisteredConnectorsTypes($integration->getType());
+        $connectors = $this->getRegisteredConnectorsTypes($integrationType);
 
         foreach ($connectors as $connector) {
             if ($connector instanceof ForceConnectorInterface) {
@@ -340,6 +358,20 @@ class TypesRegistry
         }
 
         return false;
+    }
+
+    /**
+     * Checks if there is at least one connector.
+     *
+     * @param string $integrationType
+     *
+     * @return boolean
+     */
+    public function supportsSync($integrationType)
+    {
+        $connectors = $this->getRegisteredConnectorsTypes($integrationType);
+
+        return $connectors->count() > 0;
     }
 
     /**

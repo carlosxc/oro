@@ -4,7 +4,7 @@ namespace Oro\Bundle\TagBundle\Tests\Unit\Provider;
 
 use Oro\Bundle\TagBundle\Provider\SearchProvider;
 
-class SearchProviderTest extends \PHPUnit_Framework_TestCase
+class SearchProviderTest extends \PHPUnit\Framework\TestCase
 {
     const TEST_ID = 1;
     const TEST_ENTITY_NAME = 'name';
@@ -12,13 +12,13 @@ class SearchProviderTest extends \PHPUnit_Framework_TestCase
     /** @var SearchProvider */
     protected $provider;
 
-    /** @var  \PHPUnit_Framework_MockObject_MockObject */
+    /** @var  \PHPUnit\Framework\MockObject\MockObject */
     protected $mapper;
 
-    /** @var  \PHPUnit_Framework_MockObject_MockObject */
+    /** @var  \PHPUnit\Framework\MockObject\MockObject */
     protected $entityManager;
 
-    /** @var  \PHPUnit_Framework_MockObject_MockObject */
+    /** @var  \PHPUnit\Framework\MockObject\MockObject */
     protected $securityProvider;
 
     protected function setUp()
@@ -96,7 +96,7 @@ class SearchProviderTest extends \PHPUnit_Framework_TestCase
             ->method('applyAcl')
             ->with($qb, 't');
 
-        $this->mapper->expects($this->once())->method('getEntityConfig')->with(self::TEST_ENTITY_NAME);
+        $this->mapper->expects($this->once())->method('getEntityConfig')->with(self::TEST_ENTITY_NAME)->willReturn([]);
 
         $this->assertInstanceOf('Oro\Bundle\SearchBundle\Query\Result', $this->provider->getResults(self::TEST_ID));
     }

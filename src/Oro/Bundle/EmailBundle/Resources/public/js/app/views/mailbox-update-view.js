@@ -1,5 +1,3 @@
-/*jslint nomen:true*/
-/*global define*/
 define([
     'jquery',
     'backbone',
@@ -9,10 +7,12 @@ define([
 ], function($, Backbone, _, __, mediator) {
     'use strict';
 
+    var MailboxUpdateView;
+
     /**
      * @extends Backbone.View
      */
-    return Backbone.View.extend({
+    MailboxUpdateView = Backbone.View.extend({
         /**
          * @const
          */
@@ -20,6 +20,13 @@ define([
 
         events: {
             'change [name*="processType"]': 'changeHandler'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function MailboxUpdateView() {
+            MailboxUpdateView.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -48,10 +55,12 @@ define([
             var $oroEmailMailBoxEmail = this.$el.find('input[name="oro_email_mailbox[email]"]');
             if (data && data.email) {
                 $oroEmailMailBoxEmail.val(data.email);
-                $oroEmailMailBoxEmail.attr('readonly', 'readonly');
+                $oroEmailMailBoxEmail.prop('readonly', 'readonly');
             } else {
-                $oroEmailMailBoxEmail.removeAttr('readonly');
+                $oroEmailMailBoxEmail.prop('readonly', false);
             }
         }
     });
+
+    return MailboxUpdateView;
 });

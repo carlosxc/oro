@@ -2,9 +2,8 @@
 
 namespace Oro\Bundle\QueryDesignerBundle\Tests\Unit\Grid\DatagridConfigurationBuilder;
 
-use Doctrine\ORM\Query;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
+use Doctrine\ORM\Query;
 use Oro\Bundle\QueryDesignerBundle\Tests\Unit\Fixtures\QueryDesignerModel;
 
 class JoinCasesTest extends DatagridConfigurationBuilderTestCase
@@ -66,7 +65,7 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                 'hints' => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
             ],
@@ -85,6 +84,12 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                 'columns' => [
                     'c1' => ['data_name' => 'c1', 'type' => 'string', 'translatable' => false],
                     'c2' => ['data_name' => 'c2', 'type' => 'string', 'translatable' => false]
+                ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't1.column1'],
+                    'c2' => ['data_name' => 't2.column2']
                 ]
             ]
         ];
@@ -226,7 +231,7 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                 'hints' => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
             ],
@@ -254,6 +259,15 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                     'c3' => ['data_name' => 'c3', 'type' => 'string', 'translatable' => false],
                     'c4' => ['data_name' => 'c4', 'type' => 'string', 'translatable' => false],
                     'c5' => ['data_name' => 'c5', 'type' => 'string', 'translatable' => false],
+                ]
+            ],
+            'fields_acl' => [
+                'columns' => [
+                    'c1' => ['data_name' => 't1.column1'],
+                    'c2' => ['data_name' => 't2.column2'],
+                    'c3' => ['data_name' => 't3.column2'],
+                    'c4' => ['data_name' => 't4.column2'],
+                    'c5' => ['data_name' => 't6.column1'],
                 ]
             ]
         ];
@@ -336,7 +350,7 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                 'hints' => [
                     [
                         'name'  => Query::HINT_CUSTOM_OUTPUT_WALKER,
-                        'value' => 'Gedmo\Translatable\Query\TreeWalker\TranslationWalker',
+                        'value' => 'Oro\Bundle\QueryDesignerBundle\QueryDesigner\SqlWalker',
                     ]
                 ]
             ],
@@ -353,7 +367,8 @@ class JoinCasesTest extends DatagridConfigurationBuilderTestCase
                 'columns' => [
                     'c1' => ['data_name' => 'c1', 'type' => 'string', 'translatable' => false]
                 ]
-            ]
+            ],
+            'fields_acl' => ['columns' => ['c1' => ['data_name' => 't1.column1']]]
         ];
 
         $this->assertEquals($expected, $result);

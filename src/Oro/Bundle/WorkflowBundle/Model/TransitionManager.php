@@ -2,9 +2,8 @@
 
 namespace Oro\Bundle\WorkflowBundle\Model;
 
-use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
-
+use Doctrine\Common\Collections\Collection;
 use Oro\Bundle\WorkflowBundle\Exception\InvalidTransitionException;
 
 class TransitionManager
@@ -25,7 +24,7 @@ class TransitionManager
     }
 
     /**
-     * @return Collection
+     * @return Transition[]|Collection
      */
     public function getTransitions()
     {
@@ -99,9 +98,26 @@ class TransitionManager
     }
 
     /**
+     * @param string $transition
+     * @return TransitionManager|null
+     */
+    public function getStartTransition($transition)
+    {
+        if (is_string($transition)) {
+            $transition = $this->getTransition($transition);
+        }
+
+        if (!$transition) {
+            $transition = $this->getDefaultStartTransition();
+        }
+
+        return $transition instanceof Transition && $transition->isStart() ? $transition : null;
+    }
+
+    /**
      * Get start transitions
      *
-     * @return Collection
+     * @return Collection|Transition[]
      */
     public function getStartTransitions()
     {

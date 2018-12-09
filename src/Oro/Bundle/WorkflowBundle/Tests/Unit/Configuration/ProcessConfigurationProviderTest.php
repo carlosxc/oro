@@ -3,16 +3,16 @@
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration;
 
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessConfigurationProvider;
-use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\CorrectConfiguration\CorrectConfigurationBundle;
-use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\EmptyConfiguration\EmptyConfigurationBundle;
-use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\IncorrectConfiguration\IncorrectConfigurationBundle;
-use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\DuplicateConfiguration\DuplicateConfigurationBundle;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessDefinitionConfiguration;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessDefinitionListConfiguration;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessTriggerConfiguration;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessTriggerListConfiguration;
+use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\CorrectConfiguration\CorrectConfigurationBundle;
+use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\DuplicateConfiguration\DuplicateConfigurationBundle;
+use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\EmptyConfiguration\EmptyConfigurationBundle;
+use Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Stub\IncorrectConfiguration\IncorrectConfigurationBundle;
 
-class ProcessConfigurationProviderTest extends \PHPUnit_Framework_TestCase
+class ProcessConfigurationProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ProcessDefinitionListConfiguration
@@ -136,7 +136,7 @@ class ProcessConfigurationProviderTest extends \PHPUnit_Framework_TestCase
      */
     protected function getExpectedProcessConfiguration($bundleName)
     {
-        $fileName = __DIR__ . '/Stub/' . $bundleName . '/Resources/config/process.php';
+        $fileName = __DIR__ . '/Stub/' . $bundleName . '/Resources/config/oro/processes.php';
         $this->assertFileExists($fileName);
         return include $fileName;
     }

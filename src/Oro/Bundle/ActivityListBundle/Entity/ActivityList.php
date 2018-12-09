@@ -2,33 +2,30 @@
 
 namespace Oro\Bundle\ActivityListBundle\Entity;
 
-use BeSimple\SoapBundle\ServiceDefinition\Annotation as Soap;
-
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
-use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
-
+use Doctrine\ORM\Mapping as ORM;
 use Oro\Bundle\ActivityListBundle\Model\ExtendActivityList;
-use Oro\Bundle\DataAuditBundle\Metadata\Annotation as Oro;
-use Oro\Bundle\OrganizationBundle\Entity\Organization;
-use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Bundle\EntityBundle\EntityProperty\DatesAwareInterface;
 use Oro\Bundle\EntityBundle\EntityProperty\UpdatedByAwareInterface;
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\Config;
+use Oro\Bundle\EntityConfigBundle\Metadata\Annotation\ConfigField;
+use Oro\Bundle\OrganizationBundle\Entity\Organization;
+use Oro\Bundle\UserBundle\Entity\User;
 
 /**
+ * The entity that is used to store a relation between an entity record and an activity entity record
+ * to be able to retrieve activities in the chronological order.
+ *
  * @ORM\Table(name="oro_activity_list", indexes={
  *     @ORM\Index(name="oro_activity_list_updated_idx", columns={"updated_at"}),
  *     @ORM\Index(name="al_related_activity_class", columns={"related_activity_class"}),
  *     @ORM\Index(name="al_related_activity_id", columns={"related_activity_id"}),
- *     @ORM\Index(name="al_is_head", columns={"is_head"}),
  * })
  * @ORM\Entity(repositoryClass="Oro\Bundle\ActivityListBundle\Entity\Repository\ActivityListRepository")
  * @Config(
  *      defaultValues={
  *          "entity"={
- *              "icon"="icon-align-justify"
+ *              "icon"="fa-align-justify"
  *          },
  *          "ownership"={
  *              "owner_type"="ORGANIZATION",
@@ -69,7 +66,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      * @ORM\Column(name="id", type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
-     * @Soap\ComplexType("int", nillable=true)
      */
     protected $id;
 
@@ -78,17 +74,16 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      *
      * @ORM\ManyToOne(targetEntity="Oro\Bundle\UserBundle\Entity\User")
      * @ORM\JoinColumn(name="user_owner_id", referencedColumnName="id", onDelete="SET NULL")
-     * @Soap\ComplexType("int", nillable=true)
      */
     protected $owner;
 
     /**
      * @var User
-     * @deprecated 1.8.0:1.10.0 Will be renamed to updatedBy
      *
      * @ORM\ManyToOne(targetEntity="Oro\Bundle\UserBundle\Entity\User")
      * @ORM\JoinColumn(name="user_editor_id", referencedColumnName="id", onDelete="SET NULL")
-     * @Soap\ComplexType("int", nillable=true)
+     *
+     * This field should be renamed to updatedBy as a part of BAP-9004
      */
     protected $editor;
 
@@ -96,7 +91,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      * @var string
      *
      * @ORM\Column(name="verb", type="string", length=32)
-     * @Soap\ComplexType("string", nillable=true)
      */
     protected $verb;
 
@@ -104,7 +98,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      * @var string
      *
      * @ORM\Column(name="subject", type="string", length=255)
-     * @Soap\ComplexType("string", nillable=true)
      */
     protected $subject;
 
@@ -112,23 +105,13 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      * @var string
      *
      * @ORM\Column(name="description", type="text", nullable=true)
-     * @Soap\ComplexType("string", nillable=true)
      */
     protected $description;
-
-    /**
-     * @var bool
-     *
-     * @ORM\Column(name="is_head", type="boolean", options={"default"=true})
-     * @Soap\ComplexType("boolean")
-     */
-    protected $head = true;
 
     /**
      * @var string
      *
      * @ORM\Column(name="related_activity_class", type="string", length=255, nullable=false)
-     * @Soap\ComplexType("string", nillable=true)
      */
     protected $relatedActivityClass;
 
@@ -136,7 +119,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      * @var integer
      *
      * @ORM\Column(name="related_activity_id", type="integer", nullable=false)
-     * @Soap\ComplexType("int", nillable=true)
      */
     protected $relatedActivityId;
 
@@ -151,7 +133,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      *          }
      *      }
      * )
-     * @Soap\ComplexType("dateTime", nillable=true)
      */
     protected $createdAt;
 
@@ -166,7 +147,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      *          }
      *      }
      * )
-     * @Soap\ComplexType("dateTime", nillable=true)
      */
     protected $updatedAt;
 
@@ -324,7 +304,7 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
     }
 
     /**
-     * Set a subject of the related record
+     * Set a subject of the related record. The subject cutes to 250 symbols.
      *
      * @param string $subject
      *
@@ -332,7 +312,7 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
      */
     public function setSubject($subject)
     {
-        $this->subject = substr($subject, 0, 255);
+        $this->subject = mb_substr($subject, 0, 250, mb_detect_encoding($subject));
 
         return $this;
     }
@@ -357,30 +337,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
     public function setDescription($description)
     {
         $this->description = $description;
-
-        return $this;
-    }
-
-    /**
-     * Get head item in the thread
-     *
-     * @return bool
-     */
-    public function isHead()
-    {
-        return $this->head;
-    }
-
-    /**
-     * Set head flag
-     *
-     * @param boolean $head
-     *
-     * @return self
-     */
-    public function setHead($head)
-    {
-        $this->head = (bool)$head;
 
         return $this;
     }
@@ -438,32 +394,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
     }
 
     /**
-     * @param User $editor
-     * @deprecated 1.8.0:1.10.0 Use $this->setUpdatedBy() instead
-     *
-     * @return self
-     */
-    public function setEditor(User $editor = null)
-    {
-        if ($editor !== null) {
-            $this->updatedBySet = true;
-        }
-
-        $this->editor = $editor;
-
-        return $this;
-    }
-
-    /**
-     * @deprecated since 1.8. Use $this->getUpdatedBy() instead
-     * @return User
-     */
-    public function getEditor()
-    {
-        return $this->editor;
-    }
-
-    /**
      * @param User|null $updatedBy
      *
      * @return self
@@ -475,9 +405,6 @@ class ActivityList extends ExtendActivityList implements DatesAwareInterface, Up
             $this->updatedBySet = true;
         }
 
-        /**
-         * @TODO will be renamed after BAP-9004
-         */
         $this->editor = $updatedBy;
 
         return $this;

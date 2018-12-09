@@ -2,24 +2,24 @@
 
 namespace Oro\Bundle\FormBundle\Model;
 
+use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
+use Oro\Bundle\FormBundle\Form\Handler\FormHandler;
+use Oro\Bundle\UIBundle\Route\Router;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Session;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-use Oro\Bundle\EntityBundle\ORM\DoctrineHelper;
-use Oro\Bundle\UIBundle\Route\Router;
-use Oro\Bundle\FormBundle\Event\FormHandler\AfterFormProcessEvent;
-use Oro\Bundle\FormBundle\Event\FormHandler\Events;
-use Oro\Bundle\FormBundle\Event\FormHandler\FormProcessEvent;
-
+/**
+ * @deprecated since v2.1.0 use Oro\Bundle\FormBundle\Model\UpdateHandlerFacade (oro_form.update_handler) instead
+ */
 class UpdateHandler
 {
     /**
-     * @var Request
+     * @var RequestStack
      */
-    protected $request;
+    protected $requestStack;
 
     /**
      * @var Session
@@ -37,29 +37,29 @@ class UpdateHandler
     protected $doctrineHelper;
 
     /**
-     * @var EventDispatcherInterface
+     * @var FormHandler
      */
-    protected $eventDispatcher;
+    protected $formHandler;
 
     /**
-     * @param Request $request
+     * @param RequestStack $requestStack
      * @param Session $session
      * @param Router $router
      * @param DoctrineHelper $doctrineHelper
-     * @param EventDispatcherInterface $eventDispatcher
+     * @param FormHandler $formHandler
      */
     public function __construct(
-        Request $request,
+        RequestStack $requestStack,
         Session $session,
         Router $router,
         DoctrineHelper $doctrineHelper,
-        EventDispatcherInterface $eventDispatcher
+        FormHandler $formHandler
     ) {
-        $this->request = $request;
+        $this->requestStack = $requestStack;
         $this->session = $session;
         $this->router = $router;
         $this->doctrineHelper = $doctrineHelper;
-        $this->eventDispatcher = $eventDispatcher;
+        $this->formHandler = $formHandler;
     }
 
     /**
@@ -116,6 +116,7 @@ class UpdateHandler
      * @param string $saveMessage Message added to session flash bag in case if form will be saved successfully
      *               and if form is not submitted from widget.
      * @param null|callable $formHandler Callback to handle form, by default method saveForm used.
+     * @param callable|null $resultCallback
      * @return array|RedirectResponse Returns an array
      *                                  if form wasn't successfully submitted
      *                                  or when request method is not PUT and POST,
@@ -128,12 +129,13 @@ class UpdateHandler
         $data,
         FormInterface $form,
         $saveMessage,
-        $formHandler = null
+        $formHandler = null,
+        $resultCallback = null
     ) {
         if ($formHandler) {
             if (is_object($formHandler) && method_exists($formHandler, 'process')) {
                 if ($formHandler->process($data)) {
-                    return $this->constructResponse($form, $data, $saveMessage);
+                    return $this->constructResponse($form, $data, $saveMessage, $resultCallback);
                 }
             } else {
                 throw new \InvalidArgumentException(
@@ -144,10 +146,10 @@ class UpdateHandler
                 );
             }
         } elseif ($this->saveForm($form, $data)) {
-            return $this->constructResponse($form, $data, $saveMessage);
+            return $this->constructResponse($form, $data, $saveMessage, $resultCallback);
         }
 
-        return $this->getResult($data, $form);
+        return $this->getResult($data, $form, $resultCallback);
     }
 
     /**
@@ -158,45 +160,7 @@ class UpdateHandler
      */
     protected function saveForm(FormInterface $form, $data)
     {
-        $event = new FormProcessEvent($form, $data);
-        $this->eventDispatcher->dispatch(Events::BEFORE_FORM_DATA_SET, $event);
-
-        if ($event->isFormProcessInterrupted()) {
-            return false;
-        }
-
-        $form->setData($data);
-
-        if (in_array($this->request->getMethod(), array('POST', 'PUT'))) {
-            $event = new FormProcessEvent($form, $data);
-            $this->eventDispatcher->dispatch(Events::BEFORE_FORM_SUBMIT, $event);
-
-            if ($event->isFormProcessInterrupted()) {
-                return false;
-            }
-
-            $form->submit($this->request);
-
-            if ($form->isValid()) {
-                $manager = $this->doctrineHelper->getEntityManager($data);
-
-                $manager->beginTransaction();
-                try {
-                    $manager->persist($data);
-                    $this->eventDispatcher->dispatch(Events::BEFORE_FLUSH, new AfterFormProcessEvent($form, $data));
-                    $manager->flush();
-                    $this->eventDispatcher->dispatch(Events::AFTER_FLUSH, new AfterFormProcessEvent($form, $data));
-                    $manager->commit();
-                } catch (\Exception $exception) {
-                    $manager->rollback();
-                    throw $exception;
-                }
-
-                return true;
-            }
-        }
-
-        return false;
+        return $this->formHandler->process($data, $form, $this->getCurrentRequest());
     }
 
     /**
@@ -218,7 +182,8 @@ class UpdateHandler
         $saveMessage,
         $resultCallback = null
     ) {
-        if ($this->request->get('_wid')) {
+        $request = $this->getCurrentRequest();
+        if ($request->get('_wid')) {
             $result = $this->getResult($entity, $form, $resultCallback);
             $result['savedId'] = $this->doctrineHelper->getSingleEntityIdentifier($entity);
 
@@ -250,7 +215,8 @@ class UpdateHandler
      */
     protected function constructResponse(FormInterface $form, $entity, $saveMessage, $resultCallback = null)
     {
-        if ($this->request->get('_wid')) {
+        $request = $this->getCurrentRequest();
+        if ($request->get('_wid')) {
             $result = $this->getResult($entity, $form, $resultCallback);
             $result['savedId'] = $this->doctrineHelper->getSingleEntityIdentifier($entity);
 
@@ -270,17 +236,18 @@ class UpdateHandler
      */
     protected function getResult($entity, FormInterface $form, $resultCallback = null)
     {
+        $request = $this->getCurrentRequest();
         if (is_callable($resultCallback)) {
-            $result = call_user_func($resultCallback, $entity, $form, $this->request);
+            $result = call_user_func($resultCallback, $entity, $form, $request);
         } else {
-            $result = array(
+            $result = [
                 'form' => $form->createView()
-            );
+            ];
         }
         if (!array_key_exists('entity', $result)) {
             $result['entity'] = $entity;
         }
-        $result['isWidgetContext'] = (bool)$this->request->get('_wid', false);
+        $result['isWidgetContext'] = (bool)$request->get('_wid', false);
 
         return $result;
     }
@@ -291,7 +258,8 @@ class UpdateHandler
      */
     protected function addQueryParameters(array $routeData)
     {
-        $queryParts = $this->request->query->all();
+        $request = $this->getCurrentRequest();
+        $queryParts = $request->query->all();
         if ($queryParts) {
             if (!isset($routeData['parameters'])) {
                 $routeData['parameters'] = [];
@@ -300,5 +268,13 @@ class UpdateHandler
         }
 
         return $routeData;
+    }
+
+    /**
+     * @return Request
+     */
+    protected function getCurrentRequest()
+    {
+        return $this->requestStack->getCurrentRequest();
     }
 }

@@ -3,10 +3,9 @@
 namespace Oro\Bundle\ActionBundle\Tests\Unit\Model;
 
 use Oro\Bundle\ActionBundle\Model\OperationDefinition;
-
 use Oro\Component\Testing\Unit\EntityTestCaseTrait;
 
-class OperationDefinitionTest extends \PHPUnit_Framework_TestCase
+class OperationDefinitionTest extends \PHPUnit\Framework\TestCase
 {
     use EntityTestCaseTrait;
 
@@ -64,13 +63,7 @@ class OperationDefinitionTest extends \PHPUnit_Framework_TestCase
                 ['label', 'test'],
                 ['substituteOperation', 'test_operation_name_to_substitute'],
                 ['enabled', false, true],
-                ['forAllEntities', false, true],
-                ['entities', ['entity1', 'entity2'], []],
-                ['excludeEntities', ['entity3', 'entity4'], []],
-                ['routes', ['route1', 'route2'], []],
-                ['datagrids', ['datagrid1', 'datagrid2'], []],
-                ['groups', ['group1', 'group2']],
-                ['applications', ['application1', 'application2'], []],
+                ['pageReload', false, true],
                 ['order', 77, 0],
                 ['frontendOptions', ['config1', 'config2'], []],
                 ['buttonOptions', ['config1', 'config2'], []],

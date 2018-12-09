@@ -2,21 +2,20 @@
 
 namespace Oro\Bundle\EmailBundle\Tests\Unit\Entity;
 
-use Symfony\Component\PropertyAccess\PropertyAccess;
-
 use Oro\Bundle\EmailBundle\Entity\Email;
 use Oro\Bundle\EmailBundle\Entity\EmailThread;
+use Symfony\Component\PropertyAccess\PropertyAccess;
 
 /**
  * Class EmailThreadTest
  *
  * @package Oro\Bundle\EmailBundle\Tests\Unit\Entity
  */
-class EmailThreadTest extends \PHPUnit_Framework_TestCase
+class EmailThreadTest extends \PHPUnit\Framework\TestCase
 {
     public function testEmailsGetterAndSetter()
     {
-        $email = $this->getMock('Oro\Bundle\EmailBundle\Entity\Email');
+        $email = $this->createMock('Oro\Bundle\EmailBundle\Entity\Email');
 
         $entity = new EmailThread();
         $entity->addEmail($email);
@@ -26,10 +25,9 @@ class EmailThreadTest extends \PHPUnit_Framework_TestCase
 
     public function testBeforeSave()
     {
+        $createdAt = new \DateTime('now', new \DateTimeZone('UTC'));
         $entity = new Email();
         $entity->beforeSave();
-
-        $createdAt = new \DateTime('now', new \DateTimeZone('UTC'));
 
         $this->assertEquals(Email::NORMAL_IMPORTANCE, $entity->getImportance());
         $this->assertGreaterThanOrEqual($createdAt, $entity->getCreated());

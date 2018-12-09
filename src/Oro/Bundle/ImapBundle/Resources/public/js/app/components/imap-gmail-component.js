@@ -1,4 +1,4 @@
-/*global gapi */
+/* global gapi */
 define(function(require) {
     'use strict';
 
@@ -15,6 +15,13 @@ define(function(require) {
         ViewType: ImapGmailView,
 
         scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/userinfo.email'],
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function ImapGmailComponent() {
+            ImapGmailComponent.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * @constructor
@@ -75,18 +82,27 @@ define(function(require) {
                 this.view.render();
             } else {
                 this._wrapFirstWindowOpen(args);
-                args.deferred = gapi.auth.authorize({
-                        'client_id': data.clientId,
-                        'scope': this.scopes.join(' '),
-                        'immediate': false,
-                        'login_hint': emailAddress,
-                        'access_type': 'offline',
-                        'response_type': 'code',
-                        'approval_prompt': 'force'
-                    }, _.bind(this.handleResponseGoogleAuthCode, this)
+                args.deferred = gapi.auth.authorize(
+                    {
+                        client_id: data.clientId,
+                        scope: this.scopes.join(' '),
+                        immediate: false,
+                        login_hint: emailAddress,
+                        access_type: 'offline',
+                        response_type: 'code',
+                        approval_prompt: 'force'
+                    },
+                    _.bind(this.handleResponseGoogleAuthCode, this)
                 ).then(
                     null,
-                    function() {
+                    function(reason) {
+                        if (null === reason) {
+                            // do not show the flash message if there is not rejection reason
+                            // usually this happens when all goes ok and the callback function is called,
+                            // so, any problems are handled by this callback (see handleResponseGoogleAuthCode)
+                            // e.g. we do not need the flash message if an user clicks "Deny" button
+                            return;
+                        }
                         mediator.execute(
                             'showFlashMessage',
                             'error',
@@ -119,7 +135,8 @@ define(function(require) {
                 method: 'POST',
                 data: {code: code},
                 success: _.bind(this.prepareAuthorization, this),
-                error:  _.bind(this.requestError, this)
+                errorHandlerMessage: false,
+                error: _.bind(this.requestError, this)
             });
         },
 
@@ -163,6 +180,17 @@ define(function(require) {
                 this.view.setErrorMessage(response.error);
                 this.view.render();
                 mediator.execute('hideLoading');
+            } else if (response.code !== undefined && response.code >= 400) {
+                this.view.setErrorMessage(response.message || __('oro.imap.connection.google.oauth.error.request'));
+                this.view.render();
+                mediator.execute('hideLoading');
+                if (response.code === 401) {
+                    mediator.execute(
+                        'showFlashMessage',
+                        'error',
+                        __('oro.imap.connection.google.oauth.error.closed_auth')
+                    );
+                }
             } else if (response) {
                 this.view.setEmail(response.email_address);
                 this.view.setAccessToken(response.access_token);
@@ -193,7 +221,8 @@ define(function(require) {
                 method: 'POST',
                 data: data,
                 success: _.bind(this.renderFormGetFolder, this),
-                error:  _.bind(this.requestError, this)
+                errorHandlerMessage: false,
+                error: _.bind(this.requestError, this)
             });
         },
 
@@ -231,6 +260,7 @@ define(function(require) {
                 method: 'POST',
                 data: data,
                 success: _.bind(this.handlerGetFolders, this),
+                errorHandlerMessage: false,
                 error: _.bind(this.requestError, this)
             });
         },

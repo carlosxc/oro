@@ -1,11 +1,14 @@
-define(['underscore', 'translator', 'module', 'json'],
-function(_, Translator, module) {
+define(['underscore', 'translator', 'module', 'json'
+], function(_, Translator, module) {
     'use strict';
+
+    window.Translator = Translator; // add global variable for translations JSONP-loader Translator.fromJSON({...})
 
     var dict = {};
     var debug = false;
     var add = Translator.add;
-    var get = Translator.get;
+    var trans = Translator.trans;
+    var transChoice = Translator.transChoice;
     var fromJSON = Translator.fromJSON;
     var config = module.config();
 
@@ -28,10 +31,23 @@ function(_, Translator, module) {
      * but before checks if the id was registered in dictionary
      *
      * @param {string} id
+     * @param {Object} placeholders
+     * @param {Number} number
      * @returns {string}
      */
-    Translator.get = function(id) {
-        var string = get.apply(Translator, arguments);
+    Translator.get = function(id, placeholders, number) {
+        // The Translator lib deletes all properties from placeholders Object
+        // We should clone it to prevent loosing placeholders data from Object given by reference
+        if (typeof placeholders !== 'undefined') {
+            placeholders = _.clone(placeholders);
+        }
+        var string;
+        if (typeof number === 'undefined') {
+            string = trans.call(Translator, id, placeholders);
+        } else {
+            string = transChoice.call(Translator, id, number, placeholders);
+        }
+
         var hasTranslation = checkTranslation(id);
 
         if (!config.debugTranslator) {

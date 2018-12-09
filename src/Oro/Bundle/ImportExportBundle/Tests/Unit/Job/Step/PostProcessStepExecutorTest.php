@@ -7,12 +7,11 @@ use Akeneo\Bundle\BatchBundle\Item\ExecutionContext;
 use Akeneo\Bundle\BatchBundle\Item\ItemProcessorInterface;
 use Akeneo\Bundle\BatchBundle\Item\ItemReaderInterface;
 use Akeneo\Bundle\BatchBundle\Item\ItemWriterInterface;
-
 use Oro\Bundle\ImportExportBundle\Job\JobExecutor;
 use Oro\Bundle\ImportExportBundle\Job\JobResult;
 use Oro\Bundle\ImportExportBundle\Job\Step\PostProcessStepExecutor;
 
-class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
+class PostProcessStepExecutorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var PostProcessStepExecutor
@@ -20,22 +19,22 @@ class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
     protected $executor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|JobExecutor
+     * @var \PHPUnit\Framework\MockObject\MockObject|JobExecutor
      */
     protected $jobExecutor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ItemReaderInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|ItemReaderInterface
      */
     protected $reader;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ItemProcessorInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|ItemProcessorInterface
      */
     protected $processor;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject|ItemWriterInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject|ItemWriterInterface
      */
     protected $writer;
 
@@ -48,13 +47,13 @@ class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
             ->getMock();
         $this->executor->setJobExecutor($this->jobExecutor);
 
-        $this->reader = $this->getMock('Akeneo\Bundle\BatchBundle\Item\ItemReaderInterface');
+        $this->reader = $this->createMock('Akeneo\Bundle\BatchBundle\Item\ItemReaderInterface');
         $this->executor->setReader($this->reader);
 
-        $this->processor = $this->getMock('Akeneo\Bundle\BatchBundle\Item\ItemProcessorInterface');
+        $this->processor = $this->createMock('Akeneo\Bundle\BatchBundle\Item\ItemProcessorInterface');
         $this->executor->setProcessor($this->processor);
 
-        $this->writer = $this->getMock('Akeneo\Bundle\BatchBundle\Item\ItemWriterInterface');
+        $this->writer = $this->createMock('Akeneo\Bundle\BatchBundle\Item\ItemWriterInterface');
         $this->executor->setWriter($this->writer);
 
         $this->executor->setBatchSize(2);
@@ -86,7 +85,7 @@ class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
 
         $this->executor->setContextSharedKeys($contextSharedKeys);
 
-        /** @var \PHPUnit_Framework_MockObject_MockObject|StepExecution $stepExecution */
+        /** @var \PHPUnit\Framework\MockObject\MockObject|StepExecution $stepExecution */
         $stepExecution = $this->getMockBuilder('Akeneo\Bundle\BatchBundle\Entity\StepExecution')
             ->disableOriginalConstructor()
             ->getMock();
@@ -96,8 +95,8 @@ class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
             $executionContext->put($key, $value);
         }
 
-        $jobExecution = $this->getMock('Akeneo\Bundle\BatchBundle\Entity\JobExecution');
-        $jobInstance = $this->getMock('Akeneo\Bundle\BatchBundle\Entity\JobInstance');
+        $jobExecution = $this->createMock('Akeneo\Bundle\BatchBundle\Entity\JobExecution');
+        $jobInstance = $this->createMock('Akeneo\Bundle\BatchBundle\Entity\JobInstance');
         $jobExecution->expects($this->any())
             ->method('getJobInstance')
             ->will($this->returnValue($jobInstance));
@@ -113,7 +112,7 @@ class PostProcessStepExecutorTest extends \PHPUnit_Framework_TestCase
         $jobResult = new JobResult();
         $jobResult->setSuccessful($isJobSuccess);
         if (!$isJobSuccess) {
-            $this->setExpectedException('Oro\Bundle\ImportExportBundle\Exception\RuntimeException');
+            $this->expectException('Oro\Bundle\ImportExportBundle\Exception\RuntimeException');
         }
 
         $this->jobExecutor->expects($this->exactly($jobExecutions))

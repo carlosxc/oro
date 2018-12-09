@@ -2,26 +2,26 @@
 
 namespace Oro\Bundle\EntityConfigBundle\Tests\Unit\Audit;
 
-use Symfony\Component\Security\Core\User\UserInterface;
-
 use Oro\Bundle\EntityConfigBundle\Audit\AuditManager;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
 use Oro\Bundle\EntityConfigBundle\Config\Id\EntityConfigId;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider;
+use Oro\Bundle\EntityConfigBundle\Provider\PropertyConfigBag;
+use Symfony\Component\Security\Core\User\UserInterface;
 
-class AuditManagerTest extends \PHPUnit_Framework_TestCase
+class AuditManagerTest extends \PHPUnit\Framework\TestCase
 {
     const SCOPE = 'testScope';
     const ENTITY_CLASS = 'Test\Entity';
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $tokenStorage;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $configManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $em;
 
     /** @var AuditManager */
@@ -29,7 +29,7 @@ class AuditManagerTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->tokenStorage = $this->getMock(
+        $this->tokenStorage = $this->createMock(
             'Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface'
         );
 
@@ -70,7 +70,7 @@ class AuditManagerTest extends \PHPUnit_Framework_TestCase
                 ]
             );
 
-        $configProvider = new ConfigProvider($this->configManager, self::SCOPE, []);
+        $configProvider = new ConfigProvider($this->configManager, self::SCOPE, new PropertyConfigBag([]));
         $this->configManager->expects($this->any())
             ->method('getProvider')
             ->willReturn($configProvider);
@@ -109,7 +109,7 @@ class AuditManagerTest extends \PHPUnit_Framework_TestCase
 
     public function testBuildEntityWithUnsupportedSecurityToken()
     {
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())
             ->method('getUser')
             ->willReturn('test');
@@ -127,9 +127,9 @@ class AuditManagerTest extends \PHPUnit_Framework_TestCase
      */
     protected function initSecurityContext()
     {
-        $user = $this->getMock('Symfony\Component\Security\Core\User\UserInterface');
+        $user = $this->createMock('Symfony\Component\Security\Core\User\UserInterface');
 
-        $token = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $token = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $token->expects($this->once())
             ->method('getUser')
             ->willReturn($user);

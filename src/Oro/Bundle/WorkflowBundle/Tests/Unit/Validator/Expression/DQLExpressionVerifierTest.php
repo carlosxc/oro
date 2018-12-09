@@ -5,11 +5,10 @@ namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Validator\Expression;
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\Query\QueryException;
-
 use Oro\Bundle\WorkflowBundle\Validator\Expression\DQLExpressionVerifier;
 use Oro\Bundle\WorkflowBundle\Validator\Expression\ExpressionVerifierInterface;
 
-class DQLExpressionVerifierTest extends \PHPUnit_Framework_TestCase
+class DQLExpressionVerifierTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ExpressionVerifierInterface */
     protected $verifier;
@@ -69,10 +68,8 @@ class DQLExpressionVerifierTest extends \PHPUnit_Framework_TestCase
         $query->expects($this->once())->method('setMaxResults')->with(1)->willReturnSelf();
         $query->expects($this->once())->method('execute')->willThrowException($exception);
 
-        $this->setExpectedException(
-            'Oro\Bundle\WorkflowBundle\Validator\Expression\Exception\ExpressionException',
-            $exception->getMessage()
-        );
+        $this->expectException('Oro\Bundle\WorkflowBundle\Validator\Expression\Exception\ExpressionException');
+        $this->expectExceptionMessage($exception->getMessage());
 
         $this->verifier->verify($query);
     }
@@ -89,7 +86,7 @@ class DQLExpressionVerifierTest extends \PHPUnit_Framework_TestCase
     /**
      * @param string $statementClass
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject|AbstractQuery
+     * @return \PHPUnit\Framework\MockObject\MockObject|AbstractQuery
      */
     protected function createQuery($statementClass)
     {

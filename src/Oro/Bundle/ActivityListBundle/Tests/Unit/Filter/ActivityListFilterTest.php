@@ -3,8 +3,9 @@
 namespace Oro\Bundle\ActivityListBundle\Tests\Unit\Filter;
 
 use Oro\Bundle\ActivityListBundle\Filter\ActivityListFilter;
+use Oro\Component\TestUtils\Mocks\ServiceLink;
 
-class ActivityListFilterTest extends \PHPUnit_Framework_TestCase
+class ActivityListFilterTest extends \PHPUnit\Framework\TestCase
 {
     protected $em;
     protected $qb;
@@ -32,7 +33,7 @@ class ActivityListFilterTest extends \PHPUnit_Framework_TestCase
             ->method('getEntityManager')
             ->will($this->returnValue($this->em));
 
-        $this->formFactory = $this->getMock('Symfony\Component\Form\FormFactoryInterface');
+        $this->formFactory = $this->createMock('Symfony\Component\Form\FormFactoryInterface');
         $this->filterUtility = $this->getMockBuilder('Oro\Bundle\FilterBundle\Filter\FilterUtility')
             ->disableOriginalConstructor()
             ->getMock();
@@ -70,8 +71,8 @@ class ActivityListFilterTest extends \PHPUnit_Framework_TestCase
             $this->activityListChaingProvider,
             $this->activityListFilterHelper,
             $this->entityRouterHelper,
-            $this->queryDesignerManager,
-            $this->datagridHelper
+            new ServiceLink($this->queryDesignerManager),
+            new ServiceLink($this->datagridHelper)
         );
     }
 
@@ -80,7 +81,7 @@ class ActivityListFilterTest extends \PHPUnit_Framework_TestCase
      */
     public function testApplyShouldThrowExceptionIfWrongDatasourceTypeIsGiven()
     {
-        $ds = $this->getMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface');
+        $ds = $this->createMock('Oro\Bundle\FilterBundle\Datasource\FilterDatasourceAdapterInterface');
         $this->activityListFilter->apply($ds, []);
     }
 

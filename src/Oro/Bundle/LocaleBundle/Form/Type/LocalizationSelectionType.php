@@ -2,17 +2,15 @@
 
 namespace Oro\Bundle\LocaleBundle\Form\Type;
 
-use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Exception\LogicException;
-use Symfony\Component\OptionsResolver\Options;
-use Symfony\Component\OptionsResolver\OptionsResolver;
-
 use Oro\Bundle\ConfigBundle\Config\ConfigManager;
-
+use Oro\Bundle\FormBundle\Form\Type\OroChoiceType;
 use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\Manager\LocalizationManager;
 use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 use Oro\Bundle\LocaleBundle\Provider\LocalizationChoicesProvider;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\OptionsResolver\Options;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class LocalizationSelectionType extends AbstractType
 {
@@ -48,6 +46,14 @@ class LocalizationSelectionType extends AbstractType
      */
     public function getName()
     {
+        return $this->getBlockPrefix();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getBlockPrefix()
+    {
         return static::NAME;
     }
 
@@ -76,44 +82,24 @@ class LocalizationSelectionType extends AbstractType
     {
         $resolver->setDefaults([
             'choices' => function (Options $options) {
-                $this->checkOptions($options);
+                $localizations = $this->getLocalizations();
 
                 if ($options['full_localization_list']) {
-                    return $this->localizationChoicesProvider->getLocalizationChoices();
+                    return $localizations;
                 }
 
-                $localizations = $options['localizations_list'];
-                if (!count($localizations)) {
-                    $localizations = $this->getLocalizations();
-                }
-
-                $localizations = array_merge($localizations, (array)$options['additional_localizations']);
                 $localizations = $this->checkLocalizations($localizations);
 
                 return $this->getChoices($localizations, $options['compact']);
             },
             'compact' => false,
-            'localizations_list' => null,
-            'additional_localizations' => null,
-            'full_localization_list' => false
+            'full_localization_list' => false,
+            'placeholder' => '',
+            'translatable_options' => false,
+            'configs' => [
+                'placeholder' => 'oro.locale.localization.form.placeholder.select_localization',
+            ],
         ]);
-    }
-
-    /**
-     * @param Options $options
-     * @throws LogicException
-     */
-    protected function checkOptions(Options $options)
-    {
-        if (($options['localizations_list'] !== null && !is_array($options['localizations_list']))
-            || (is_array($options['localizations_list']) && empty($options['localizations_list']))
-        ) {
-            throw new LogicException('The option "localizations_list" must be null or not empty array.');
-        }
-
-        if ($options['additional_localizations'] !== null && !is_array($options['additional_localizations'])) {
-            throw new LogicException('The option "additional_localizations" must be null or array.');
-        }
     }
 
     /**
@@ -140,10 +126,10 @@ class LocalizationSelectionType extends AbstractType
      */
     protected function checkLocalizations(array $localizations)
     {
-        foreach ($localizations as $id => $label) {
+        foreach ($localizations as $label => $id) {
             $localization = $this->localizationManager->getLocalization($id);
             if (!($localization instanceof Localization)) {
-                unset($localizations[$id]);
+                unset($localizations[$label]);
             }
         }
 
@@ -155,7 +141,7 @@ class LocalizationSelectionType extends AbstractType
      */
     public function getParent()
     {
-        return 'choice';
+        return OroChoiceType::class;
     }
 
     /**

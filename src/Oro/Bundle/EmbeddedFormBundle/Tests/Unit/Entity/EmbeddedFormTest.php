@@ -3,7 +3,7 @@ namespace Oro\Bundle\EmbeddedFormBundle\Tests\Unit\Entity;
 
 use Oro\Bundle\EmbeddedFormBundle\Entity\EmbeddedForm;
 
-class EmbeddedFormTest extends \PHPUnit_Framework_TestCase
+class EmbeddedFormTest extends \PHPUnit\Framework\TestCase
 {
     /** @var EmbeddedForm */
     protected $entity;
@@ -31,7 +31,7 @@ class EmbeddedFormTest extends \PHPUnit_Framework_TestCase
 
     public function getSetDataProvider()
     {
-        $organization = $this->getMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
+        $organization = $this->createMock('Oro\Bundle\OrganizationBundle\Entity\Organization');
         return array(
             'owner' => array('owner', $organization, $organization),
         );

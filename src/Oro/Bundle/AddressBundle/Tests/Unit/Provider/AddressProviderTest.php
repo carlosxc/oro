@@ -4,7 +4,7 @@ namespace Oro\Bundle\AddressBundle\Tests\Unit\Provider;
 
 use Oro\Bundle\AddressBundle\Provider\AddressProvider;
 
-class AddressProviderTest extends \PHPUnit_Framework_TestCase
+class AddressProviderTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var AddressProvider
@@ -12,7 +12,7 @@ class AddressProviderTest extends \PHPUnit_Framework_TestCase
     private $provider;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     private $storageMock;
 
@@ -22,7 +22,7 @@ class AddressProviderTest extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->provider = new AddressProvider();
-        $this->storageMock = $this->getMock('Oro\Bundle\AddressBundle\Entity\Manager\StorageInterface');
+        $this->storageMock = $this->createMock('Oro\Bundle\AddressBundle\Entity\Manager\StorageInterface');
     }
 
     /**

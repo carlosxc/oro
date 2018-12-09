@@ -2,14 +2,18 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Form\Type;
 
+use Doctrine\Common\Persistence\ManagerRegistry;
 use Oro\Bundle\LocaleBundle\Form\DataTransformer\LocalizedFallbackValueCollectionTransformer;
 use Oro\Bundle\LocaleBundle\Form\Type\LocalizedFallbackValueCollectionType;
 use Oro\Bundle\LocaleBundle\Form\Type\LocalizedPropertyType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 
-class LocalizedFallbackValueCollectionTypeTest extends \PHPUnit_Framework_TestCase
+class LocalizedFallbackValueCollectionTypeTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject|ManagerRegistry
      */
     protected $registry;
 
@@ -20,29 +24,25 @@ class LocalizedFallbackValueCollectionTypeTest extends \PHPUnit_Framework_TestCa
 
     protected function setUp()
     {
-        $this->registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $this->registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
         $this->type = new LocalizedFallbackValueCollectionType($this->registry);
-    }
-
-    public function testGetName()
-    {
-        $this->assertEquals(LocalizedFallbackValueCollectionType::NAME, $this->type->getName());
     }
 
     public function testSetDefaults()
     {
         $expectedOptions = [
             'field' => 'string',
-            'type' => 'text',
-            'options' => [],
+            'entry_type' => TextType::class,
+            'entry_options' => [],
+            'exclude_parent_localization' => false
         ];
 
-        $resolver = $this->getMock('Symfony\Component\OptionsResolver\OptionsResolverInterface');
+        $resolver = $this->createMock('Symfony\Component\OptionsResolver\OptionsResolver');
         $resolver->expects($this->once())
             ->method('setDefaults')
             ->with($expectedOptions);
 
-        $this->type->setDefaultOptions($resolver);
+        $this->type->configureOptions($resolver);
     }
 
     public function testBuildForm()
@@ -51,20 +51,24 @@ class LocalizedFallbackValueCollectionTypeTest extends \PHPUnit_Framework_TestCa
         $options = ['key' => 'value'];
         $field = 'text';
 
-        $builder = $this->getMock('Symfony\Component\Form\FormBuilderInterface');
+        $builder = $this->createMock('Symfony\Component\Form\FormBuilderInterface');
         $builder->expects($this->at(0))
             ->method('add')
             ->with(
                 LocalizedFallbackValueCollectionType::FIELD_VALUES,
-                LocalizedPropertyType::NAME,
-                ['type' => $type, 'options' => $options]
+                LocalizedPropertyType::class,
+                [
+                    'entry_type' => $type,
+                    'entry_options' => $options,
+                    'exclude_parent_localization' => false
+                ]
             )->willReturnSelf();
         $builder->expects($this->at(1))
             ->method('add')
             ->with(
                 LocalizedFallbackValueCollectionType::FIELD_IDS,
-                'collection',
-                ['type' => 'hidden']
+                CollectionType::class,
+                ['entry_type' => HiddenType::class]
             )->willReturnSelf();
         $builder->expects($this->once())
             ->method('addViewTransformer')
@@ -73,7 +77,12 @@ class LocalizedFallbackValueCollectionTypeTest extends \PHPUnit_Framework_TestCa
 
         $this->type->buildForm(
             $builder,
-            ['type' => $type, 'options' => $options, 'field' => $field]
+            [
+                'entry_type' => $type,
+                'entry_options' => $options,
+                'field' => $field,
+                'exclude_parent_localization' => false
+            ]
         );
     }
 }

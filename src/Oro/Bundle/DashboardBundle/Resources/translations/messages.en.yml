@@ -12,7 +12,7 @@ oro:
         id.label:            Id
         is_default.label:    Is Default
         label.label:         Label
-        management_title:    Manage dashboards
+        management_title:    Manage Dashboards
         name.label:          Name
         owner.label:         Owner
         widgets.label:       Widgets
@@ -48,7 +48,7 @@ oro:
             dashboards_tab:
                 label: Dashboards
             dashboards_list:
-                label: Manage dashboards
+                label: Manage Dashboards
 
         label: Label
         owner: Owner
@@ -89,6 +89,8 @@ oro:
         form.choose_business_unit: Choose a business unit...
 
         widget:
+            configuration:
+                success: Widget has been successfully configured
             big_number:
                 choose_metrics: Choose Metrics
                 metrics: Metrics

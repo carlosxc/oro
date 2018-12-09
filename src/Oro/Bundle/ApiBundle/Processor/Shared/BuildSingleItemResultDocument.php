@@ -3,22 +3,22 @@
 namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
 use Oro\Bundle\ApiBundle\Processor\Context;
+use Oro\Bundle\ApiBundle\Request\DocumentBuilderInterface;
 
 /**
- * Builds response based on the Context state.
+ * Builds the response based on the context state.
  */
 class BuildSingleItemResultDocument extends BuildResultDocument
 {
     /**
      * {@inheritdoc}
      */
-    protected function processResult(Context $context)
+    protected function processResult(DocumentBuilderInterface $documentBuilder, Context $context)
     {
-        $result = $context->getResult();
-        if (null === $result) {
-            $this->documentBuilder->setDataObject($result);
-        } else {
-            $this->documentBuilder->setDataObject($result, $context->getMetadata());
-        }
+        $documentBuilder->setDataObject(
+            $context->getResult(),
+            $context->getRequestType(),
+            $context->getMetadata()
+        );
     }
 }

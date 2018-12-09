@@ -2,18 +2,17 @@
 
 namespace Oro\Bundle\DashboardBundle\Tests\Unit\Form\EventListener;
 
+use Oro\Bundle\DashboardBundle\Form\EventListener\WidgetItemsFormSubscriber;
 use Symfony\Component\Form\FormEvent;
 
-use Oro\Bundle\DashboardBundle\Form\EventListener\WidgetItemsFormSubscriber;
-
-class WidgetItemsFormSubscriberTest extends \PHPUnit_Framework_TestCase
+class WidgetItemsFormSubscriberTest extends \PHPUnit\Framework\TestCase
 {
     protected $widgetConfigs;
     protected $widgetItemsFormSubscriber;
 
     public function setUp()
     {
-        $translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $translator->expects($this->any())
             ->method('trans')
             ->will($this->returnCallback(function ($id) {
@@ -64,13 +63,13 @@ class WidgetItemsFormSubscriberTest extends \PHPUnit_Framework_TestCase
             ->with('big_numbers_widget')
             ->will($this->returnValue($twigVariables));
 
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
         $formConfig->expects($this->once())
             ->method('getOption')
             ->with('widget_name')
             ->will($this->returnValue('big_numbers_widget'));
 
-        $form = $this->getMock('Symfony\Component\Form\FormInterface');
+        $form = $this->createMock('Symfony\Component\Form\FormInterface');
         $form->expects($this->once())
             ->method('getConfig')
             ->will($this->returnValue($formConfig));
@@ -133,13 +132,13 @@ class WidgetItemsFormSubscriberTest extends \PHPUnit_Framework_TestCase
             ->with('big_numbers_widget')
             ->will($this->returnValue($twigVariables));
 
-        $formConfig = $this->getMock('Symfony\Component\Form\FormConfigInterface');
+        $formConfig = $this->createMock('Symfony\Component\Form\FormConfigInterface');
         $formConfig->expects($this->once())
             ->method('getOption')
             ->with('widget_name')
             ->will($this->returnValue('big_numbers_widget'));
 
-        $form = $this->getMock('Symfony\Component\Form\FormInterface');
+        $form = $this->createMock('Symfony\Component\Form\FormInterface');
         $form->expects($this->once())
             ->method('getConfig')
             ->will($this->returnValue($formConfig));

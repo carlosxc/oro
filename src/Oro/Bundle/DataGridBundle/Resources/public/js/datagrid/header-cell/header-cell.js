@@ -1,12 +1,10 @@
-define([
-    'underscore',
-    'jquery',
-    'backgrid',
-    'oroui/js/tools/text-util'
-], function(_, $, Backgrid, textUtil) {
+define(function(require) {
     'use strict';
 
     var HeaderCell;
+    var _ = require('underscore');
+    var Backgrid = require('backgrid');
+    var textUtil = require('oroui/js/tools/text-util');
 
     /**
      * Datagrid header cell
@@ -20,13 +18,13 @@ define([
         /** @property */
         template: _.template(
             '<% if (sortable) { %>' +
-                '<a class="grid-header-cell-link" href="#">' +
-                    '<span class="grid-header-cell-label"><%- label %></span>' +
-                    '<span class="caret"></span>' +
+                '<a class="grid-header-cell__link" href="#" role="button">' +
+                    '<span class="grid-header-cell__label"><%- label %></span>' +
+                    '<span class="caret" aria-hidden="true"></span>' +
                 '</a>' +
             '<% } else { %>' +
-                '<span class="grid-header-cell-label-container">' +
-                    '<span class="grid-header-cell-label"><%- label %></span>' +
+                '<span class="grid-header-cell__label-container">' +
+                    '<span class="grid-header-cell__label"><%- label %></span>' +
                 '</span>' +
             '<% } %>'
         ),
@@ -43,6 +41,13 @@ define([
             mouseenter: 'onMouseEnter',
             mouseleave: 'onMouseLeave',
             click: 'onClick'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function HeaderCell() {
+            HeaderCell.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -95,7 +100,7 @@ define([
                     }
                 }
                 if (direction !== this.column.get('direction')) {
-                    this.column.set({'direction': direction});
+                    this.column.set({direction: direction});
                 }
             }
         },
@@ -109,14 +114,18 @@ define([
             this.$el.empty();
 
             var label = this.column.get('label');
-            var abbreviation = textUtil.abbreviate(label, this.minWordsToAbbreviate);
 
-            this.isLabelAbbreviated = abbreviation !== label;
-
-            this.$el.toggleClass('abbreviated', this.isLabelAbbreviated);
+            if (this.column.get('shortenableLabel') !== false) {
+                label = textUtil.abbreviate(label, this.minWordsToAbbreviate);
+                this.isLabelAbbreviated = label !== this.column.get('label');
+                if (!this.isLabelAbbreviated) {
+                    // if abbreviation was not created -- add class to make label shorten over styles
+                    this.$el.addClass('shortenable-label');
+                }
+            }
 
             this.$el.append(this.template({
-                label: abbreviation,
+                label: label,
                 sortable: this.column.get('sortable')
             }));
 
@@ -124,8 +133,9 @@ define([
                 this.$el.width(this.column.get('width'));
             }
 
-            if (!_.isFunction(this.column.attributes.cell.prototype.className)) {
-                this.$el.addClass(this.column.attributes.cell.prototype.className);
+            var cell = this.column.get('oldCell') || this.column.get('cell');
+            if (!_.isFunction(cell.prototype.className)) {
+                this.$el.addClass(cell.prototype.className);
             }
 
             if (this.column.has('align')) {
@@ -177,9 +187,13 @@ define([
             }
         },
 
+        /**
+         * Mouse Enter on column name to show popover
+         *
+         * @param {Event} e
+         */
         onMouseEnter: function(e) {
-            var _this = this;
-            var $label = this.$('.grid-header-cell-label');
+            var $label = this.$('.grid-header-cell__label');
 
             // measure text content
             var realWidth = $label[0].clientWidth;
@@ -193,17 +207,17 @@ define([
             }
 
             this.popoverAdded = true;
-
             $label.popover({
-                content: _this.column.get('label'),
+                content: this.column.get('label'),
                 trigger: 'manual',
                 placement: 'bottom',
-                animation: 'false',
+                animation: false,
                 container: 'body',
+                offset: this.calcPopoverOffset(),
                 template: '<div class="popover" role="tooltip">' +
                               '<div class="arrow"></div>' +
-                              '<h3 class="popover-title"></h3>' +
-                              '<div class="popover-content popover-no-close-button"></div>' +
+                              '<h3 class="popover-header"></h3>' +
+                              '<div class="popover-body popover-no-close-button"></div>' +
                           '</div>'
             });
 
@@ -212,12 +226,35 @@ define([
             }, 300);
         },
 
+        /**
+         * Mouse Leave from column name to hide popover
+         *
+         * @param {Event} e
+         */
         onMouseLeave: function(e) {
             clearTimeout(this.hintTimeout);
-            var $label = this.$('.grid-header-cell-label');
+            var $label = this.$('.grid-header-cell__label');
             $label.popover('hide');
-            $label.popover('destroy');
+            $label.popover('dispose');
             this.popoverAdded = false;
+        },
+
+        /**
+         * Calculation offset of column label for popover
+         *
+         * @return {String}
+         */
+        calcPopoverOffset: function() {
+            var x = 0;
+            var y = 0;
+            var $label = this.$('.grid-header-cell__label');
+
+            var elBottom = this.$el[0].getBoundingClientRect().bottom;
+            var labelBottom = $label[0].getBoundingClientRect().bottom;
+
+            y = elBottom - labelBottom;
+
+            return [x, y].join(', ');
         }
     });
 

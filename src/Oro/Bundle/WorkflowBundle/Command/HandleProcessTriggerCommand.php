@@ -4,14 +4,12 @@ namespace Oro\Bundle\WorkflowBundle\Command;
 
 use Doctrine\Common\Persistence\ObjectRepository;
 use Doctrine\ORM\EntityManager;
-
+use Oro\Bundle\WorkflowBundle\Model\ProcessData;
+use Oro\Bundle\WorkflowBundle\Model\ProcessHandler;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
-use Oro\Bundle\WorkflowBundle\Model\ProcessData;
-use Oro\Bundle\WorkflowBundle\Model\ProcessHandler;
 
 class HandleProcessTriggerCommand extends ContainerAwareCommand
 {
@@ -64,6 +62,7 @@ class HandleProcessTriggerCommand extends ContainerAwareCommand
         }
 
         $processData = new ProcessData();
+        $processHandler = $this->getProcessHandler();
 
         /** @var EntityManager $entityManager */
         $entityManager = $this->getContainer()->get('doctrine')->getManager();
@@ -72,10 +71,9 @@ class HandleProcessTriggerCommand extends ContainerAwareCommand
         try {
             $start = microtime(true);
 
-            $processHandler = $this->getProcessHandler();
             $processHandler->handleTrigger($processTrigger, $processData);
-
             $entityManager->flush();
+            $processHandler->finishTrigger($processTrigger, $processData);
             $entityManager->commit();
 
             $output->writeln(
@@ -88,6 +86,7 @@ class HandleProcessTriggerCommand extends ContainerAwareCommand
                 )
             );
         } catch (\Exception $e) {
+            $processHandler->finishTrigger($processTrigger, $processData);
             $entityManager->rollback();
 
             $output->writeln(

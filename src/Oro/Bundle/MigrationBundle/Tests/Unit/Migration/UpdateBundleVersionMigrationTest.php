@@ -8,7 +8,7 @@ use Oro\Bundle\MigrationBundle\Migration\MigrationState;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
 use Oro\Bundle\MigrationBundle\Migration\UpdateBundleVersionMigration;
 
-class UpdateBundleVersionMigrationTest extends \PHPUnit_Framework_TestCase
+class UpdateBundleVersionMigrationTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @dataProvider upProvider
@@ -99,7 +99,7 @@ class UpdateBundleVersionMigrationTest extends \PHPUnit_Framework_TestCase
     protected function getMigration($bundleName, $version, $state = true)
     {
         $migration = new MigrationState(
-            $this->getMock('Oro\Bundle\MigrationBundle\Migration\Migration'),
+            $this->createMock('Oro\Bundle\MigrationBundle\Migration\Migration'),
             $bundleName,
             $version
         );

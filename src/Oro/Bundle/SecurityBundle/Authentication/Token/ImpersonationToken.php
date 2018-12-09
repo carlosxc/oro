@@ -2,16 +2,13 @@
 
 namespace Oro\Bundle\SecurityBundle\Authentication\Token;
 
+use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Role\RoleInterface;
 
-use Oro\Bundle\OrganizationBundle\Entity\Organization;
-
 class ImpersonationToken extends AbstractToken implements OrganizationContextTokenInterface
 {
-    /** @var Organization */
-    private $organization;
-
+    use OrganizationContextTokenTrait;
     /**
      * @param string|object            $user         The username (like a nickname, email address, etc.),
      *                                               or a UserInterface instance
@@ -34,21 +31,5 @@ class ImpersonationToken extends AbstractToken implements OrganizationContextTok
     public function getCredentials()
     {
         return $this->getUsername();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getOrganizationContext()
-    {
-        return $this->organization;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function setOrganizationContext(Organization $organization)
-    {
-        $this->organization = $organization;
     }
 }

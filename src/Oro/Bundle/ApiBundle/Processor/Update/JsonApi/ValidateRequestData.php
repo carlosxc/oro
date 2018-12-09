@@ -2,47 +2,77 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Update\JsonApi;
 
-use Oro\Bundle\ApiBundle\Processor\Shared\JsonApi\ValidateRequestData as BaseProcessor;
-use Oro\Bundle\ApiBundle\Request\JsonApi\JsonApiDocumentBuilder as JsonApiDoc;
-use Symfony\Component\HttpFoundation\Response;
+use Oro\Bundle\ApiBundle\Model\Error;
+use Oro\Bundle\ApiBundle\Processor\Update\UpdateContext;
+use Oro\Bundle\ApiBundle\Request\JsonApi\TypedRequestDataValidator;
+use Oro\Bundle\ApiBundle\Request\ValueNormalizer;
+use Oro\Bundle\ApiBundle\Util\ValueNormalizerUtil;
+use Oro\Component\ChainProcessor\ContextInterface;
+use Oro\Component\ChainProcessor\ProcessorInterface;
 
 /**
  * Validates that the request data contains valid JSON.API object.
  */
-class ValidateRequestData extends BaseProcessor
+class ValidateRequestData implements ProcessorInterface
 {
+    public const OPERATION_NAME = 'validate_request_data';
+
+    /** @var ValueNormalizer */
+    private $valueNormalizer;
+
     /**
-     * {@inheritdoc}
+     * @param ValueNormalizer $valueNormalizer
      */
-    protected function validatePrimaryDataObject(array $data, $pointer)
+    public function __construct(ValueNormalizer $valueNormalizer)
     {
-        if ($this->validateResourceObject($data, $pointer)) {
-            $this->validatePrimaryDataObjectId($data, $pointer);
-            $this->validatePrimaryDataObjectType($data, $pointer);
-        }
+        $this->valueNormalizer = $valueNormalizer;
     }
 
     /**
-     * @param array  $data
-     * @param string $pointer
-     *
-     * @return bool
+     * {@inheritdoc}
      */
-    protected function validatePrimaryDataObjectId(array $data, $pointer)
+    public function process(ContextInterface $context)
     {
-        if ($this->context->getId() !== $data[JsonApiDoc::ID]) {
-            $this->addError(
-                $this->buildPointer($pointer, JsonApiDoc::ID),
-                sprintf(
-                    'The \'%1$s\' property of the primary data object'
-                    . ' should match \'%1$s\' parameter of the query sting',
-                    JsonApiDoc::ID
-                )
-            );
+        /** @var UpdateContext $context */
 
-            return false;
+        if ($context->isProcessed(self::OPERATION_NAME)) {
+            // the request data were already validated
+            return;
         }
 
-        return true;
+        $errors = $this->validateRequestData($context);
+        foreach ($errors as $error) {
+            $context->addError($error);
+        }
+        $context->setProcessed(self::OPERATION_NAME);
+    }
+
+    /**
+     * @param UpdateContext $context
+     *
+     * @return Error[]
+     */
+    private function validateRequestData(UpdateContext $context): array
+    {
+        $requestType = $context->getRequestType();
+        $validator = new TypedRequestDataValidator(function ($entityType) use ($requestType) {
+            return ValueNormalizerUtil::convertToEntityClass(
+                $this->valueNormalizer,
+                $entityType,
+                $requestType,
+                false
+            );
+        });
+
+        if ($context->hasIdentifierFields()) {
+            return $validator->validateResourceObject(
+                $context->getRequestData(),
+                true,
+                $context->getClassName(),
+                $context->getId()
+            );
+        }
+
+        return $validator->validateMetaObject($context->getRequestData());
     }
 }

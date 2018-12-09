@@ -1,8 +1,9 @@
 define([
+    'tpl!orodatagrid/templates/datagrid/pagination.html',
     'jquery',
     'underscore',
-    'backbone'
-], function($, _, Backbone) {
+    'oroui/js/app/views/base/view'
+], function(template, $, _, BaseView) {
     'use strict';
 
     var Pagination;
@@ -12,9 +13,9 @@ define([
      *
      * @export  orodatagrid/js/datagrid/pagination
      * @class   orodatagrid.datagrid.Pagination
-     * @extends Backbone.View
+     * @extends BaseView
      */
-    Pagination = Backbone.View.extend({
+    Pagination = BaseView.extend({
         /** @property */
         windowSize: 10,
 
@@ -25,7 +26,7 @@ define([
         hidden: false,
 
         /** @property */
-        template: '#template-datagrid-toolbar-pagination',
+        template: template,
 
         /** @property */
         events: {
@@ -38,14 +39,21 @@ define([
                 label: 'Prev',
                 direction: 'prev',
                 arrow: 'left',
-                wrapClass: 'icon-chevron-left hide-text'
+                wrapClass: 'fa-chevron-left hide-text'
             },
             next: {
                 label: 'Next',
                 direction: 'next',
                 arrow: 'right',
-                wrapClass: 'icon-chevron-right hide-text'
+                wrapClass: 'fa-chevron-right hide-text'
             }
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function Pagination() {
+            Pagination.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -69,8 +77,12 @@ define([
             this.listenTo(this.collection, 'reset', this.render);
 
             this.hidden = options.hide === true;
+            this.scrollToPosition = $(options.el).closest('.toolbar').prevAll('.toolbar').position();
 
-            this.template = _.template($(options.template || this.template).html());
+            if (options.template) {
+                this.template = options.template;
+            }
+            this.template = this.getTemplateFunction();
 
             Pagination.__super__.initialize.call(this, options);
         },
@@ -116,6 +128,10 @@ define([
 
             var collection = this.collection;
             var state = collection.state;
+
+            if (this.scrollToPosition) {
+                $('body,html').stop().animate({scrollTop: this.scrollToPosition.top}, '500', 'swing');
+            }
 
             if (ffConfig) {
                 var prevDirection = _.has(ffConfig.prev, 'direction') ? ffConfig.prev.direction : undefined;
@@ -207,11 +223,11 @@ define([
             }
 
             this.$el.empty();
-            this.$el.append($(this.template({
+            this.$el.append(this.template({
                 disabled: !this.enabled || !state.totalRecords,
                 handles: this.makeHandles(),
                 state: state
-            })));
+            }));
 
             if (this.hidden) {
                 this.$el.hide();

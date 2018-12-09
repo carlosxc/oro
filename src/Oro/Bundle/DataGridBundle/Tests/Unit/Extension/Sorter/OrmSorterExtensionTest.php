@@ -2,12 +2,15 @@
 
 namespace Oro\Bundle\DataGridBundle\Tests\Unit\Extension\Sorter;
 
-use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
-use Oro\Bundle\DataGridBundle\Extension\Sorter\OrmSorterExtension;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
-use Oro\Bundle\DataGridBundle\Datagrid\Common\MetadataObject;
+use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
+use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
+use Oro\Bundle\DataGridBundle\Extension\Sorter\OrmSorterExtension;
 
-class OrmSorterExtensionTest extends \PHPUnit_Framework_TestCase
+class OrmSorterExtensionTest extends AbstractSorterExtensionTestCase
 {
     /**
      * @var OrmSorterExtension
@@ -16,234 +19,190 @@ class OrmSorterExtensionTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->extension = new OrmSorterExtension();
+        parent::setUp();
+
+        $this->extension = new OrmSorterExtension($this->sortersStateProvider);
     }
 
-    /**
-     * @param array $input
-     * @param array $expected
-     * @dataProvider setParametersDataProvider
-     */
-    public function testSetParameters(array $input, array $expected)
+    public function testVisitDatasourceWithoutDefaultSorting()
     {
-        $this->extension->setParameters(new ParameterBag($input));
-        $this->assertEquals($expected, $this->extension->getParameters()->all());
-    }
+        $this->sortersStateProvider
+            ->expects($this->once())
+            ->method('getStateFromParameters')
+            ->willReturn([]);
 
-    /**
-     * @return array
-     */
-    public function setParametersDataProvider()
-    {
-        return [
-            'empty' => [
-                'input' => [],
-                'expected' => [],
-            ],
-            'regular' => [
-                'input' => [
-                    OrmSorterExtension::SORTERS_ROOT_PARAM => [
-                        'firstName' => OrmSorterExtension::DIRECTION_ASC,
-                        'lastName' => OrmSorterExtension::DIRECTION_DESC,
-                    ]
-                ],
-                'expected' => [
-                    OrmSorterExtension::SORTERS_ROOT_PARAM => [
-                        'firstName' => OrmSorterExtension::DIRECTION_ASC,
-                        'lastName' => OrmSorterExtension::DIRECTION_DESC,
-                    ]
-                ]
-            ],
-            'minified' => [
-                'input' => [
-                    ParameterBag::MINIFIED_PARAMETERS => [
-                        OrmSorterExtension::MINIFIED_SORTERS_PARAM => [
-                            'firstName' => '-1',
-                            'lastName' => '1',
-                        ]
-                    ]
-                ],
-                'expected' => [
-                    ParameterBag::MINIFIED_PARAMETERS => [
-                        OrmSorterExtension::MINIFIED_SORTERS_PARAM => [
-                            'firstName' => '-1',
-                            'lastName' => '1',
-                        ]
-                    ],
-                    OrmSorterExtension::SORTERS_ROOT_PARAM => [
-                        'firstName' => OrmSorterExtension::DIRECTION_ASC,
-                        'lastName' => OrmSorterExtension::DIRECTION_DESC,
-                    ]
-                ]
-            ],
-        ];
-    }
+        $em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $metadata = $this->getMockBuilder(ClassMetadata::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $em->expects(self::once())
+            ->method('getClassMetadata')
+            ->with('Test\Entity')
+            ->willReturn($metadata);
+        $metadata->expects(self::once())
+            ->method('getIdentifierFieldNames')
+            ->willReturn(['id']);
 
-    /**
-     * @dataProvider visitMetadataDataProvider
-     * @param array $sorters
-     * @param array $columns
-     * @param array $expectedData
-     */
-    public function testVisitMetadata(array $sorters, array $columns, array $expectedData)
-    {
-        $config = DatagridConfiguration::create(['sorters' => $sorters]);
+        $qb = new QueryBuilder($em);
+        $qb->select('e.id')->from('Test\Entity', 'e');
 
-        $data = MetadataObject::create(['columns' => $columns]);
+        $datasource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $datasource->expects(self::once())
+            ->method('getQueryBuilder')
+            ->willReturn($qb);
+
         $this->extension->setParameters(new ParameterBag());
-        $this->extension->visitMetadata($config, $data);
-        $this->assertEquals($expectedData, $data->toArray());
+        $this->extension->visitDatasource(
+            DatagridConfiguration::create(['sorters' => ['columns' => []]]),
+            $datasource
+        );
+
+        self::assertEquals(
+            'SELECT e.id FROM Test\Entity e ORDER BY e.id ASC',
+            $qb->getDQL()
+        );
     }
 
-    /**
-     * @return array
-     */
-    public function visitMetadataDataProvider()
+    public function testVisitDatasourceWhenQueryAlreadyHasOrderBy()
     {
-        return [
-            'sortable' => [
-                'sorters' => [
-                    'columns' => [
-                        'name' => [],
-                    ],
-                ],
-                'columns' => [
-                    ['name' => 'name'],
-                    ['name' => 'createdAt'],
-                ],
-                'expectedData' => [
-                    'columns' => [
-                        [
-                            'name' => 'name',
-                            'sortable' => true,
-                        ],
-                        ['name' => 'createdAt']
-                    ],
-                    'options' => [
-                        'multipleSorting' => false,
-                        'toolbarOptions' => [
-                            'addSorting' => false,
-                        ],
-                    ],
-                    'initialState' => ['sorters' => ['name' => 'ASC',]],
-                    'state' => ['sorters' => ['name' => 'ASC',]],
-                ]
-            ],
-            'multiple' => [
-                'sorters' => [
-                    'columns' => [
-                        'name' => [],
-                    ],
-                    'multiple_sorting' => true,
-                ],
-                'columns' => [
-                    ['name' => 'name'],
-                    ['name' => 'createdAt'],
-                ],
-                'expectedData' => [
-                    'columns' => [
-                        [
-                            'name' => 'name',
-                            'sortable' => true,
-                        ],
-                        ['name' => 'createdAt']
-                    ],
-                    'options' => [
-                        'multipleSorting' => true,
-                        'toolbarOptions' => [
-                            'addSorting' => false,
-                        ],
-                    ],
-                    'initialState' => ['sorters' => ['name' => 'ASC',]],
-                    'state' => ['sorters' => ['name' => 'ASC',]],
-                ]
-            ],
-            'toolbar' => [
-                'sorters' => [
-                    'columns' => [
-                        'name' => ['type' => 'string'],
-                        'age' => [],
-                    ],
-                    'toolbar_sorting' => true,
-                ],
-                'columns' => [
-                    ['name' => 'name'],
-                    ['name' => 'age'],
-                    ['name' => 'createdAt'],
-                ],
-                'expectedData' => [
-                    'columns' => [
-                        [
-                            'name' => 'name',
-                            'sortable' => true,
-                            'sortingType' => 'string',
-                        ],
-                        [
-                            'name' => 'age',
-                            'sortable' => true,
-                        ],
-                        ['name' => 'createdAt']
-                    ],
-                    'options' => [
-                        'multipleSorting' => false,
-                        'toolbarOptions' => [
-                            'addSorting' => true,
-                        ],
-                    ],
-                    'initialState' => ['sorters' => ['name' => 'ASC',]],
-                    'state' => ['sorters' => ['name' => 'ASC',]],
-                ]
-            ]
-        ];
-    }
+        $this->sortersStateProvider
+            ->expects($this->once())
+            ->method('getStateFromParameters')
+            ->willReturn([]);
 
-    /**
-     * @dataProvider visitMetadataUnknownColumnDataProvider
-     * @param array $sorters
-     * @param array $columns
-     * @param string $expectedMessage
-     */
-    public function testVisitMetadataUnknownColumn(array $sorters, array $columns, $expectedMessage)
-    {
-        $this->setExpectedException('\Oro\Bundle\DataGridBundle\Exception\LogicException', $expectedMessage);
-        $config = DatagridConfiguration::create(['sorters' => $sorters]);
+        $em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $em->expects(self::never())
+            ->method('getClassMetadata');
 
-        $data = MetadataObject::create(['columns' => $columns]);
+        $qb = new QueryBuilder($em);
+        $qb->select('e.id')->from('Test\Entity', 'e')->addOrderBy('e.name');
+
+        $datasource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $datasource->expects(self::once())
+            ->method('getQueryBuilder')
+            ->willReturn($qb);
+
         $this->extension->setParameters(new ParameterBag());
-        $this->extension->visitMetadata($config, $data);
+        $this->extension->visitDatasource(
+            DatagridConfiguration::create(['sorters' => ['columns' => []]]),
+            $datasource
+        );
+
+        self::assertEquals(
+            'SELECT e.id FROM Test\Entity e ORDER BY e.name ASC',
+            $qb->getDQL()
+        );
     }
 
-    /**
-     * @return array
-     */
-    public function visitMetadataUnknownColumnDataProvider()
+    public function testVisitDatasourceWithoutDefaultSortingForEmptyQuery()
     {
-        return [
-            'unknown column' => [
-                'sorters' => [
-                    'columns' => [
-                        'unknown' => [],
-                        'age' => [],
-                    ],
-                ],
-                'columns' => [
-                    ['name' => 'age'],
-                    ['name' => 'createdAt'],
-                ],
-                'expectedMessage' => 'Could not found column(s) "unknown" for sorting',
-            ],
-            'unknown single column' => [
-                'sorters' => [
-                    'columns' => [
-                        'unknown' => [],
-                    ],
-                ],
-                'columns' => [
-                    ['name' => 'age'],
-                    ['name' => 'createdAt'],
-                ],
-                'expectedMessage' => 'Could not found column(s) "unknown" for sorting',
-            ],
-        ];
+        $this->sortersStateProvider
+            ->expects($this->once())
+            ->method('getStateFromParameters')
+            ->willReturn([]);
+
+        $em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $em->expects(self::never())
+            ->method('getClassMetadata');
+
+        $qb = new QueryBuilder($em);
+
+        $datasource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $datasource->expects(self::once())
+            ->method('getQueryBuilder')
+            ->willReturn($qb);
+
+        $this->extension->setParameters(new ParameterBag());
+        $this->extension->visitDatasource(
+            DatagridConfiguration::create(['sorters' => ['columns' => []]]),
+            $datasource
+        );
+
+        self::assertEquals(
+            [],
+            $qb->getDQLPart('orderBy')
+        );
+    }
+
+    public function testVisitDatasourceWithoutDefaultSortingAndGroupBy()
+    {
+        $this->sortersStateProvider
+            ->expects($this->once())
+            ->method('getStateFromParameters')
+            ->willReturn([]);
+
+        $em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $em->expects(self::never())
+            ->method('getClassMetadata');
+
+        $qb = new QueryBuilder($em);
+        $qb->select('e.id')->from('Test\Entity', 'e')->groupBy('e.name');
+
+        $datasource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $datasource->expects(self::once())
+            ->method('getQueryBuilder')
+            ->willReturn($qb);
+
+        $this->extension->setParameters(new ParameterBag());
+        $this->extension->visitDatasource(
+            DatagridConfiguration::create(['sorters' => ['columns' => []]]),
+            $datasource
+        );
+
+        self::assertEquals(
+            'SELECT e.id FROM Test\Entity e GROUP BY e.name ORDER BY e.name ASC',
+            $qb->getDQL()
+        );
+    }
+
+    public function testVisitDatasourceWithoutDefaultSortingAndMultipleGroupBy()
+    {
+        $this->sortersStateProvider
+            ->expects($this->once())
+            ->method('getStateFromParameters')
+            ->willReturn([]);
+
+        $em = $this->getMockBuilder(EntityManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $em->expects(self::never())
+            ->method('getClassMetadata');
+
+        $qb = new QueryBuilder($em);
+        $qb->select('e.id')->from('Test\Entity', 'e')->addGroupBy('e.id')->addGroupBy('e.name');
+
+        $datasource = $this->getMockBuilder(OrmDatasource::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $datasource->expects(self::once())
+            ->method('getQueryBuilder')
+            ->willReturn($qb);
+
+        $this->extension->setParameters(new ParameterBag());
+        $this->extension->visitDatasource(
+            DatagridConfiguration::create(['sorters' => ['columns' => []]]),
+            $datasource
+        );
+
+        self::assertEquals(
+            'SELECT e.id FROM Test\Entity e GROUP BY e.id, e.name ORDER BY e.id ASC',
+            $qb->getDQL()
+        );
     }
 }

@@ -3,11 +3,10 @@
 namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Formatter;
 
 use Oro\Bundle\ImportExportBundle\Exception\InvalidArgumentException;
-
 use Oro\Bundle\ImportExportBundle\Formatter\NumberTypeFormatter;
 use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 
-class NumberTypeFormatterTest extends \PHPUnit_Framework_TestCase
+class NumberTypeFormatterTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var NumberTypeFormatter
@@ -16,16 +15,16 @@ class NumberTypeFormatterTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        /** @var LocaleSettings|\PHPUnit_Framework_MockObject_MockObject $localeSettings */
-        $localeSettings = $this->getMockBuilder('Oro\Bundle\LocaleBundle\Model\LocaleSettings')
+        /** @var LocaleSettings|\PHPUnit\Framework\MockObject\MockObject $numberFormatter */
+        $numberFormatter = $this->getMockBuilder('Oro\Bundle\LocaleBundle\Formatter\NumberFormatter')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->formatter = new NumberTypeFormatter($localeSettings);
+        $this->formatter = new NumberTypeFormatter($numberFormatter);
     }
 
     /**
-     * @dataProvider testFormatTypeProvider
+     * @dataProvider formatTypeProvider
      * @param string          $value
      * @param string          $type
      * @param \Exception|null $exception
@@ -33,7 +32,8 @@ class NumberTypeFormatterTest extends \PHPUnit_Framework_TestCase
     public function testFormatType($value, $type, \Exception $exception = null)
     {
         if (null !== $exception) {
-            $this->setExpectedException(get_class($exception), $exception->getMessage());
+            $this->expectException(get_class($exception));
+            $this->expectExceptionMessage($exception->getMessage());
         }
         $this->formatter->formatType($value, $type);
     }
@@ -41,7 +41,7 @@ class NumberTypeFormatterTest extends \PHPUnit_Framework_TestCase
     /**
      * @return array
      */
-    public function testFormatTypeProvider()
+    public function formatTypeProvider()
     {
         $value = 1;
 

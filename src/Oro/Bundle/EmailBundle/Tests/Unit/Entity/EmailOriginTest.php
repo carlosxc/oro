@@ -5,7 +5,7 @@ namespace Oro\Bundle\EmailBundle\Tests\Unit\Entity;
 use Oro\Bundle\EmailBundle\Tests\Unit\Fixtures\Entity\TestEmailOrigin;
 use Oro\Bundle\EmailBundle\Tests\Unit\ReflectionUtil;
 
-class EmailOriginTest extends \PHPUnit_Framework_TestCase
+class EmailOriginTest extends \PHPUnit\Framework\TestCase
 {
     public function testIdGetter()
     {
@@ -16,7 +16,7 @@ class EmailOriginTest extends \PHPUnit_Framework_TestCase
 
     public function testFolderGetterAndSetter()
     {
-        $folder = $this->getMock('Oro\Bundle\EmailBundle\Entity\EmailFolder');
+        $folder = $this->createMock('Oro\Bundle\EmailBundle\Entity\EmailFolder');
 
         $entity = new TestEmailOrigin();
         $entity->addFolder($folder);

@@ -4,37 +4,37 @@ namespace Oro\Bundle\EntityBundle\Tests\Unit\Form\Extension;
 
 use Oro\Bundle\EntityBundle\Form\Extension\UniqueEntityExtension;
 
-class UniqueEntityExtensionTest extends \PHPUnit_Framework_TestCase
+class UniqueEntityExtensionTest extends \PHPUnit\Framework\TestCase
 {
     const ENTITY = 'Namespace\EntityName';
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $configProvider;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $config;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $validator;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $validatorMetadata;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $builder;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $doctrineHelper;
 
@@ -49,7 +49,7 @@ class UniqueEntityExtensionTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->validator = $this->getMock('Symfony\Component\Validator\Validator\ValidatorInterface');
+        $this->validator = $this->createMock('Symfony\Component\Validator\Validator\ValidatorInterface');
 
         $translator = $this
             ->getMockBuilder('Symfony\Component\Translation\TranslatorInterface')

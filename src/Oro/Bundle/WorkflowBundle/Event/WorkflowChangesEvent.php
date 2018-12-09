@@ -2,22 +2,25 @@
 
 namespace Oro\Bundle\WorkflowBundle\Event;
 
-use Symfony\Component\EventDispatcher\Event;
-
 use Oro\Bundle\WorkflowBundle\Entity\WorkflowDefinition;
+use Symfony\Component\EventDispatcher\Event;
 
 class WorkflowChangesEvent extends Event
 {
     /** @var WorkflowDefinition */
     private $definition;
 
+    /** @var WorkflowDefinition */
+    private $originalDefinition;
+
     /**
-     * WorkflowChangesEvent constructor.
      * @param WorkflowDefinition $definition
+     * @param WorkflowDefinition $original
      */
-    public function __construct(WorkflowDefinition $definition)
+    public function __construct(WorkflowDefinition $definition, WorkflowDefinition $original = null)
     {
         $this->definition = $definition;
+        $this->originalDefinition = $original;
     }
 
     /**
@@ -26,5 +29,13 @@ class WorkflowChangesEvent extends Event
     public function getDefinition()
     {
         return $this->definition;
+    }
+
+    /**
+     * @return WorkflowDefinition
+     */
+    public function getOriginalDefinition()
+    {
+        return $this->originalDefinition;
     }
 }

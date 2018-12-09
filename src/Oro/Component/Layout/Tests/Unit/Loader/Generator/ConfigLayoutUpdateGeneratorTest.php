@@ -2,11 +2,11 @@
 
 namespace Oro\Component\Layout\Tests\Unit\Loader\Generator;
 
+use Oro\Component\Layout\Loader\Generator\ConfigLayoutUpdateGenerator;
 use Oro\Component\Layout\Loader\Generator\ConfigLayoutUpdateGeneratorExtensionInterface;
 use Oro\Component\Layout\Loader\Generator\GeneratorData;
-use Oro\Component\Layout\Loader\Generator\ConfigLayoutUpdateGenerator;
 
-class ConfigLayoutUpdateGeneratorTest extends \PHPUnit_Framework_TestCase
+class ConfigLayoutUpdateGeneratorTest extends \PHPUnit\Framework\TestCase
 {
     /** @var ConfigLayoutUpdateGenerator */
     protected $generator;
@@ -25,8 +25,8 @@ class ConfigLayoutUpdateGeneratorTest extends \PHPUnit_Framework_TestCase
     {
         $source = ['actions' => []];
 
-        /** @var ConfigLayoutUpdateGeneratorExtensionInterface|\PHPUnit_Framework_MockObject_MockObject $extension */
-        $extension = $this->getMock(
+        /** @var ConfigLayoutUpdateGeneratorExtensionInterface|\PHPUnit\Framework\MockObject\MockObject $extension */
+        $extension = $this->createMock(
             'Oro\Component\Layout\Loader\Generator\ConfigLayoutUpdateGeneratorExtensionInterface'
         );
         $this->generator->addExtension($extension);
@@ -50,7 +50,8 @@ class ConfigLayoutUpdateGeneratorTest extends \PHPUnit_Framework_TestCase
     public function testShouldValidateData($data, $exception = false)
     {
         if (false !== $exception) {
-            $this->setExpectedException('\Oro\Component\Layout\Exception\SyntaxException', $exception);
+            $this->expectException('\Oro\Component\Layout\Exception\SyntaxException');
+            $this->expectExceptionMessage($exception);
         }
 
         $this->generator->generate('testClassName', new GeneratorData($data));

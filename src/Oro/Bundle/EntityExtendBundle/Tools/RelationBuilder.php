@@ -8,6 +8,9 @@ use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
 use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Extend\RelationType;
 
+/**
+ * Builds configuration for entity relations.
+ */
 class RelationBuilder
 {
     /** @var ConfigManager */
@@ -86,6 +89,9 @@ class RelationBuilder
             if (isset($options['extend']['cascade'])) {
                 $relations[$relationKey]['cascade'] = $options['extend']['cascade'];
             }
+            if (isset($options['extend']['fetch'])) {
+                $relations[$relationKey]['fetch'] = $options['extend']['fetch'];
+            }
             $sourceEntityConfig->set('relation', $relations);
 
             $this->configManager->persist($sourceEntityConfig);
@@ -153,6 +159,9 @@ class RelationBuilder
             if (isset($options['extend']['cascade'])) {
                 $relations[$relationKey]['cascade'] = $options['extend']['cascade'];
             }
+            if (isset($options['extend']['fetch'])) {
+                $relations[$relationKey]['fetch'] = $options['extend']['fetch'];
+            }
             $sourceEntityConfig->set('relation', $relations);
 
             $this->configManager->persist($sourceEntityConfig);
@@ -166,6 +175,7 @@ class RelationBuilder
      * @param string $sourceEntityName
      * @param string $relationName
      * @param string $relationKey
+     * @deprecated since 2.0. This method is not used anywhere and will be removed
      */
     public function addManyToOneRelationTargetSide(
         $targetEntityName,

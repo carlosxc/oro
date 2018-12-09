@@ -5,7 +5,7 @@ namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration\Handler;
 use Oro\Bundle\WorkflowBundle\Configuration\Handler\WorkflowHandler;
 use Oro\Bundle\WorkflowBundle\Configuration\WorkflowConfiguration;
 
-class WorkflowHandlerTest extends \PHPUnit_Framework_TestCase
+class WorkflowHandlerTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var WorkflowHandler
@@ -24,7 +24,8 @@ class WorkflowHandlerTest extends \PHPUnit_Framework_TestCase
      */
     public function testHandle(array $expected, array $input)
     {
-        $otherHandler = $this->getMock('Oro\Bundle\WorkflowBundle\Configuration\Handler\ConfigurationHandlerInterface');
+        $otherHandler = $this
+            ->createMock('Oro\Bundle\WorkflowBundle\Configuration\Handler\ConfigurationHandlerInterface');
         $otherHandler->expects($this->once())->method('handle')->with($expected)
             ->will($this->returnValue($expected));
 
@@ -54,8 +55,8 @@ class WorkflowHandlerTest extends \PHPUnit_Framework_TestCase
             'filtered configuration' => array(
                 'expected' => array(
                     'name' => 'test_workflow',
-                    'label' => 'Test Workflow',
                     'entity' => '\DateTime',
+                    'label' => 'Test Workflow',
                     'is_system' => false,
                     'start_step' => null,
                     'entity_attribute' => 'entity',
@@ -77,8 +78,6 @@ class WorkflowHandlerTest extends \PHPUnit_Framework_TestCase
                     WorkflowConfiguration::NODE_ATTRIBUTES => array(),
                     WorkflowConfiguration::NODE_TRANSITIONS => array(),
                     WorkflowConfiguration::NODE_TRANSITION_DEFINITIONS => array(),
-                    'unknown_first' => 'first_value',
-                    'unknown_second' => 'second_value',
                 ),
             )
         );
@@ -93,10 +92,8 @@ class WorkflowHandlerTest extends \PHPUnit_Framework_TestCase
         $result = $this->handler->handle($configuration);
 
         $this->assertArrayHasKey('name', $result);
-        $this->assertArrayHasKey('label', $result);
         $this->assertArrayNotHasKey('entity', $result);
 
         $this->assertStringStartsWith('workflow_', $result['name']);
-        $this->assertEquals($result['name'], $result['label']);
     }
 }

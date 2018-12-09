@@ -4,7 +4,11 @@ namespace Oro\Bundle\FeatureToggleBundle\Checker;
 
 use Oro\Bundle\FeatureToggleBundle\Checker\Voter\VoterInterface;
 use Oro\Bundle\FeatureToggleBundle\Configuration\ConfigurationManager;
+use Oro\Component\PhpUtils\ArrayUtil;
 
+/**
+ * Check state of the feature and it's parts.
+ */
 class FeatureChecker
 {
     const STRATEGY_AFFIRMATIVE = 'affirmative';
@@ -64,7 +68,7 @@ class FeatureChecker
         $allowIfAllAbstainDecisions = false,
         $allowIfEqualGrantedDeniedDecisions = true
     ) {
-        if (!in_array($strategy, $this->supportedStrategies, true)) {
+        if (!\in_array($strategy, $this->supportedStrategies, true)) {
             throw new \InvalidArgumentException(sprintf('The strategy "%s" is not supported.', $strategy));
         }
 
@@ -93,19 +97,7 @@ class FeatureChecker
      */
     public function isFeatureEnabled($feature, $scopeIdentifier = null)
     {
-        if (!$this->checkFeatureState($feature, $scopeIdentifier)) {
-            return false;
-        }
-
-        // If one of dependencies is disabled mark feature as disabled
-        $dependOnFeatures = $this->configManager->getFeatureDependencies($feature);
-        foreach ($dependOnFeatures as $dependOnFeature) {
-            if (!$this->checkFeatureState($dependOnFeature, $scopeIdentifier)) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->checkFeatureState($feature, $scopeIdentifier);
     }
 
     /**
@@ -119,12 +111,31 @@ class FeatureChecker
         $features = $this->configManager->getFeaturesByResource($resourceType, $resource);
 
         foreach ($features as $feature) {
-            if (!$this->checkFeatureState($feature, $scopeIdentifier)) {
+            if (!$this->isFeatureEnabled($feature, $scopeIdentifier)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * @param string $resourceType
+     *
+     * @return array
+     */
+    public function getDisabledResourcesByType($resourceType)
+    {
+        $resources = $this->configManager->getResourcesByType($resourceType);
+
+        $disabledResources = [];
+        foreach ($resources as $resource => $features) {
+            if (!ArrayUtil::some([$this, 'isFeatureEnabled'], $features)) {
+                $disabledResources[] = $resource;
+            }
+        }
+
+        return $disabledResources;
     }
 
     public function resetCache()
@@ -154,7 +165,7 @@ class FeatureChecker
      */
     protected function check($feature, $scopeIdentifier = null)
     {
-        switch ($this->strategy) {
+        switch ($this->configManager->get($feature, 'strategy', $this->strategy)) {
             case self::STRATEGY_AFFIRMATIVE:
                 return $this->checkAffirmativeStrategy($feature, $scopeIdentifier);
 
@@ -198,7 +209,7 @@ class FeatureChecker
             return false;
         }
 
-        return $this->allowIfAllAbstainDecisions;
+        return $this->configManager->get($feature, 'allow_if_all_abstain', $this->allowIfAllAbstainDecisions);
     }
 
     /**
@@ -235,10 +246,14 @@ class FeatureChecker
         }
 
         if ($enabled > 0) {
-            return $this->allowIfEqualGrantedDeniedDecisions;
+            return $this->configManager->get(
+                $feature,
+                'allow_if_equal_granted_denied',
+                $this->allowIfEqualGrantedDeniedDecisions
+            );
         }
 
-        return $this->allowIfAllAbstainDecisions;
+        return $this->configManager->get($feature, 'allow_if_all_abstain', $this->allowIfAllAbstainDecisions);
     }
     
     /**
@@ -270,7 +285,7 @@ class FeatureChecker
             return true;
         }
 
-        return $this->allowIfAllAbstainDecisions;
+        return $this->configManager->get($feature, 'allow_if_all_abstain', $this->allowIfAllAbstainDecisions);
     }
 
     /**

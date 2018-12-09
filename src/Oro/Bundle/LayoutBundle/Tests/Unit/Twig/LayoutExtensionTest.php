@@ -2,18 +2,21 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Unit\Twig;
 
-use Oro\Component\Layout\BlockView;
-use Oro\Component\Layout\Templating\TextHelper;
-
 use Oro\Bundle\LayoutBundle\Form\TwigRendererInterface;
 use Oro\Bundle\LayoutBundle\Twig\LayoutExtension;
+use Oro\Component\Layout\BlockView;
+use Oro\Component\Layout\Templating\TextHelper;
+use Oro\Component\Testing\Unit\TwigExtensionTestCaseTrait;
+use Symfony\Component\Form\FormView;
 
-class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
+class LayoutExtensionTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var TwigRendererInterface|\PHPUnit_Framework_MockObject_MockObject */
+    use TwigExtensionTestCaseTrait;
+
+    /** @var TwigRendererInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $renderer;
 
-    /** @var TextHelper|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var TextHelper|\PHPUnit\Framework\MockObject\MockObject */
     protected $textHelper;
 
     /** @var LayoutExtension */
@@ -21,12 +24,17 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->renderer   = $this->getMock('Oro\Bundle\LayoutBundle\Form\TwigRendererInterface');
-        $this->textHelper = $this->getMockBuilder('Oro\Component\Layout\Templating\TextHelper')
+        $this->renderer = $this->createMock(TwigRendererInterface::class);
+        $this->textHelper = $this->getMockBuilder(TextHelper::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->extension = new LayoutExtension($this->renderer, $this->textHelper);
+        $container = self::getContainerBuilder()
+            ->add('oro_layout.twig.renderer', $this->renderer)
+            ->add('oro_layout.text.helper', $this->textHelper)
+            ->getContainer($this);
+
+        $this->extension = new LayoutExtension($container);
     }
 
     public function testGetName()
@@ -45,6 +53,7 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
             ->with($this->identicalTo($environment));
 
         $this->extension->initRuntime($environment);
+        self::assertSame($this->renderer, $this->extension->renderer);
     }
 
     public function testGetTokenParsers()
@@ -59,55 +68,6 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    public function testGetFunctions()
-    {
-        $functions = $this->extension->getFunctions();
-
-        $this->assertCount(5, $functions);
-
-        /** @var \Twig_SimpleFunction $function */
-        $this->assertInstanceOf('Twig_SimpleFunction', $functions[0]);
-        $function = $functions[0];
-        $this->assertEquals('block_widget', $function->getName());
-        $this->assertNull($function->getCallable());
-        $this->assertEquals(LayoutExtension::RENDER_BLOCK_NODE_CLASS, $function->getNodeClass());
-        $function = $functions[1];
-        $this->assertEquals('block_label', $function->getName());
-        $this->assertNull($function->getCallable());
-        $this->assertEquals(LayoutExtension::RENDER_BLOCK_NODE_CLASS, $function->getNodeClass());
-        $function = $functions[2];
-        $this->assertEquals('block_row', $function->getName());
-        $this->assertNull($function->getCallable());
-        $this->assertEquals(LayoutExtension::RENDER_BLOCK_NODE_CLASS, $function->getNodeClass());
-        $function = $functions[3];
-        $this->assertEquals('parent_block_widget', $function->getName());
-        $this->assertNull($function->getCallable());
-        $this->assertEquals(LayoutExtension::RENDER_BLOCK_NODE_CLASS, $function->getNodeClass());
-        $function = $functions[4];
-        $this->assertEquals('layout_attr_defaults', $function->getName());
-        $this->assertNotNull($function->getCallable());
-        $this->assertEquals([$this->extension, 'defaultAttributes'], $function->getCallable());
-    }
-
-    public function testGetFilters()
-    {
-        $filters = $this->extension->getFilters();
-
-        $this->assertCount(2, $filters);
-
-        /** @var \Twig_SimpleFilter $blockTextFilter */
-        $blockTextFilter = $filters[0];
-        $this->assertInstanceOf('Twig_SimpleFilter', $blockTextFilter);
-        $this->assertEquals('block_text', $blockTextFilter->getName());
-        $this->assertEquals([$this->textHelper, 'processText'], $blockTextFilter->getCallable());
-
-        /** @var \Twig_SimpleFilter $mergeContextFilter */
-        $mergeContextFilter = $filters[1];
-        $this->assertInstanceOf('Twig_SimpleFilter', $mergeContextFilter);
-        $this->assertEquals('merge_context', $mergeContextFilter->getName());
-        $this->assertEquals([$this->extension, 'mergeContext'], $mergeContextFilter->getCallable());
-    }
-
     public function testMergeContext()
     {
         $parent = new BlockView();
@@ -120,7 +80,10 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
         $name = 'name';
         $value = 'value';
 
-        $this->assertEquals($parent, $this->extension->mergeContext($parent, [$name => $value]));
+        $this->assertEquals(
+            $parent,
+            self::callTwigFilter($this->extension, 'merge_context', [$parent, [$name => $value]])
+        );
 
         /** @var BlockView $view */
         foreach ([$parent, $firstChild, $secondChild] as $view) {
@@ -138,7 +101,10 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
      */
     public function testDefaultAttributes($attr, $defaultAttr, $expected)
     {
-        $this->assertEquals($expected, $this->extension->defaultAttributes($attr, $defaultAttr));
+        $this->assertEquals(
+            $expected,
+            self::callTwigFunction($this->extension, 'layout_attr_defaults', [$attr, $defaultAttr])
+        );
     }
 
     /**
@@ -231,6 +197,58 @@ class LayoutExtensionTest extends \PHPUnit_Framework_TestCase
                     'name' => 'test',
                 ],
             ],
+        ];
+    }
+
+    public function testSetClassPrefixToForm()
+    {
+        $prototypeView = $this->createMock(FormView::class);
+
+        $childView = $this->createMock(FormView::class);
+        $childView->vars['prototype'] = $prototypeView;
+
+        $formView = $this->createMock(FormView::class);
+        $formView->children = [$childView];
+
+        $this->extension->setClassPrefixToForm($formView, 'foo');
+
+        $this->assertEquals($formView->vars['class_prefix'], 'foo');
+        $this->assertEquals($childView->vars['class_prefix'], 'foo');
+        $this->assertEquals($prototypeView->vars['class_prefix'], 'foo');
+    }
+
+    /**
+     * @dataProvider convertValueToStringDataProvider
+     * @param $value
+     * @param $expectedConvertedValue
+     */
+    public function testConvertValueToString($value, $expectedConvertedValue)
+    {
+        $this->assertSame($expectedConvertedValue, $this->extension->convertValueToString($value));
+    }
+
+    /**
+     * @return array
+     */
+    public function convertValueToStringDataProvider()
+    {
+        return [
+            'object conversion' => [
+                new \stdClass(),
+                'stdClass'
+            ],
+            'array conversion'  => [
+                ['Foo', 'Bar'],
+                '["Foo","Bar"]'
+            ],
+            'null conversion' => [
+                null,
+                'NULL'
+            ],
+            'string' => [
+                'some string',
+                'some string'
+            ]
         ];
     }
 }

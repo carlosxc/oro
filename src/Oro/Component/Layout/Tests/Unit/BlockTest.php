@@ -8,18 +8,18 @@ use Oro\Component\Layout\DataAccessorInterface;
 use Oro\Component\Layout\LayoutContext;
 use Oro\Component\Layout\RawLayout;
 
-class BlockTest extends \PHPUnit_Framework_TestCase
+class BlockTest extends \PHPUnit\Framework\TestCase
 {
     /** @var RawLayout */
     protected $rawLayout;
 
-    /** @var BlockTypeHelperInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var BlockTypeHelperInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $typeHelper;
 
     /** @var LayoutContext */
     protected $context;
 
-    /** @var DataAccessorInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var DataAccessorInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $data;
 
     /** @var Block */
@@ -28,9 +28,9 @@ class BlockTest extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->rawLayout  = new RawLayout();
-        $this->typeHelper = $this->getMock('Oro\Component\Layout\BlockTypeHelperInterface');
+        $this->typeHelper = $this->createMock('Oro\Component\Layout\BlockTypeHelperInterface');
         $this->context    = new LayoutContext();
-        $this->data       = $this->getMock('Oro\Component\Layout\DataAccessorInterface');
+        $this->data       = $this->createMock('Oro\Component\Layout\DataAccessorInterface');
         $this->block      = new Block(
             $this->rawLayout,
             $this->typeHelper,
@@ -80,7 +80,7 @@ class BlockTest extends \PHPUnit_Framework_TestCase
         $id   = 'test_id';
         $name = 'test_name';
 
-        $type = $this->getMock('Oro\Component\Layout\BlockTypeInterface');
+        $type = $this->createMock('Oro\Component\Layout\BlockTypeInterface');
         $type->expects($this->once())
             ->method('getName')
             ->will($this->returnValue($name));

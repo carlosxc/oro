@@ -2,50 +2,35 @@
 
 namespace Oro\Bundle\EntityExtendBundle\Tests\Unit\EventListener;
 
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
+use Oro\Bundle\EntityExtendBundle\EntityConfig\ExtendScope;
 use Oro\Bundle\EntityExtendBundle\Event\ValueRenderEvent;
 use Oro\Bundle\EntityExtendBundle\EventListener\ExtendFieldValueRenderListener;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
-class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
+class ExtendFieldValueRenderListenerTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var ExtendFieldValueRenderListener
-     */
+    /** @var ExtendFieldValueRenderListener */
     protected $target;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $configManger;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $router;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $registry;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $extendProvider;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
-    protected $facade;
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $authorizationChecker;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $entityClassNameHelper;
 
     public function setUp()
@@ -59,13 +44,11 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
         $this->configManger->expects($this->once())
             ->method('getProvider')
             ->will($this->returnValue($this->extendProvider));
-        $this->router = $this->getMock('Symfony\Component\Routing\Generator\UrlGeneratorInterface');
+        $this->router = $this->createMock('Symfony\Component\Routing\Generator\UrlGeneratorInterface');
 
-        $this->registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $this->registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
 
-        $this->facade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->authorizationChecker = $this->createMock(AuthorizationCheckerInterface::class);
 
         $this->entityClassNameHelper = $this->getMockBuilder('Oro\Bundle\EntityBundle\Tools\EntityClassNameHelper')
             ->disableOriginalConstructor()
@@ -75,7 +58,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
             $this->configManger,
             $this->router,
             $this->registry,
-            $this->facade,
+            $this->authorizationChecker,
             $this->entityClassNameHelper
         );
     }
@@ -88,7 +71,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
      */
     public function testBeforeValueRenderProceedCollection(array $data, array $expected)
     {
-        $entity = $this->getMock('\StdClass');
+        $entity = $this->createMock('\StdClass');
         $value = $this->getCollectionValue($data['shownFields'], $data['entities']);
 
         $entityClass = 'Oro\Bundle\UserBundle\Entity\User';
@@ -98,7 +81,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $extendConfig = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+        $extendConfig = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
 
         $extendConfig->expects($this->exactly(2))
             ->method('get')
@@ -139,13 +122,13 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
     /**
      * @dataProvider relationsDataProvider
      *
-     * @param array        $data
-     * @param array|string $expected
+     * @param array $data
+     * @param array $expected
      */
-    public function testBeforeValueRenderProceedSingleRelations(array $data, $expected)
+    public function testBeforeValueRenderProceedSingleRelations(array $data, array $expected)
     {
-        $entity = $this->getMock('\StdClass');
-        $value = $this->getMock('\StdClass', ['getId']);
+        $entity = $this->createMock('\StdClass');
+        $value = $this->createPartialMock('\StdClass', ['getId']);
         $fieldType = 'manyToOne';
 
         if (!empty($data['field'])) {
@@ -156,7 +139,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($data['id']));
 
         if (isset($data['permissionsGranted'])) {
-            $this->facade->expects($this->once())
+            $this->authorizationChecker->expects($this->once())
                 ->method('isGranted')
                 ->with('VIEW', $value)
                 ->willReturn(true);
@@ -268,7 +251,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
                     'id' => null,
                     'field' => null
                 ],
-                'expected' => ''
+                'expected' => ['title' => '']
             ],
             'If Route Not Found will return text' => [
                 'data' => [
@@ -278,7 +261,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
                     'field' => 'username',
                     'title' => 'test title'
                 ],
-                'expected' => 'test title'
+                'expected' => ['title' => 'test title']
             ],
             'entity class exists, route exists, permission granted' => [
                 'data' => [
@@ -308,7 +291,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
                     'field' => 'username',
                     'title' => 'test title'
                 ],
-                'expected' => 'test title'
+                'expected' => ['title' => 'test title']
             ],
             'entity class extend, permission granted' => [
                 'data' => [
@@ -346,7 +329,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
             foreach ($shownFields as $field) {
                 $entityMethods[] = "get{$field}";
             }
-            $item = $this->getMock('\StdClass', $entityMethods);
+            $item = $this->createPartialMock('\StdClass', $entityMethods);
 
             foreach ($shownFields as $field) {
                 $item->expects($this->once())
@@ -362,7 +345,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
                 ->will($this->returnValue($entity['id']));
             $value->add($item);
         }
-        $this->facade->expects($this->any())
+        $this->authorizationChecker->expects($this->any())
             ->method('isGranted')
             ->willReturnMap($grantedEntitiesMap);
 
@@ -377,7 +360,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
      */
     protected function setupExtendRelationConfigStub($expectedClass, $isCustomEntity = true, $expectGet = false)
     {
-        $relationExtendConfig = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+        $relationExtendConfig = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
         if ($expectGet) {
             $relationExtendConfig
                 ->expects($this->once())
@@ -404,7 +387,7 @@ class ExtendFieldValueRenderListenerTest extends \PHPUnit_Framework_TestCase
      */
     protected function setupManyToOneExtendConfigMock($field, $expectedClass, FieldConfigId $fieldConfig)
     {
-        $extendConfig = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
+        $extendConfig = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\ConfigInterface');
         $extendConfig->expects($this->exactly(2))
             ->method('get')
             ->will(

@@ -2,40 +2,40 @@
 
 namespace Oro\Bundle\EntityConfigBundle\Tests\Unit\Config;
 
-use Doctrine\DBAL\Platforms\MySqlPlatform;
-use Doctrine\ORM\Configuration;
 use Doctrine\ORM\UnitOfWork;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigModelManager;
 use Oro\Bundle\EntityConfigBundle\Config\LockObject;
 use Oro\Bundle\EntityConfigBundle\Entity\ConfigModel;
 use Oro\Bundle\EntityConfigBundle\Entity\EntityConfigModel;
 use Oro\Bundle\EntityConfigBundle\Entity\FieldConfigModel;
-
 use Oro\Bundle\EntityConfigBundle\Tests\Unit\ReflectionUtil;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\Mocks\SchemaManagerMock;
+use Oro\Component\DependencyInjection\ServiceLink;
 
 /**
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
  * @SuppressWarnings(PHPMD.TooManyMethods)
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)
  */
-class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
+class ConfigModelManagerTest extends \PHPUnit\Framework\TestCase
 {
     const TEST_ENTITY  = 'Test\Entity\TestEntity';
     const TEST_ENTITY2 = 'Test\Entity\TestEntity2';
     const TEST_FIELD   = 'testField';
     const TEST_FIELD2  = 'testField2';
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $repo;
 
     /** @var LockObject */
     protected $lockObject;
+
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $databaseChecker;
 
     /** @var ConfigModelManager */
     protected $configModelManager;
@@ -54,16 +54,18 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
             ->with('Oro\Bundle\EntityConfigBundle\Entity\EntityConfigModel')
             ->will($this->returnValue($this->repo));
 
-        $emLink = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $emLink = $this->createMock(ServiceLink::class);
         $emLink->expects($this->any())
             ->method('getService')
             ->will($this->returnValue($this->em));
 
         $this->lockObject = new LockObject();
 
-        $this->configModelManager = new ConfigModelManager($emLink, $this->lockObject);
+        $this->databaseChecker = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Config\ConfigDatabaseChecker')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->configModelManager = new ConfigModelManager($emLink, $this->lockObject, $this->databaseChecker);
     }
 
     public function testGetEntityManager()
@@ -71,75 +73,12 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($this->em, $this->configModelManager->getEntityManager());
     }
 
-    public function testCheckDatabaseException()
+    public function testCheckDatabase()
     {
-        $connection = $this->getMockBuilder('Doctrine\DBAL\Connection')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $connection->expects($this->once())
-            ->method('connect')
-            ->will($this->throwException(new \PDOException()));
-
-        $this->em->expects($this->once())
-            ->method('getConnection')
-            ->will($this->returnValue($connection));
-
-        $this->assertFalse($this->configModelManager->checkDatabase());
-    }
-
-    /**
-     * @dataProvider checkDatabaseProvider
-     */
-    public function testCheckDatabase(array $tables, $expectedResult)
-    {
-        $connection = $this->getMockBuilder('Doctrine\DBAL\Connection')
-            ->disableOriginalConstructor()
-            ->getMock();
-        $connection->expects($this->once())
-            ->method('getConfiguration')
-            ->will($this->returnValue(new Configuration()));
-        $connection->expects($this->once())
-            ->method('getDatabasePlatform')
-            ->will($this->returnValue(new MySqlPlatform()));
-        $connection->expects($this->once())
-            ->method('getSchemaManager')
-            ->will($this->returnValue(new SchemaManagerMock($connection)));
-        $connection->expects($this->once())
-            ->method('fetchAll')
-            ->will($this->returnValue($tables));
-
-        $this->em->expects($this->once())
-            ->method('getConnection')
-            ->will($this->returnValue($connection));
-
-        $this->assertEquals($expectedResult, $this->configModelManager->checkDatabase());
-    }
-
-    public function checkDatabaseProvider()
-    {
-        return [
-            [
-                [
-                    'other_table',
-                    'oro_entity_config',
-                    'oro_entity_config_field',
-                    'oro_entity_config_index_value',
-                ],
-                true
-            ],
-            [
-                [
-                    'other_table',
-                    'oro_entity_config',
-                    'oro_entity_config_field',
-                ],
-                false
-            ],
-            [
-                [],
-                false
-            ],
-        ];
+        $this->databaseChecker->expects(self::once())
+            ->method('checkDatabase')
+            ->willReturn(true);
+        $this->assertTrue($this->configModelManager->checkDatabase());
     }
 
     /**
@@ -770,10 +709,8 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expectedResult, $result);
 
         // test that the created model is NOT stored in a local cache
-        $this->setExpectedException(
-            '\InvalidArgumentException',
-            '$className must not be empty'
-        );
+        $this->expectException('\InvalidArgumentException');
+        $this->expectExceptionMessage('$className must not be empty');
         $this->configModelManager->getEntityModel($className);
     }
 
@@ -826,10 +763,8 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expectedResult, $result);
 
         // test that the created model is NOT stored in a local cache
-        $this->setExpectedException(
-            '\InvalidArgumentException',
-            '$fieldName must not be empty'
-        );
+        $this->expectException('\InvalidArgumentException');
+        $this->expectExceptionMessage('$fieldName must not be empty');
         $this->configModelManager->getFieldModel(self::TEST_ENTITY, $fieldName);
     }
 
@@ -1279,7 +1214,7 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
     /**
      * @param EntityConfigModel[] $entityModels
      * @param array               $entityStates
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function prepareEntityConfigRepository($entityModels = [], $entityStates = [])
     {
@@ -1305,7 +1240,7 @@ class ConfigModelManagerTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($uow));
         $uow->expects($this->exactly(count($entityStates)))
             ->method('getEntityState')
-            ->will(new \PHPUnit_Framework_MockObject_Stub_ConsecutiveCalls($entityStates));
+            ->will(new \PHPUnit\Framework\MockObject\Stub\ConsecutiveCalls($entityStates));
     }
 
     /**

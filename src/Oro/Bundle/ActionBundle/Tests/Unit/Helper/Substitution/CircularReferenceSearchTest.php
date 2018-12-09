@@ -4,7 +4,7 @@ namespace Oro\Bundle\ActionBundle\Tests\Unit\Helper\Substitution;
 
 use Oro\Bundle\ActionBundle\Helper\Substitution\CircularReferenceSearch;
 
-class CircularReferenceSearchTest extends \PHPUnit_Framework_TestCase
+class CircularReferenceSearchTest extends \PHPUnit\Framework\TestCase
 {
     public function testAssert()
     {
@@ -13,7 +13,7 @@ class CircularReferenceSearchTest extends \PHPUnit_Framework_TestCase
             'b' => 'c',
         ]);
 
-        $this->setExpectedException('Oro\Bundle\ActionBundle\Exception\CircularReferenceException');
+        $this->expectException('Oro\Bundle\ActionBundle\Exception\CircularReferenceException');
 
         CircularReferenceSearch::assert([
             'a' => 'b',

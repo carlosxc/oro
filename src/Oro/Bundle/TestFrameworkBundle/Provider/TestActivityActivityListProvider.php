@@ -92,13 +92,13 @@ class TestActivityActivityListProvider implements ActivityListProviderInterface
      */
     public function getTemplate()
     {
-        return 'OroActivityListBundle:ActivityList/js:activityItemTemplate.js.twig';
+        return 'OroActivityListBundle:ActivityList/js:activityItemTemplate.html.twig';
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getRoutes()
+    public function getRoutes($activityEntity)
     {
         return [
             'itemView'   => '',
@@ -148,7 +148,7 @@ class TestActivityActivityListProvider implements ActivityListProviderInterface
      */
     public function getTargetEntities($entity)
     {
-        return $entity->getActivityTargetEntities();
+        return $entity->getActivityTargets();
     }
 
     /**

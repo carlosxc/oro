@@ -5,27 +5,26 @@ namespace Oro\Bundle\EntityBundle\Tests\Unit\ORM\Mapping;
 use Doctrine\Common\Cache\ArrayCache;
 use Doctrine\Common\Persistence\Mapping\ClassMetadataFactory;
 use Doctrine\ORM\Mapping\ClassMetadata;
-
 use Oro\Bundle\EntityBundle\ORM\Mapping\AdditionalMetadataProvider;
 
-class AdditionalMetadataProviderTest extends \PHPUnit_Framework_TestCase
+class AdditionalMetadataProviderTest extends \PHPUnit\Framework\TestCase
 {
     /** @var AdditionalMetadataProvider */
     protected $additionalMetadataProvider;
 
-    /** @var ClassMetadataFactory|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ClassMetadataFactory|\PHPUnit\Framework\MockObject\MockObject */
     protected $metadataFactory;
 
     public function setUp()
     {
-        $this->metadataFactory = $this->getMock('Doctrine\Common\Persistence\Mapping\ClassMetadataFactory');
+        $this->metadataFactory = $this->createMock('Doctrine\Common\Persistence\Mapping\ClassMetadataFactory');
 
-        $em = $this->getMock('Doctrine\ORM\EntityManagerInterface');
+        $em = $this->createMock('Doctrine\ORM\EntityManagerInterface');
         $em->expects($this->any())
             ->method('getMetadataFactory')
             ->will($this->returnValue($this->metadataFactory));
 
-        $registry = $this->getMock('Doctrine\Common\Persistence\ManagerRegistry');
+        $registry = $this->createMock('Doctrine\Common\Persistence\ManagerRegistry');
         $registry->expects($this->any())
             ->method('getManager')
             ->will($this->returnValue($em));

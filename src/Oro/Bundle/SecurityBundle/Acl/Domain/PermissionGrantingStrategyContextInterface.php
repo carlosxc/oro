@@ -2,8 +2,8 @@
 
 namespace Oro\Bundle\SecurityBundle\Acl\Domain;
 
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 /**
  * Provides an interface which can be implemented by AclVoter to allow
@@ -38,6 +38,7 @@ interface PermissionGrantingStrategyContextInterface
      * Sets a mask was used to decide whether the access to a resource is granted or denied.
      *
      * @param int $mask
+     * @param int $accessLevel
      */
-    public function setTriggeredMask($mask);
+    public function setTriggeredMask($mask, $accessLevel);
 }

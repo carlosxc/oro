@@ -4,7 +4,7 @@ namespace Oro\Bundle\ActionBundle\Tests\Unit\Configuration;
 
 use Oro\Bundle\ActionBundle\Configuration\ActionGroupListConfiguration;
 
-class ActionGroupListConfigurationTest extends \PHPUnit_Framework_TestCase
+class ActionGroupListConfigurationTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ActionGroupListConfiguration
@@ -100,10 +100,8 @@ class ActionGroupListConfigurationTest extends \PHPUnit_Framework_TestCase
      */
     public function testProcessInvalidConfiguration(array $config, $message)
     {
-        $this->setExpectedException(
-            'Symfony\Component\Config\Definition\Exception\InvalidConfigurationException',
-            $message
-        );
+        $this->expectException('Symfony\Component\Config\Definition\Exception\InvalidConfigurationException');
+        $this->expectExceptionMessage($message);
 
         $this->configuration->processConfiguration($config);
     }
@@ -160,19 +158,6 @@ class ActionGroupListConfigurationTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 'message' => 'Invalid type for path "action_groups.group1.parameters.arg1.message". ' .
-                    'Expected scalar, but got array'
-            ],
-            'incorrect action_groups[parameters][default]' => [
-                'input' => [
-                    'group1' => [
-                        'parameters' => [
-                            'arg1' => [
-                                'default' => []
-                            ]
-                        ]
-                    ]
-                ],
-                'message' => 'Invalid type for path "action_groups.group1.parameters.arg1.default". ' .
                     'Expected scalar, but got array'
             ],
             'incorrect action_groups[conditions]' => [

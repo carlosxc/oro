@@ -2,23 +2,31 @@
 
 namespace Oro\Bundle\MigrationBundle\Command;
 
+use Oro\Bundle\MigrationBundle\Locator\FixturePathLocatorInterface;
+use Oro\Bundle\MigrationBundle\Migration\DataFixturesExecutorInterface;
+use Oro\Bundle\MigrationBundle\Migration\Loader\DataFixturesLoader;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 
-use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-
-use Oro\Bundle\MigrationBundle\Migration\Loader\DataFixturesLoader;
-use Oro\Bundle\SearchBundle\EventListener\OrmIndexListener;
-
+/**
+ * This command load fixtures
+ *
+ * @package Oro\Bundle\MigrationBundle\Command
+ */
 class LoadDataFixturesCommand extends ContainerAwareCommand
 {
-    const MAIN_FIXTURES_TYPE = 'main';
-    const DEMO_FIXTURES_TYPE = 'demo';
+    const COMMAND_NAME = 'oro:migration:data:load';
 
+    const MAIN_FIXTURES_TYPE = DataFixturesExecutorInterface::MAIN_FIXTURES;
+    const DEMO_FIXTURES_TYPE = DataFixturesExecutorInterface::DEMO_FIXTURES;
+
+    /** @deprecated since 2.6 please use oro_migration.locator.fixture_path_locator */
     const MAIN_FIXTURES_PATH = 'Migrations/Data/ORM';
+
+    /** @deprecated since 2.6 please use oro_migration.locator.fixture_path_locator */
     const DEMO_FIXTURES_PATH = 'Migrations/Data/Demo/ORM';
 
     /**
@@ -26,7 +34,7 @@ class LoadDataFixturesCommand extends ContainerAwareCommand
      */
     protected function configure()
     {
-        $this->setName('oro:migration:data:load')
+        $this->setName(static::COMMAND_NAME)
             ->setDescription('Load data fixtures.')
             ->addOption(
                 'fixtures-type',
@@ -90,17 +98,18 @@ class LoadDataFixturesCommand extends ContainerAwareCommand
     protected function getFixtures(InputInterface $input, OutputInterface $output)
     {
         /** @var DataFixturesLoader $loader */
-        $loader              = $this->getContainer()->get('oro_migration.data_fixtures.loader');
-        $bundles             = $input->getOption('bundles');
-        $excludeBundles      = $input->getOption('exclude');
+        $loader = $this->getContainer()->get('oro_migration.data_fixtures.loader');
+        $includeBundles = $input->getOption('bundles');
+        $excludeBundles = $input->getOption('exclude');
         $fixtureRelativePath = $this->getFixtureRelativePath($input);
 
-        /** @var BundleInterface $bundle */
-        foreach ($this->getApplication()->getKernel()->getBundles() as $bundle) {
-            if (!empty($bundles) && !in_array($bundle->getName(), $bundles)) {
+        /** @var BundleInterface[] $bundles */
+        $bundles = $this->getApplication()->getKernel()->getBundles();
+        foreach ($bundles as $bundle) {
+            if (!empty($includeBundles) && !in_array($bundle->getName(), $includeBundles, true)) {
                 continue;
             }
-            if (!empty($excludeBundles) && in_array($bundle->getName(), $excludeBundles)) {
+            if (!empty($excludeBundles) && in_array($bundle->getName(), $excludeBundles, true)) {
                 continue;
             }
             $path = $bundle->getPath() . $fixtureRelativePath;
@@ -148,13 +157,24 @@ class LoadDataFixturesCommand extends ContainerAwareCommand
             )
         );
 
-        $executor = new ORMExecutor($this->getContainer()->get('doctrine.orm.entity_manager'));
+        $this->executeFixtures($output, $fixtures, $this->getTypeOfFixtures($input));
+    }
+
+    /**
+     * @param OutputInterface $output
+     * @param array           $fixtures
+     * @param string          $fixturesType
+     */
+    protected function executeFixtures(OutputInterface $output, $fixtures, $fixturesType)
+    {
+        /** @var DataFixturesExecutorInterface $loader */
+        $executor = $this->getContainer()->get('oro_migration.data_fixtures.executor');
         $executor->setLogger(
             function ($message) use ($output) {
                 $output->writeln(sprintf('  <comment>></comment> <info>%s</info>', $message));
             }
         );
-        $executor->execute($fixtures, true);
+        $executor->execute($fixtures, $fixturesType);
     }
 
     /**
@@ -168,14 +188,22 @@ class LoadDataFixturesCommand extends ContainerAwareCommand
 
     /**
      * @param InputInterface $input
+     *
      * @return string
      */
     protected function getFixtureRelativePath(InputInterface $input)
     {
-        $fixtureRelativePath = $this->getTypeOfFixtures($input) == self::DEMO_FIXTURES_TYPE
-            ? self::DEMO_FIXTURES_PATH
-            : self::MAIN_FIXTURES_PATH;
+        $fixtureType         = (string)$this->getTypeOfFixtures($input);
+        $fixtureRelativePath = $this->getFixturePathLocator()->getPath($fixtureType);
 
-        return str_replace('/', DIRECTORY_SEPARATOR, '/' . $fixtureRelativePath);
+        return str_replace('/', DIRECTORY_SEPARATOR, sprintf('/%s', $fixtureRelativePath));
+    }
+
+    /**
+     * @return FixturePathLocatorInterface
+     */
+    protected function getFixturePathLocator(): FixturePathLocatorInterface
+    {
+        return $this->getContainer()->get('oro_migration.locator.fixture_path_locator');
     }
 }

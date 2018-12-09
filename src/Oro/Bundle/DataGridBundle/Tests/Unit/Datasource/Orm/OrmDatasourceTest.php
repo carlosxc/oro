@@ -2,30 +2,32 @@
 
 namespace Oro\Bundle\DataGridBundle\Tests\Unit\Datasource\Orm;
 
-use Doctrine\ORM\Query;
-use Doctrine\ORM\Configuration;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\DBAL\Platforms\MySqlPlatform;
-
-use Oro\Component\DoctrineUtils\ORM\QueryHintResolver;
-
+use Doctrine\ORM\Configuration;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Query;
+use Oro\Bundle\DataGridBundle\Datasource\Orm\Configs\YamlProcessor;
 use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
+use Oro\Bundle\DataGridBundle\Datasource\ParameterBinderInterface;
+use Oro\Component\DoctrineUtils\ORM\QueryHintResolver;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
+class OrmDatasourceTest extends \PHPUnit\Framework\TestCase
 {
     /** @var OrmDatasource */
     protected $datasource;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var EntityManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $em;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
-    protected $doctrine;
+    /** @var YamlProcessor|\PHPUnit\Framework\MockObject\MockObject */
+    protected $processor;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var EventDispatcherInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $eventDispatcher;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var ParameterBinderInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $parameterBinder;
 
     protected function setUp()
@@ -34,15 +36,15 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->doctrine = $this->getMockBuilder('Doctrine\Common\Persistence\ManagerRegistry')
+        $this->processor = $this->getMockBuilder('Oro\Bundle\DataGridBundle\Datasource\Orm\Configs\YamlProcessor')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->parameterBinder = $this->getMock('Oro\\Bundle\\DataGridBundle\\Datasource\\ParameterBinderInterface');
-        $this->eventDispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this->parameterBinder = $this->createMock('Oro\\Bundle\\DataGridBundle\\Datasource\\ParameterBinderInterface');
+        $this->eventDispatcher = $this->createMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
         $queryHintResolver     = new QueryHintResolver();
         $this->datasource      = new OrmDatasource(
-            $this->doctrine,
+            $this->processor,
             $this->eventDispatcher,
             $this->parameterBinder,
             $queryHintResolver
@@ -51,8 +53,13 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @dataProvider hintConfigProvider
+     *
+     * @param array|null $hints
+     * @param array|null $countHints
+     * @param array $expected
+     * @param array $expectedCountQueryHints
      */
-    public function testHints($hints, $expected)
+    public function testHints($hints, $countHints, array $expected, array $expectedCountQueryHints)
     {
         $entityClass      = 'Oro\Bundle\DataGridBundle\Tests\Unit\DataFixtures\Stub\SomeClass';
         $configs['query'] = [
@@ -64,11 +71,9 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
         if (null !== $hints) {
             $configs['hints'] = $hints;
         }
-
-        $this->doctrine->expects($this->once())
-            ->method('getManagerForClass')
-            ->with('Test')
-            ->willReturn($this->em);
+        if (null !== $countHints) {
+            $configs['count_hints'] = $countHints;
+        }
 
         $this->prepareEntityManagerForTestHints($entityClass);
 
@@ -82,14 +87,15 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
         $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
             ->setConstructorArgs([$this->em])
             ->getMock();
-        $this->em->expects($this->once())
-            ->method('createQueryBuilder')
-            ->will($this->returnValue($qb));
+
         $qb->expects($this->once())
             ->method('getQuery')
             ->will($this->returnValue($query));
-
-        $datagrid = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $this->processor
+            ->expects($this->once())
+            ->method('processQuery')
+            ->willReturn($qb);
+        $datagrid = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $this->datasource->process($datagrid, $configs);
         $this->datasource->getResults();
 
@@ -97,9 +103,13 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
             $expected,
             $query->getHints()
         );
+        $this->assertEquals(
+            $expectedCountQueryHints,
+            $this->datasource->getCountQueryHints()
+        );
     }
 
-    protected function prepareEntityManagerForTestHints($entityClass)
+    protected function prepareEntityManagerForTestHints()
     {
         $connection = $this->getMockBuilder('Doctrine\DBAL\Connection')
             ->disableOriginalConstructor()
@@ -107,6 +117,9 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
         $connection->expects($this->any())
             ->method('getDatabasePlatform')
             ->will($this->returnValue(new MySqlPlatform()));
+        $connection->expects($this->any())
+            ->method('getParams')
+            ->will($this->returnValue([]));
         $this->em->expects($this->any())
             ->method('getConnection')
             ->will($this->returnValue($connection));
@@ -126,14 +139,27 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($configuration));
     }
 
+    /**
+     * @return array
+     */
     public function hintConfigProvider()
     {
         return [
             [
                 null,
+                null,
+                [],
                 []
             ],
             [
+                [],
+                null,
+                [],
+                []
+            ],
+            [
+                [],
+                [],
                 [],
                 []
             ],
@@ -141,49 +167,77 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
                 [
                     ['name' => 'HINT_FORCE_PARTIAL_LOAD', 'value' => true]
                 ],
+                null,
                 [
                     Query::HINT_FORCE_PARTIAL_LOAD => true
+                ],
+                [
+                    ['name' => 'HINT_FORCE_PARTIAL_LOAD', 'value' => true]
                 ]
+            ],
+            [
+                [
+                    ['name' => 'HINT_FORCE_PARTIAL_LOAD', 'value' => true]
+                ],
+                [],
+                [
+                    Query::HINT_FORCE_PARTIAL_LOAD => true
+                ],
+                []
             ],
             [
                 [
                     ['name' => 'HINT_FORCE_PARTIAL_LOAD', 'value' => false]
                 ],
+                null,
                 [
                     Query::HINT_FORCE_PARTIAL_LOAD => false
+                ],
+                [
+                    ['name' => 'HINT_FORCE_PARTIAL_LOAD', 'value' => false]
                 ]
             ],
             [
                 [
                     ['name' => 'HINT_FORCE_PARTIAL_LOAD']
                 ],
+                null,
                 [
                     Query::HINT_FORCE_PARTIAL_LOAD => true
+                ],
+                [
+                    ['name' => 'HINT_FORCE_PARTIAL_LOAD']
                 ]
             ],
             [
-                [
-                    'HINT_FORCE_PARTIAL_LOAD'
-                ],
-                [
-                    Query::HINT_FORCE_PARTIAL_LOAD => true
-                ]
+                ['HINT_FORCE_PARTIAL_LOAD'],
+                null,
+                [Query::HINT_FORCE_PARTIAL_LOAD => true],
+                ['HINT_FORCE_PARTIAL_LOAD']
             ],
             [
                 [
                     ['name' => 'some_custom_hint', 'value' => 'test_val']
                 ],
+                null,
                 [
                     'some_custom_hint' => 'test_val'
-                ]
-            ],
-            [
-                [
-                    'some_custom_hint'
                 ],
                 [
-                    'some_custom_hint' => true
-                ]
+                    ['name' => 'some_custom_hint', 'value' => 'test_val']
+                ],
+            ],
+            [
+                ['some_custom_hint'],
+                null,
+                ['some_custom_hint' => true],
+                ['some_custom_hint'],
+            ],
+            [
+                ['some_custom_hint'],
+                ['some_custom_count_hint'],
+                ['some_custom_hint' => true],
+                ['some_custom_count_hint'],
             ],
         ];
     }
@@ -193,7 +247,7 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
         $parameters = ['foo'];
         $append     = true;
 
-        $datagrid         = $this->getMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
+        $datagrid         = $this->createMock('Oro\Bundle\DataGridBundle\Datagrid\DatagridInterface');
         $configs['query'] = [
             'select' => ['t'],
             'from'   => [
@@ -201,22 +255,17 @@ class OrmDatasourceTest extends \PHPUnit_Framework_TestCase
             ]
         ];
 
-        $this->doctrine->expects($this->once())
-            ->method('getManagerForClass')
-            ->with('Test')
-            ->willReturn($this->em);
-
         $qb = $this->getMockBuilder('Doctrine\ORM\QueryBuilder')
             ->setConstructorArgs([$this->em])
             ->getMock();
-        $this->em->expects($this->once())
-            ->method('createQueryBuilder')
-            ->will($this->returnValue($qb));
 
         $this->parameterBinder->expects($this->once())
             ->method('bindParameters')
             ->with($datagrid, $parameters, $append);
-
+        $this->processor
+            ->expects($this->once())
+            ->method('processQuery')
+            ->willReturn($qb);
         $this->datasource->process($datagrid, $configs);
         $this->datasource->bindParameters($parameters, $append);
     }

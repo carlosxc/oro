@@ -3,24 +3,22 @@
 namespace Oro\Bundle\EntityConfigBundle\EventListener;
 
 use Doctrine\ORM\QueryBuilder;
-
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-
-use Oro\Bundle\DataGridBundle\Extension\Action\ActionExtension;
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
-use Oro\Bundle\DataGridBundle\Event\BuildAfter;
-use Oro\Bundle\DataGridBundle\Event\BuildBefore;
-use Oro\Bundle\DataGridBundle\Extension\Formatter\Configuration;
 use Oro\Bundle\DataGridBundle\Datasource\Orm\OrmDatasource;
 use Oro\Bundle\DataGridBundle\Datasource\ResultRecord;
+use Oro\Bundle\DataGridBundle\Event\BuildAfter;
+use Oro\Bundle\DataGridBundle\Event\BuildBefore;
+use Oro\Bundle\DataGridBundle\Extension\Action\ActionExtension;
+use Oro\Bundle\DataGridBundle\Extension\Formatter\Configuration;
 use Oro\Bundle\DataGridBundle\Provider\SystemAwareResolver;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\FilterBundle\Filter\FilterUtility;
+use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
 
 /**
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
-abstract class AbstractConfigGridListener implements EventSubscriberInterface
+abstract class AbstractConfigGridListener
 {
     const TYPE_HTML     = 'html';
     const TYPE_TWIG     = 'twig';
@@ -46,17 +44,6 @@ abstract class AbstractConfigGridListener implements EventSubscriberInterface
     {
         $this->configManager    = $configManager;
         $this->datagridResolver = $datagridResolver;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function getSubscribedEvents()
-    {
-        return [
-            'oro_datagrid.datagrid.build.after.' . static::GRID_NAME  => 'onBuildAfter',
-            'oro_datagrid.datagrid.build.before.' . static::GRID_NAME => 'onBuildBefore',
-        ];
     }
 
     /**
@@ -182,7 +169,9 @@ abstract class AbstractConfigGridListener implements EventSubscriberInterface
                     'data_name'      => isset($field['expression']) ? $field['expression'] : null,
                     'apply_callback' => function (OrmDatasource $datasource, $sortKey, $direction) {
                         if ($sortKey) {
-                            $datasource->getQueryBuilder()->addOrderBy($sortKey, $direction);
+                            QueryBuilderUtil::checkField($sortKey);
+                            $datasource->getQueryBuilder()
+                                ->addOrderBy($sortKey, QueryBuilderUtil::getSortOrder($direction));
                         }
                     }
                 ];
@@ -228,8 +217,15 @@ abstract class AbstractConfigGridListener implements EventSubscriberInterface
                     'icon'  => isset($config['icon']) ? $config['icon'] : 'question-sign',
                     'link'  => strtolower($config['name']) . '_link',
                     'type'  => isset($config['type']) ? $config['type'] : self::TYPE_NAVIGATE,
-                    //'confirmation' => isset($config['confirmation']) ? $config['confirmation'] : false
                 ];
+
+                if (isset($config['acl_resource'])) {
+                    $configItem['acl_resource'] = $config['acl_resource'];
+                }
+
+                if (isset($config['defaultMessages'])) {
+                    $configItem['defaultMessages'] = $config['defaultMessages'];
+                }
 
                 $actions = array_merge($actions, [strtolower($config['name']) => $configItem]);
             }
@@ -343,10 +339,13 @@ abstract class AbstractConfigGridListener implements EventSubscriberInterface
      */
     protected function prepareQuery(QueryBuilder $query, $rootAlias, $joinAlias, $itemsType)
     {
+        QueryBuilderUtil::checkIdentifier($rootAlias);
+        QueryBuilderUtil::checkIdentifier($joinAlias);
         $providers = $this->configManager->getProviders();
         foreach ($providers as $provider) {
             $configItems = $provider->getPropertyConfig()->getItems($itemsType);
             foreach ($configItems as $code => $item) {
+                QueryBuilderUtil::checkIdentifier($code);
                 if (!isset($item['grid'])) {
                     continue;
                 }

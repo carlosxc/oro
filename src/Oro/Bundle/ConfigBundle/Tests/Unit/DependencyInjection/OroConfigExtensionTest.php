@@ -2,12 +2,11 @@
 
 namespace Oro\Bundle\ConfigBundle\DependencyInjection;
 
+use Oro\Component\Config\CumulativeResourceManager;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Yaml\Parser;
 
-use Oro\Component\Config\CumulativeResourceManager;
-
-class OroConfigExtensionTest extends \PHPUnit_Framework_TestCase
+class OroConfigExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ContainerBuilder
@@ -26,7 +25,7 @@ class OroConfigExtensionTest extends \PHPUnit_Framework_TestCase
         $extension = new OroConfigExtension();
         $configs = array();
 
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
         $container->expects($this->any())
             ->method('setParameter')
             ->will(

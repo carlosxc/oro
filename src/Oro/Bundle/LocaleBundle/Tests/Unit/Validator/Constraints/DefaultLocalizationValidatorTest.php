@@ -2,31 +2,30 @@
 
 namespace Oro\Bundle\LocaleBundle\Tests\Unit\Validator\Constraints;
 
-use Symfony\Component\Form\FormInterface;
-use Symfony\Component\Validator\Context\ExecutionContextInterface;
-use Symfony\Component\Validator\Constraint;
-use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
-
 use Oro\Bundle\LocaleBundle\Entity\Localization;
 use Oro\Bundle\LocaleBundle\Manager\LocalizationManager;
 use Oro\Bundle\LocaleBundle\Validator\Constraints;
 use Oro\Bundle\LocaleBundle\Validator\Constraints\DefaultLocalizationValidator;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 
-class DefaultLocalizationValidatorTest extends \PHPUnit_Framework_TestCase
+class DefaultLocalizationValidatorTest extends \PHPUnit\Framework\TestCase
 {
     /** @var Constraints\DefaultLocalization */
     protected $constraint;
 
-    /** @var ConstraintViolationBuilderInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ConstraintViolationBuilderInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $violationBuilder;
 
-    /** @var ExecutionContextInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var ExecutionContextInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $context;
 
-    /** @var LocalizationManager|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var LocalizationManager|\PHPUnit\Framework\MockObject\MockObject */
     protected $localizationManager;
 
-    /** @var FormInterface|\PHPUnit_Framework_MockObject_MockObject */
+    /** @var FormInterface|\PHPUnit\Framework\MockObject\MockObject */
     protected $form;
 
     /** @var DefaultLocalizationValidator */
@@ -38,7 +37,7 @@ class DefaultLocalizationValidatorTest extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->constraint = new Constraints\DefaultLocalization();
-        $this->violationBuilder = $this->getMock(ConstraintViolationBuilderInterface::class);
+        $this->violationBuilder = $this->createMock(ConstraintViolationBuilderInterface::class);
         $this->context = $this->getMockBuilder(ExecutionContextInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
@@ -47,7 +46,7 @@ class DefaultLocalizationValidatorTest extends \PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->form = $this->getMock(FormInterface::class);
+        $this->form = $this->createMock(FormInterface::class);
 
         $this->validator = new DefaultLocalizationValidator($this->localizationManager);
         $this->validator->initialize($this->context);

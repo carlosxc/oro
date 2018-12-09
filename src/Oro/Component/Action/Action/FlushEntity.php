@@ -5,8 +5,7 @@ namespace Oro\Component\Action\Action;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\EntityManager;
-
-use Oro\Component\Action\Model\ContextAccessor;
+use Oro\Component\ConfigExpression\ContextAccessor;
 
 /**
  * Flush entity
@@ -79,6 +78,7 @@ class FlushEntity extends AbstractAction
         try {
             $entityManager->persist($entity);
             $entityManager->flush($entity);
+            $entityManager->refresh($entity);
             $entityManager->commit();
         } catch (\Exception $e) {
             $entityManager->rollback();

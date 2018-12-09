@@ -3,16 +3,14 @@
 namespace Oro\Bundle\UserBundle\Tests\Unit\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
-
-use Symfony\Component\PropertyAccess\PropertyAccess;
-
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\UserBundle\Entity\AbstractUser;
 use Oro\Bundle\UserBundle\Entity\Role;
 use Oro\Bundle\UserBundle\Entity\User;
 use Oro\Bundle\UserBundle\Tests\Unit\Stub\AbstractUserStub;
+use Symfony\Component\PropertyAccess\PropertyAccess;
 
-class AbstractUserTest extends \PHPUnit_Framework_TestCase
+class AbstractUserTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @return AbstractUser
@@ -52,10 +50,10 @@ class AbstractUserTest extends \PHPUnit_Framework_TestCase
         $user = $this->getUser();
         $requested = new \DateTime('-10 seconds');
 
-        $user->setPasswordRequestedAt($requested);
         $user->setPasswordRequestedAt(null);
+        $this->assertTrue($user->isPasswordRequestNonExpired(15));
 
-        $this->assertFalse($user->isPasswordRequestNonExpired(15));
+        $user->setPasswordRequestedAt($requested);
         $this->assertFalse($user->isPasswordRequestNonExpired(5));
     }
 
@@ -278,27 +276,5 @@ class AbstractUserTest extends \PHPUnit_Framework_TestCase
         $this->assertNull($entity->getOrganization());
         $entity->setOrganization($organization);
         $this->assertSame($organization, $entity->getOrganization());
-    }
-
-    public function testOrganizations()
-    {
-        $user = $this->getUser();
-        $disabledOrganization = new Organization();
-        $organization = new Organization();
-        $organization->setEnabled(true);
-
-        $user->setOrganizations(new ArrayCollection([$organization]));
-        $this->assertContains($organization, $user->getOrganizations());
-
-        $user->removeOrganization($organization);
-        $this->assertNotContains($organization, $user->getOrganizations());
-
-        $user->addOrganization($organization);
-        $this->assertContains($organization, $user->getOrganizations());
-
-        $user->addOrganization($disabledOrganization);
-        $result = $user->getOrganizations(true);
-        $this->assertCount(1, $result);
-        $this->assertSame($result->first(), $organization);
     }
 }

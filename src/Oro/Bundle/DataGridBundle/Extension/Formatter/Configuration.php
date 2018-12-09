@@ -2,10 +2,9 @@
 
 namespace Oro\Bundle\DataGridBundle\Extension\Formatter;
 
+use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
-
-use Oro\Bundle\DataGridBundle\Extension\Formatter\Property\PropertyInterface;
 
 class Configuration implements ConfigurationInterface
 {
@@ -58,7 +57,7 @@ class Configuration implements ConfigurationInterface
                     ->booleanNode(PropertyInterface::TRANSLATABLE_KEY)->defaultTrue()->end()
                     ->booleanNode('editable')->defaultFalse()->end()
                     ->booleanNode('renderable')->end()
-                    ->booleanNode('manageable')->end()
+                    ->booleanNode('shortenableLabel')->defaultTrue()->end()
                     ->scalarNode('order')->end()
                     ->booleanNode('required')->end()
                 ->end()

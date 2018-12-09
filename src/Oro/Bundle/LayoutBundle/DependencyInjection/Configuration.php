@@ -2,16 +2,17 @@
 
 namespace Oro\Bundle\LayoutBundle\DependencyInjection;
 
+use Oro\Bundle\ConfigBundle\DependencyInjection\SettingsBuilder;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
-
-use Oro\Bundle\ConfigBundle\DependencyInjection\SettingsBuilder;
 
 class Configuration implements ConfigurationInterface
 {
     const DEFAULT_LAYOUT_PHP_RESOURCE  = 'OroLayoutBundle:Layout/php';
     const DEFAULT_LAYOUT_TWIG_RESOURCE = 'OroLayoutBundle:Layout:div_layout.html.twig';
+
+    const AUTO = 'auto';
 
     /**
      * {@inheritdoc}
@@ -22,6 +23,9 @@ class Configuration implements ConfigurationInterface
         $rootNode    = $treeBuilder->root('oro_layout');
 
         SettingsBuilder::append($rootNode, [
+            'development_settings_feature_enabled' => [
+                'value' => '%kernel.debug%'
+            ],
             'debug_block_info' => [
                 'value' => false
             ],
@@ -126,6 +130,9 @@ class Configuration implements ConfigurationInterface
         $configTreeBuilder = new TreeBuilder();
         $configNode = $configTreeBuilder->root('config');
         $configNode->info('Layout theme additional config')->end();
+        // Allow extra configuration keys to be present in this configuration node.
+        // This is needed to give other bundles ability to declare and add custom configuration.
+        $configNode->ignoreExtraKeys(false);
 
         $node
             ->useAttributeAsKey('theme-identifier')
@@ -195,7 +202,7 @@ class Configuration implements ConfigurationInterface
                 ->children()
                     ->arrayNode('inputs')
                         ->info('Input assets list')
-                        ->prototype('scalar')->end()
+                        ->prototype('variable')->end()
                     ->end()
                     ->arrayNode('filters')
                         ->info('Filters to manipulate input assets')
@@ -207,6 +214,10 @@ class Configuration implements ConfigurationInterface
                 ->end()
             ->end();
 
+        $widthHeightValidator = function ($value) {
+            return !is_null($value) && !is_int($value) && self::AUTO !== $value;
+        };
+
         $imagesNode
             ->children()
                 ->arrayNode('types')
@@ -214,8 +225,39 @@ class Configuration implements ConfigurationInterface
                     ->prototype('array')
                         ->children()
                             ->scalarNode('label')->cannotBeEmpty()->end()
-                            ->scalarNode('dimensions')->defaultNull()->end()
                             ->scalarNode('max_number')->defaultNull()->end()
+                            ->arrayNode('dimensions')
+                                ->prototype('scalar')->end()
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+
+                ->arrayNode('dimensions')
+                    ->useAttributeAsKey('name')
+                    ->prototype('array')
+                        ->validate()
+                            ->ifTrue(function (array $dimension) {
+                                return self::AUTO === $dimension['width'] && self::AUTO === $dimension['height'];
+                            })
+                            ->thenInvalid('Either width or height can be set to \'auto\', not both.')
+                        ->end()
+                        ->children()
+                            ->scalarNode('width')
+                                ->validate()
+                                    ->ifTrue($widthHeightValidator)
+                                    ->thenInvalid('Width value can be null, \'auto\' or integer only')
+                                ->end()
+                            ->end()
+                            ->scalarNode('height')
+                                ->validate()
+                                    ->ifTrue($widthHeightValidator)
+                                    ->thenInvalid('Height value can be null, \'auto\' or integer only')
+                                ->end()
+                            ->end()
+                            ->arrayNode('options')
+                                ->prototype('variable')
+                            ->end()
                         ->end()
                     ->end()
                 ->end()
@@ -223,5 +265,38 @@ class Configuration implements ConfigurationInterface
 
         $configNode->append($assetsNode);
         $configNode->append($imagesNode);
+        $configNode->append($this->getPageTemplatesNode($treeBuilder));
+    }
+
+    /**
+     * @param TreeBuilder $treeBuilder
+     * @return ArrayNodeDefinition
+     */
+    protected function getPageTemplatesNode(TreeBuilder $treeBuilder)
+    {
+        $pageTemplatesNode = $treeBuilder->root('page_templates');
+        $pageTemplatesNode
+            ->children()
+                ->arrayNode('templates')
+                    ->info('List of page templates')
+                    ->prototype('array')
+                        ->children()
+                            ->scalarNode('route_name')->cannotBeEmpty()->end()
+                            ->scalarNode('key')->cannotBeEmpty()->end()
+                            ->scalarNode('label')->cannotBeEmpty()->end()
+                            ->scalarNode('description')->defaultNull()->end()
+                            ->scalarNode('screenshot')->defaultNull()->end()
+                            ->booleanNode('enabled')->defaultNull()->end()
+                        ->end()
+                    ->end()
+                ->end()
+                ->arrayNode('titles')
+                    ->useAttributeAsKey('titles')
+                        ->prototype('scalar')->end()
+                    ->end()
+                ->end()
+            ->end();
+
+        return $pageTemplatesNode;
     }
 }

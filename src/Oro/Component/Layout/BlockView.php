@@ -23,6 +23,23 @@ class BlockView extends FormView
     public function __construct(BlockView $parent = null)
     {
         parent::__construct($parent);
+
         unset($this->vars['value']);
+    }
+
+    /**
+     * @return string
+     */
+    public function getId()
+    {
+        return array_key_exists('id', $this->vars) ? $this->vars['id'] : null;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isVisible()
+    {
+        return array_key_exists('visible', $this->vars) ? (bool) $this->vars['visible'] : true;
     }
 }

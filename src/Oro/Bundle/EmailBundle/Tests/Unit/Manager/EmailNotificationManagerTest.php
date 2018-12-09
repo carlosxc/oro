@@ -1,6 +1,6 @@
 <?php
 
-namespace Oro\src\Oro\Bundle\EmailBundle\Tests\Unit\Manager;
+namespace Oro\Bundle\EmailBundle\Tests\Unit\Manager;
 
 use Oro\Bundle\EmailBundle\Entity\EmailBody;
 use Oro\Bundle\EmailBundle\Entity\EmailOwnerInterface;
@@ -14,27 +14,27 @@ use Oro\Bundle\UIBundle\Tools\HtmlTagHelper;
 /**
  * Class EmailNotificationManagerTest
  *
- * @package Oro\src\Oro\Bundle\EmailBundle\Tests\Unit\Manager
+ * @package Oro\Bundle\EmailBundle\Tests\Unit\Manager
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  */
-class EmailNotificationManagerTest extends \PHPUnit_Framework_TestCase
+class EmailNotificationManagerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $configManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $router;
 
     /** @var HtmlTagHelper */
     protected $htmlTagHelper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $entityManager;
 
     /** @var EmailNotificationManager */
     protected $emailNotificationManager;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $repository;
 
     protected function setUp()
@@ -98,34 +98,6 @@ class EmailNotificationManagerTest extends \PHPUnit_Framework_TestCase
     {
         $user = $this->getMockBuilder('Oro\Bundle\UserBundle\Entity\User')->disableOriginalConstructor()->getMock();
 
-        $htmlBody = <<<EMAILBODY
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 
-Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
-   <head>
-      <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-      <title></title>
- <body style="padding:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-<style type="text/css">
-body {font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;}
-</style>
-<script type="text/javascript">  document.write ('some text');</script>
-<p>Lorem <b>ipsum</b> </p>
-<span>dolor sit amet, consectetur adipiscing elit.</span>
-<table>
-  <tr>
-    <th>Integer</th>
-    <th>sagittis</th>
-  </tr>
-  <tr>
-    <td>ornare</td>
-    <td>do</td>
-  </tr>
-</table>
-</body>
-</html>
-EMAILBODY;
-
         $emails = [
             $this->prepareEmailUser(
                 [
@@ -141,7 +113,7 @@ EMAILBODY;
                 [
                     'getId'          => 2,
                     'getSubject'     => 'subject_1',
-                    'getBodyContent' => $htmlBody,
+                    'getBodyContent' => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer',
                     'getFromName'    => 'fromName_1',
                 ],
                 $user,
@@ -168,7 +140,7 @@ EMAILBODY;
                 'id' => 2,
                 'seen' => 1,
                 'subject' => 'subject_1',
-                'bodyContent' => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer sagittis ornare do',
+                'bodyContent' => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer',
                 'fromName' => 'fromName_1',
                 'linkFromName' => 'oro_email_email_reply',
             ]
@@ -198,7 +170,7 @@ EMAILBODY;
     protected function prepareEmailUser($values, $user, $seen)
     {
         $emailBody = new EmailBody();
-        $emailBody->setBodyContent($values['getBodyContent']);
+        $emailBody->setTextBody($values['getBodyContent']);
 
         $email = new Email();
         $email->setId($values['getId']);

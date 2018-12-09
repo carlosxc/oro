@@ -4,74 +4,35 @@ namespace Oro\Bundle\ApiBundle\Metadata;
 
 use Oro\Component\ChainProcessor\ToArrayInterface;
 
-class MetaPropertyMetadata implements ToArrayInterface
+/**
+ * The metadata for an entity property that provides some meta information about this entity.
+ */
+class MetaPropertyMetadata extends PropertyMetadata implements ToArrayInterface
 {
     /** @var string */
-    protected $name;
-
-    /** @var string */
-    protected $dataType;
+    private $resultName;
 
     /**
-     * @param string|null $name
-     */
-    public function __construct($name = null)
-    {
-        $this->name = $name;
-    }
-
-    /**
-     * Gets a native PHP array representation of the object.
+     * Gets the name by which the meta property should be returned in the response.
      *
-     * @return array [key => value, ...]
+     * @return string
      */
-    public function toArray()
+    public function getResultName()
     {
-        $result = ['name' => $this->name];
-        if ($this->dataType) {
-            $result['data_type'] = $this->dataType;
+        if (null === $this->resultName) {
+            return $this->getName();
         }
 
-        return $result;
+        return $this->resultName;
     }
 
     /**
-     * Gets the name of the property.
+     * Sets the name by which the meta property should be returned in the response.
      *
-     * @return string
+     * @param string $resultName
      */
-    public function getName()
+    public function setResultName($resultName)
     {
-        return $this->name;
-    }
-
-    /**
-     * Sets the name of the property.
-     *
-     * @param string $name
-     */
-    public function setName($name)
-    {
-        $this->name = $name;
-    }
-
-    /**
-     * Gets the data-type of the property.
-     *
-     * @return string
-     */
-    public function getDataType()
-    {
-        return $this->dataType;
-    }
-
-    /**
-     * Sets the data-type of the property.
-     *
-     * @param string $dataType
-     */
-    public function setDataType($dataType)
-    {
-        $this->dataType = $dataType;
+        $this->resultName = $resultName;
     }
 }

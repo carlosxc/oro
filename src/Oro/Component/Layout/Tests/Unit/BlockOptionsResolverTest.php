@@ -6,9 +6,9 @@ use Oro\Component\Layout\Block\Type\BaseType;
 use Oro\Component\Layout\BlockOptionsResolver;
 use Oro\Component\Layout\Tests\Unit\Fixtures\Layout\Block\Type\LogoType;
 
-class BlockOptionsResolverTest extends \PHPUnit_Framework_TestCase
+class BlockOptionsResolverTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $registry;
 
     /** @var BlockOptionsResolver */
@@ -16,7 +16,7 @@ class BlockOptionsResolverTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->registry             = $this->getMock('Oro\Component\Layout\LayoutRegistryInterface');
+        $this->registry             = $this->createMock('Oro\Component\Layout\LayoutRegistryInterface');
         $this->blockOptionsResolver = new BlockOptionsResolver($this->registry);
     }
 

@@ -2,13 +2,14 @@
 
 namespace Oro\Bundle\IntegrationBundle\Tests\Functional\Entity\Repository;
 
+use Oro\Bundle\IntegrationBundle\Entity\Channel;
 use Oro\Bundle\IntegrationBundle\Entity\Repository\ChannelRepository;
 use Oro\Bundle\IntegrationBundle\Entity\Status;
-
+use Oro\Bundle\IntegrationBundle\Tests\Functional\DataFixtures\LoadStatusData;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
 
 /**
- * @dbIsolation
+ * @dbIsolationPerTest
  */
 class ChannelRepositoryTest extends WebTestCase
 {
@@ -20,13 +21,8 @@ class ChannelRepositoryTest extends WebTestCase
     protected function setUp()
     {
         $this->initClient();
-        $this->loadFixtures(
-            [
-                'Oro\Bundle\IntegrationBundle\Tests\Functional\DataFixtures\LoadStatusData',
-                'Oro\Bundle\IntegrationBundle\Tests\Functional\DataFixtures\LoadJobData'
-            ]
-        );
-        $this->repository = $this->getContainer()->get('doctrine')->getRepository('OroIntegrationBundle:Channel');
+        $this->loadFixtures([LoadStatusData::class]);
+        $this->repository = $this->getContainer()->get('doctrine')->getRepository(Channel::class);
     }
 
     public function testRepositoryIsRegistered()
@@ -56,71 +52,32 @@ class ChannelRepositoryTest extends WebTestCase
         );
     }
 
-    /**
-     * @dataProvider getRunningSyncJobsCountDataProvider
-     *
-     * @param string        $command
-     * @param int           $expectedCount
-     * @param null|string   $integration
-     */
-    public function testGetRunningSyncJobsCount($command, $expectedCount, $integration = null)
+    public function testFindByTypeReturnsCorrectData()
     {
-        $integration = $integration ? $this->getReference($integration)->getId() : null;
-        $actual = $this->repository->getRunningSyncJobsCount($command, $integration);
+        $fooIntegration = $this->getReference('oro_integration:foo_integration');
 
-        $this->assertEquals($expectedCount, $actual);
+        static::assertSame([$fooIntegration], $this->repository->findByType('foo'));
     }
 
-    public function getRunningSyncJobsCountDataProvider()
+    public function testFindByTypeAndExclude()
     {
-        return [
-            [
-                'command' => 'first_test_command',
-                'expectedCount' => 2
-            ],
-            [
-                'command' => 'second_test_command',
-                'expectedCount' => 1
-            ],
-            [
-                'command' => 'third_test_command',
-                'expectedCount' => 2,
-                'integration' => 'oro_integration:foo_integration',
-            ]
-        ];
+        $expectedIntegration = $this->getReference('oro_integration:bar_integration');
+        $excludedIntegration = $this->getReference('oro_integration:extended_bar_integration');
+
+        static::assertContains(
+            $expectedIntegration,
+            $this->repository->findByTypeAndExclude('bar', [$excludedIntegration])
+        );
     }
 
-    /**
-     * @dataProvider getExistingSyncJobsCountDataProvider
-     *
-     * @param string      $command
-     * @param int         $expectedCount
-     * @param null|string $integration
-     */
-    public function testGetExistingSyncJobsCount($command, $expectedCount, $integration = null)
+    public function testFindByTypeAndExcludeById()
     {
-        $integration = $integration ? $this->getReference($integration)->getId() : null;
-        $actual      = $this->repository->getExistingSyncJobsCount($command, $integration);
+        $expectedIntegration = $this->getReference('oro_integration:bar_integration');
+        $excludedIntegration = $this->getReference('oro_integration:extended_bar_integration');
 
-        self::assertEquals($expectedCount, $actual);
-    }
-
-    public function getExistingSyncJobsCountDataProvider()
-    {
-        return [
-            [
-                'command'       => 'first_test_command',
-                'expectedCount' => 3
-            ],
-            [
-                'command'       => 'second_test_command',
-                'expectedCount' => 4
-            ],
-            [
-                'command'       => 'third_test_command',
-                'expectedCount' => 3,
-                'integration'   => 'oro_integration:foo_integration',
-            ]
-        ];
+        static::assertContains(
+            $expectedIntegration,
+            $this->repository->findByTypeAndExclude('bar', [$excludedIntegration->getId()])
+        );
     }
 }

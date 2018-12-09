@@ -5,25 +5,26 @@ namespace Oro\Bundle\EntityExtendBundle\Tools;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Query;
-
-use Symfony\Component\Translation\TranslatorInterface;
-
+use Gedmo\Translatable\Query\TreeWalker\TranslationWalker;
 use Gedmo\Translatable\TranslatableListener;
-
 use Oro\Bundle\EntityConfigBundle\Config\ConfigInterface;
 use Oro\Bundle\EntityConfigBundle\Config\ConfigManager;
 use Oro\Bundle\EntityConfigBundle\Config\Id\FieldConfigId;
+use Oro\Bundle\EntityConfigBundle\Translation\ConfigTranslationHelper;
 use Oro\Bundle\EntityExtendBundle\Entity\AbstractEnumValue;
 use Oro\Bundle\EntityExtendBundle\Entity\Repository\EnumValueRepository;
-use Oro\Bundle\TranslationBundle\Entity\Repository\TranslationRepository;
-use Oro\Bundle\TranslationBundle\Entity\Translation;
-use Oro\Bundle\TranslationBundle\Translation\DynamicTranslationMetadataCache;
+use Oro\Bundle\TranslationBundle\Translation\TranslatableQueryTrait;
+use Oro\Bundle\TranslationBundle\Translation\Translator;
+use Symfony\Component\Translation\TranslatorInterface;
 
 /**
+ * This class contains logic of enum configuration, options and translations synchronization
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
 class EnumSynchronizer
 {
+    use TranslatableQueryTrait;
+
     /** @var ConfigManager */
     protected $configManager;
 
@@ -33,25 +34,25 @@ class EnumSynchronizer
     /** @var TranslatorInterface */
     protected $translator;
 
-    /** @var DynamicTranslationMetadataCache */
-    protected $dbTranslationMetadataCache;
+    /** @var ConfigTranslationHelper */
+    protected $translationHelper;
 
     /**
-     * @param ConfigManager                   $configManager
-     * @param ManagerRegistry                 $doctrine
-     * @param TranslatorInterface             $translator
-     * @param DynamicTranslationMetadataCache $dbTranslationMetadataCache
+     * @param ConfigManager $configManager
+     * @param ManagerRegistry $doctrine
+     * @param TranslatorInterface $translator
+     * @param ConfigTranslationHelper $translationHelper
      */
     public function __construct(
         ConfigManager $configManager,
         ManagerRegistry $doctrine,
         TranslatorInterface $translator,
-        DynamicTranslationMetadataCache $dbTranslationMetadataCache
+        ConfigTranslationHelper $translationHelper
     ) {
-        $this->configManager              = $configManager;
-        $this->doctrine                   = $doctrine;
-        $this->translator                 = $translator;
-        $this->dbTranslationMetadataCache = $dbTranslationMetadataCache;
+        $this->configManager = $configManager;
+        $this->doctrine = $doctrine;
+        $this->translator = $translator;
+        $this->translationHelper = $translationHelper;
     }
 
     /**
@@ -91,7 +92,7 @@ class EnumSynchronizer
                     $enumOptions        = $enumFieldConfig->get('enum_options');
 
                     if (empty($locale)) {
-                        $locale = Translation::DEFAULT_LOCALE;
+                        $locale = Translator::DEFAULT_LOCALE;
                     }
 
                     if (!empty($enumName)) {
@@ -141,7 +142,7 @@ class EnumSynchronizer
             // labels initialization
             $labelsToBeUpdated[$labelKey]       = $enumName;
             $labelsToBeUpdated[$pluralLabelKey] = $enumName;
-            if ($locale === Translation::DEFAULT_LOCALE) {
+            if ($locale === Translator::DEFAULT_LOCALE) {
                 // set empty description only for default locale
                 $labelsToBeUpdated[$descriptionKey] = '';
             }
@@ -150,27 +151,8 @@ class EnumSynchronizer
             $labelsToBeUpdated[$labelKey]       = $enumName;
             $labelsToBeUpdated[$pluralLabelKey] = $enumName;
         }
-        if (!empty($labelsToBeUpdated)) {
-            /** @var EntityManager $em */
-            $em = $this->doctrine->getManagerForClass(Translation::ENTITY_NAME);
-            /** @var TranslationRepository $translationRepo */
-            $translationRepo = $em->getRepository(Translation::ENTITY_NAME);
-            $transValues     = [];
-            foreach ($labelsToBeUpdated as $labelKey => $labelText) {
-                // save into translation table
-                $transValues[] = $translationRepo->saveValue(
-                    $labelKey,
-                    $labelText,
-                    $locale,
-                    TranslationRepository::DEFAULT_DOMAIN,
-                    Translation::SCOPE_UI
-                );
-            }
-            // flush translations to db
-            $em->flush($transValues);
-            // mark translation cache dirty
-            $this->dbTranslationMetadataCache->updateTimestamp($locale);
-        }
+
+        $this->translationHelper->saveTranslations($labelsToBeUpdated);
     }
 
     /**
@@ -216,55 +198,34 @@ class EnumSynchronizer
 
         /** @var EntityManager $em */
         $em = $this->doctrine->getManagerForClass($enumValueClassName);
-        /** @var EnumValueRepository $enumRepo */
-        $enumRepo = $em->getRepository($enumValueClassName);
+        $em->beginTransaction();
 
-        /** @var AbstractEnumValue[] $values */
-        $values = $enumRepo->createQueryBuilder('o')
-            ->getQuery()
-            ->setHint(TranslatableListener::HINT_TRANSLATABLE_LOCALE, $locale)
-            ->getResult();
+        try {
+            /** @var EnumValueRepository $enumRepo */
+            $enumRepo = $em->getRepository($enumValueClassName);
 
-        $ids = [];
-        /** @var AbstractEnumValue[] $changes */
-        $changes = [];
-        foreach ($values as $value) {
-            $id        = $value->getId();
-            $optionKey = $this->getEnumOptionKey($id, $options);
-            if ($optionKey !== null) {
-                $ids[] = $id;
-                if ($this->setEnumValueProperties($value, $options[$optionKey])) {
-                    $changes[] = $value;
+            /** @var AbstractEnumValue[] $values */
+            $values = $enumRepo->createQueryBuilder('o')
+                ->getQuery()
+                ->setHint(TranslatableListener::HINT_TRANSLATABLE_LOCALE, $locale)
+                ->getResult();
+
+            $changes = $this->processValues($values, $options, $em, $enumRepo);
+
+            if (!empty($changes)) {
+                if ($locale !== Translator::DEFAULT_LOCALE) {
+                    foreach ($changes as $value) {
+                        $value->setLocale($locale);
+                    }
                 }
-                unset($options[$optionKey]);
-            } else {
-                $em->remove($value);
-                $changes[] = $value;
+                $em->flush($changes);
+                // mark translation cache dirty
+                $this->translationHelper->invalidateCache($locale);
             }
-        }
-
-        foreach ($options as $option) {
-            $id    = $this->generateEnumValueId($option['label'], $ids);
-            $ids[] = $id;
-            $value = $enumRepo->createEnumValue(
-                $option['label'],
-                $option['priority'],
-                $option['is_default'],
-                $id
-            );
-            $em->persist($value);
-            $changes[] = $value;
-        }
-
-        if (!empty($changes)) {
-            if ($locale !== Translation::DEFAULT_LOCALE) {
-                foreach ($changes as $value) {
-                    $value->setLocale($locale);
-                }
-            }
-            $em->flush($changes);
-            // mark translation cache dirty
-            $this->dbTranslationMetadataCache->updateTimestamp($locale);
+            $em->commit();
+        } catch (\Exception $e) {
+            $em->rollback();
+            throw $e;
         }
     }
 
@@ -300,21 +261,23 @@ class EnumSynchronizer
         /** @var EntityManager $em */
         $em       = $this->doctrine->getManagerForClass($enumValueClassName);
         $enumRepo = $em->getRepository($enumValueClassName);
-
-        return $enumRepo->createQueryBuilder('e')
+        $query = $enumRepo->createQueryBuilder('e')
             ->select('e.id, e.priority, e.name as label, e.default as is_default')
             ->orderBy('e.priority')
             ->getQuery()
             ->setHint(
                 Query::HINT_CUSTOM_OUTPUT_WALKER,
-                'Gedmo\\Translatable\\Query\\TreeWalker\\TranslationWalker'
-            )
-            ->getArrayResult();
+                TranslationWalker::class
+            );
+
+        $this->addTranslatableLocaleHint($query, $em);
+
+        return $query->getArrayResult();
     }
 
     /**
      * @param string $id
-     * @param array  $options
+     * @param array $options
      *
      * @return int|null
      */
@@ -377,5 +340,123 @@ class EnumSynchronizer
         }
 
         return $hasChanges;
+    }
+
+    /**
+     * @param array|AbstractEnumValue[] $values
+     * @param array $options
+     * @param EntityManager $em
+     * @param EnumValueRepository $enumRepo
+     *
+     * @return array|AbstractEnumValue[]
+     */
+    protected function processValues(array $values, array $options, EntityManager $em, EnumValueRepository $enumRepo)
+    {
+        $this->fillOptionIds($values, $options);
+
+        /** @var AbstractEnumValue[] $changes */
+        $changes = [];
+        /** @var AbstractEnumValue[] $removes */
+        $removes = [];
+        foreach ($values as $value) {
+            $optionKey = $this->getEnumOptionKey($value->getId(), $options);
+            // If generated id is equal to existing one and generated was prefixed
+            // Then remove existing value and create new one
+            if ($optionKey !== null && !empty($options[$optionKey]['generated'])) {
+                $originalId = $this->generateEnumValueId($options[$optionKey]['label'], []);
+                if ($originalId !== $options[$optionKey]['id']) {
+                    $optionKey = null;
+                }
+            }
+
+            // If existing value was found by option id or label if id was empty - update value
+            if ($optionKey !== null) {
+                if ($this->setEnumValueProperties($value, $options[$optionKey])) {
+                    $changes[] = $value;
+                }
+                unset($options[$optionKey]);
+            } else {
+                // If there is no matching option for existing value - remove value
+                $em->remove($value);
+                $removes[] = $value;
+            }
+        }
+        if ($removes) {
+            $em->flush($removes);
+        }
+
+        foreach ($options as $option) {
+            // Create new values for options that had no matching value
+            $value = $enumRepo->createEnumValue(
+                $option['label'],
+                $option['priority'],
+                $option['is_default'],
+                $option['id']
+            );
+            $em->persist($value);
+            $changes[] = $value;
+        }
+
+        return $changes;
+    }
+
+    /**
+     * @param array|AbstractEnumValue[] $values
+     * @param array $option
+     * @return null|string
+     */
+    protected function getIdByExistingValues(array $values, array $option)
+    {
+        foreach ($values as $value) {
+            if ($value->getName() === $option['label']) {
+                return $value->getId();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array $values
+     * @param array $options
+     */
+    protected function fillOptionIds(array $values, array &$options)
+    {
+        $ids = array_map(function (AbstractEnumValue $value) {
+            return $value->getId();
+        }, $values);
+        // Fill existing ids by given option ids or by value ids if labels are equal
+        foreach ($options as &$option) {
+            if ($this->isEmptyOption($option, 'id')) {
+                $id = $this->getIdByExistingValues($values, $option);
+                if ($id) {
+                    $option['id'] = $id;
+                    $ids[] = $option['id'];
+                }
+            } else {
+                $ids[] = $option['id'];
+            }
+        }
+        unset($option);
+
+        // Generate ids for options without ids
+        foreach ($options as &$option) {
+            if ($this->isEmptyOption($option, 'id')) {
+                $id = $this->generateEnumValueId($option['label'], $ids);
+                $option['generated'] = true;
+                $option['id'] = $id;
+                $ids[] = $option['id'];
+            }
+        }
+    }
+
+    /**
+     * @param array $option
+     * @param string $key
+     * @return bool
+     */
+    protected function isEmptyOption(array $option, $key): bool
+    {
+        return !array_key_exists($key, $option) || $option[$key] === null || $option[$key] === '';
     }
 }

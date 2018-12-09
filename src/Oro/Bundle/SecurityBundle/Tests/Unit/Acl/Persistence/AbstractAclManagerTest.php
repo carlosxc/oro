@@ -2,14 +2,13 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Persistence;
 
+use Oro\Bundle\SecurityBundle\Acl\Persistence\BaseAclManager;
 use Symfony\Component\Security\Acl\Domain\RoleSecurityIdentity;
 use Symfony\Component\Security\Acl\Domain\UserSecurityIdentity;
 
-use Oro\Bundle\SecurityBundle\Acl\Persistence\BaseAclManager;
-
-class AbstractAclManagerTest extends \PHPUnit_Framework_TestCase
+class AbstractAclManagerTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $abstract;
 
     protected function setUp()
@@ -28,7 +27,7 @@ class AbstractAclManagerTest extends \PHPUnit_Framework_TestCase
             $this->abstract->getSid('ROLE_TEST')
         );
 
-        $src = $this->getMock('Symfony\Component\Security\Core\Role\RoleInterface');
+        $src = $this->createMock('Symfony\Component\Security\Core\Role\RoleInterface');
         $src->expects($this->once())
             ->method('getRole')
             ->will($this->returnValue('ROLE_TEST'));
@@ -37,7 +36,7 @@ class AbstractAclManagerTest extends \PHPUnit_Framework_TestCase
             $this->abstract->getSid($src)
         );
 
-        $src = $this->getMock('Symfony\Component\Security\Core\User\UserInterface');
+        $src = $this->createMock('Symfony\Component\Security\Core\User\UserInterface');
         $src->expects($this->once())
             ->method('getUsername')
             ->will($this->returnValue('Test'));
@@ -46,11 +45,11 @@ class AbstractAclManagerTest extends \PHPUnit_Framework_TestCase
             $this->abstract->getSid($src)
         );
 
-        $user = $this->getMock('Symfony\Component\Security\Core\User\UserInterface');
+        $user = $this->createMock('Symfony\Component\Security\Core\User\UserInterface');
         $user->expects($this->once())
             ->method('getUsername')
             ->will($this->returnValue('Test'));
-        $src = $this->getMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
+        $src = $this->createMock('Symfony\Component\Security\Core\Authentication\Token\TokenInterface');
         $src->expects($this->once())
             ->method('getUser')
             ->will($this->returnValue($user));
@@ -59,13 +58,13 @@ class AbstractAclManagerTest extends \PHPUnit_Framework_TestCase
             $this->abstract->getSid($src)
         );
 
-        $this->setExpectedException('\InvalidArgumentException');
+        $this->expectException('\InvalidArgumentException');
         $this->abstract->getSid(new \stdClass());
     }
 
     public function testNoBaseAclManager()
     {
-        $this->setExpectedException('Oro\Bundle\SecurityBundle\Acl\Exception\InvalidAclManagerException');
+        $this->expectException('Oro\Bundle\SecurityBundle\Acl\Exception\InvalidAclManagerException');
         $this->abstract->getSid('ROLE_TEST');
     }
 }

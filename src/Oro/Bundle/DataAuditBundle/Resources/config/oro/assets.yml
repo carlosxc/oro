@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/orodataaudit/css/scss/main.scss'

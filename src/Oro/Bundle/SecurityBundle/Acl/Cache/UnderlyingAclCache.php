@@ -3,7 +3,6 @@
 namespace Oro\Bundle\SecurityBundle\Acl\Cache;
 
 use Doctrine\Common\Cache\CacheProvider;
-
 use Symfony\Component\Security\Acl\Model\ObjectIdentityInterface;
 
 /**
@@ -61,12 +60,11 @@ class UnderlyingAclCache
         if (!array_key_exists($type, $this->loadedBatches)
             || !array_key_exists($batchNumber, $this->loadedBatches[$type])
         ) {
-            //try to load batch
-            if ($this->cache->contains($batchKey)) {
-                $this->loadedBatches[$type][$batchNumber] = $this->cache->fetch($batchKey);
-            } else {
-                $this->loadedBatches[$type][$batchNumber] = [];
+            $batch = $this->cache->fetch($batchKey);
+            if (false === $batch) {
+                $batch = [];
             }
+            $this->loadedBatches[$type][$batchNumber] = $batch;
         }
 
         // set info that given id is underlined
@@ -90,7 +88,7 @@ class UnderlyingAclCache
      */
     public function isUnderlying(ObjectIdentityInterface $oid)
     {
-        if (!is_int($oid->getIdentifier())) {
+        if (!$this->isDigitIdentifier($oid)) {
             return false;
         }
 
@@ -100,11 +98,11 @@ class UnderlyingAclCache
         
         // check if batches info loaded and load it
         if (!array_key_exists($type, $this->entityBatches)) {
-            if ($this->cache->contains($type)) {
-                $this->entityBatches[$type] = $this->cache->fetch($type);
-            } else {
-                $this->entityBatches[$type] = [];
+            $batch = $this->cache->fetch($type);
+            if (false === $batch) {
+                $batch = [];
             }
+            $this->entityBatches[$type] = $batch;
         }
 
         // check if given batch is underlyied
@@ -116,13 +114,12 @@ class UnderlyingAclCache
         if (!array_key_exists($type, $this->loadedBatches)) {
             $this->loadedBatches[$type] = [];
         }
-        if (!array_key_exists($batchNumber, $this->loadedBatches[$type])
-        ) {
-            if ($this->cache->contains($batchKey)) {
-                $this->loadedBatches[$type][$batchNumber] = $this->cache->fetch($batchKey);
-            } else {
-                $this->loadedBatches[$type][$batchNumber] = [];
+        if (!array_key_exists($batchNumber, $this->loadedBatches[$type])) {
+            $batch = $this->cache->fetch($batchKey);
+            if (false === $batch) {
+                $batch = [];
             }
+            $this->loadedBatches[$type][$batchNumber] = $batch;
         }
 
         return array_key_exists($oid->getIdentifier(), $this->loadedBatches[$type][$batchNumber]);
@@ -135,7 +132,7 @@ class UnderlyingAclCache
      */
     public function evictFromCache(ObjectIdentityInterface $oid)
     {
-        if (!is_int($oid->getIdentifier())) {
+        if (!$this->isDigitIdentifier($oid)) {
             $this->cache->delete($this->getUnderlyingDataKeyByIdentity($oid));
         } else {
             $batchNumber = $this->getBatchNumber($oid);
@@ -172,7 +169,15 @@ class UnderlyingAclCache
      */
     protected function getBatchNumber(ObjectIdentityInterface $oid)
     {
-        return (int)floor($oid->getIdentifier() / $this->batchSize) + 1;
+        $identifier = $oid->getIdentifier();
+        /**
+         * We can't correctly calculate batch number in case when "id" is not an integer,
+         * so we put this entities to the single batch
+         */
+        if (!$this->isDigitIdentifier($oid)) {
+            return 1;
+        }
+        return (int)floor($identifier / $this->batchSize) + 1;
     }
 
     /**
@@ -197,5 +202,17 @@ class UnderlyingAclCache
     protected function getUnderlyingDataKeyByIdentity(ObjectIdentityInterface $oid)
     {
         return $oid->getType() . '_' . $oid->getIdentifier();
+    }
+
+    /**
+     * Check if OID identifier contains only digits
+     *
+     * @param  ObjectIdentityInterface $oid
+     *
+     * @return boolean
+     */
+    protected function isDigitIdentifier(ObjectIdentityInterface $oid)
+    {
+        return is_int($oid->getIdentifier()) || ctype_digit($oid->getIdentifier());
     }
 }

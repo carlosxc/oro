@@ -8,61 +8,43 @@ use Oro\Bundle\DataGridBundle\Datagrid\ParameterBag;
 use Oro\Bundle\DataGridBundle\Extension\Appearance\AppearanceExtension;
 use Oro\Bundle\DataGridBundle\Extension\Board\BoardExtension;
 use Oro\Bundle\DataGridBundle\Extension\Board\Configuration;
+use Oro\Bundle\DataGridBundle\Extension\Board\RestrictionManager;
+use Oro\Bundle\DataGridBundle\Provider\DatagridModeProvider;
+use Oro\Bundle\EntityBundle\ORM\EntityClassResolver;
+use Oro\Bundle\EntityBundle\Tools\EntityClassNameHelper;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Translation\TranslatorInterface;
 
-class BoardExtensionTest extends \PHPUnit_Framework_TestCase
+class BoardExtensionTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
-    protected $securityFacade;
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
+    protected $authorizationChecker;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $translator;
 
-    /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $restrictionManager;
 
-    /**
-     * @var BoardExtension
-     */
+    /** @var BoardExtension */
     protected $extension;
 
     public function setUp()
     {
-        $this->securityFacade = $this->getMockBuilder('Oro\Bundle\SecurityBundle\SecurityFacade')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->restrictionManager = $this
-            ->getMockBuilder('Oro\Bundle\DataGridBundle\Extension\Board\RestrictionManager')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
-
+        $this->authorizationChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $this->restrictionManager = $this->createMock(RestrictionManager::class);
+        $this->translator = $this->createMock(TranslatorInterface::class);
         $configuration = new Configuration();
-
-        $gridConfigurationHelper = $this
-            ->getMockBuilder('Oro\Bundle\DataGridBundle\Tools\GridConfigurationHelper')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $entityClassNameHelper = $this
-            ->getMockBuilder('Oro\Bundle\EntityBundle\Tools\EntityClassNameHelper')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $entityClassResolver = $this->createMock(EntityClassResolver::class);
+        $entityClassNameHelper = $this->createMock(EntityClassNameHelper::class);
 
         $this->extension = new BoardExtension(
-            $this->securityFacade,
+            $this->authorizationChecker,
             $this->translator,
             $this->restrictionManager,
             $configuration,
             $entityClassNameHelper,
-            $gridConfigurationHelper
+            $entityClassResolver
         );
 
         $parameters = new ParameterBag(
@@ -83,13 +65,29 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
                 'grid' => [],
                 'board' => [],
                 'chart' => []
-            ]
+            ],
+            'source' => [
+                'type' => 'orm',
+            ],
         ]);
-        $this->restrictionManager->expects($this->once())->method('boardViewEnabled')
+        $this->restrictionManager->expects($this->once())
+            ->method('boardViewEnabled')
             ->with($config)
             ->will($this->returnValue(false));
         $this->assertFalse($this->extension->isApplicable($config));
         $this->assertArrayNotHasKey('board', $config->offsetGet(AppearanceExtension::APPEARANCE_CONFIG_PATH));
+    }
+
+    public function testIsNotApplicableInImportExportMode()
+    {
+        $params = new ParameterBag();
+        $params->set(
+            ParameterBag::DATAGRID_MODES_PARAMETER,
+            [DatagridModeProvider::DATAGRID_IMPORTEXPORT_MODE]
+        );
+        $config = DatagridConfiguration::create([]);
+        $this->extension->setParameters($params);
+        self::assertFalse($this->extension->isApplicable($config));
     }
 
     public function testVisitMetadata()
@@ -105,20 +103,33 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
                         Configuration::ACL_RESOURCE_KEY => 'update_acl_resource',
                     ]
                 ]
-            ]
+            ],
+            'source' => [
+                'type' => 'orm',
+            ],
         ]);
-        $this->restrictionManager->expects($this->once())->method('boardViewEnabled')->will($this->returnValue(true));
+        $this->restrictionManager->expects($this->once())
+            ->method('boardViewEnabled')
+            ->will($this->returnValue(true));
         $this->assertTrue($this->extension->isApplicable($config));
 
-        $processor = $this->getMock('Oro\Bundle\DataGridBundle\Extension\Board\Processor\BoardProcessorInterface');
-        $processor->expects($this->once())->method('getName')->will($this->returnValue('default'));
-        $processor->expects($this->once())->method('getBoardOptions')->will($this->returnValue(['options']));
+        $processor = $this->createMock('Oro\Bundle\DataGridBundle\Extension\Board\Processor\BoardProcessorInterface');
+        $processor->expects($this->once())
+            ->method('getName')
+            ->will($this->returnValue('default'));
+        $processor->expects($this->once())
+            ->method('getBoardOptions')
+            ->will($this->returnValue(['options']));
         $this->extension->addProcessor($processor);
 
-        $this->translator->expects($this->once())->method('trans')->with('board label')
+        $this->translator->expects($this->once())
+            ->method('trans')
+            ->with('board label')
             ->will($this->returnValue('translated board label'));
 
-        $this->securityFacade->expects($this->once())->method('isGranted')->with('update_acl_resource')
+        $this->authorizationChecker->expects($this->once())
+            ->method('isGranted')
+            ->with('update_acl_resource')
             ->will($this->returnValue(true));
 
         $data = MetadataObject::create([]);
@@ -129,7 +140,7 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
             [
                 'type' => BoardExtension::APPEARANCE_TYPE,
                 'plugin' => Configuration::DEFAULT_PLUGIN,
-                'icon' => 'icon-th',
+                'icon' => 'fa-th',
                 'id' => 'board1',
                 'label' => 'translated board label',
                 'group_by' => 'group_field',
@@ -169,11 +180,16 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
                         Configuration::PROCESSOR_KEY => 'non-default'
                     ]
                 ]
-            ]
+            ],
+            'source' => [
+                'type' => 'orm',
+            ],
         ]);
-        $this->restrictionManager->expects($this->once())->method('boardViewEnabled')->will($this->returnValue(true));
+        $this->restrictionManager->expects($this->once())
+            ->method('boardViewEnabled')
+            ->will($this->returnValue(true));
         $this->extension->isApplicable($config);
-        $this->setExpectedException('Oro\Bundle\DataGridBundle\Exception\NotFoundBoardProcessorException');
+        $this->expectException('Oro\Bundle\DataGridBundle\Exception\NotFoundBoardProcessorException');
         $data = MetadataObject::create([]);
         $this->extension->visitMetadata($config, $data);
     }
@@ -189,16 +205,23 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
                         ],
                     ]
                 ]
-            ]
+            ],
+            'source' => [
+                'type' => 'orm',
+            ],
         ]);
 
-        $processor = $this->getMock('Oro\Bundle\DataGridBundle\Extension\Board\Processor\BoardProcessorInterface');
-        $processor->expects($this->once())->method('getName')->will($this->returnValue('default'));
+        $processor = $this->createMock('Oro\Bundle\DataGridBundle\Extension\Board\Processor\BoardProcessorInterface');
+        $processor->expects($this->once())
+            ->method('getName')
+            ->will($this->returnValue('default'));
         $options = [
             ['ids' => ['in_progress']],
             ['ids' => ['lost']]
         ];
-        $processor->expects($this->once())->method('getBoardOptions')->will($this->returnValue($options));
+        $processor->expects($this->once())
+            ->method('getBoardOptions')
+            ->will($this->returnValue($options));
         $this->extension->addProcessor($processor);
 
 
@@ -210,13 +233,13 @@ class BoardExtensionTest extends \PHPUnit_Framework_TestCase
             ],
             'property' => 'group_field'
         ];
-        $dataSource = $this->getMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
-        $processor->expects($this->once())->method('processDatasource')->with(
-            $dataSource,
-            $appearanceData,
-            $config
-        );
-        $this->restrictionManager->expects($this->once())->method('boardViewEnabled')->will($this->returnValue(true));
+        $dataSource = $this->createMock('Oro\Bundle\DataGridBundle\Datasource\DatasourceInterface');
+        $processor->expects($this->once())
+            ->method('processDatasource')
+            ->with($dataSource, $appearanceData, $config);
+        $this->restrictionManager->expects($this->once())
+            ->method('boardViewEnabled')
+            ->will($this->returnValue(true));
         $this->extension->isApplicable($config);
 
         $this->extension->visitDatasource($config, $dataSource);

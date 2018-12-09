@@ -2,13 +2,15 @@
 
 namespace Oro\Bundle\ConfigBundle\Form\Handler;
 
+use Oro\Bundle\ConfigBundle\Config\ConfigManager;
+use Oro\Bundle\FormBundle\Form\Handler\RequestHandlerTrait;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-use Oro\Bundle\ConfigBundle\Config\ConfigManager;
-
 class ConfigHandler
 {
+    use RequestHandlerTrait;
+
     /**
      * @var ConfigManager
      */
@@ -35,6 +37,14 @@ class ConfigHandler
     }
 
     /**
+     * @return ConfigManager
+     */
+    public function getConfigManager()
+    {
+        return $this->manager;
+    }
+
+    /**
      * Process form
      *
      * @param FormInterface $form
@@ -48,9 +58,13 @@ class ConfigHandler
         $form->setData($settingsData);
 
         if (in_array($request->getMethod(), ['POST', 'PUT'])) {
-            $form->submit($request);
+            $this->submitPostPutRequest($form, $request);
             if ($form->isValid()) {
-                $this->manager->save($form->getData());
+                $changeSet = $this->manager->save($form->getData());
+                $handler = $form->getConfig()->getAttribute('handler');
+                if (null !== $handler && is_callable($handler)) {
+                    call_user_func($handler, $this->manager, $changeSet, $form);
+                }
 
                 return true;
             }

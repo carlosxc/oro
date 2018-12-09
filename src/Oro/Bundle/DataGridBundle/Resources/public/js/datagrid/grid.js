@@ -24,7 +24,9 @@ define(function(require) {
     var ExportAction = require('oro/datagrid/action/export-action');
     var PluginManager = require('oroui/js/app/plugins/plugin-manager');
     var scrollHelper = require('oroui/js/tools/scroll-helper');
+    var PageableCollection = require('../pageable-collection');
     var util = require('./util');
+    var tools = require('oroui/js/tools');
 
     /**
      * Basic grid class.
@@ -43,6 +45,10 @@ define(function(require) {
         /** @property {String} */
         tagName: 'div',
 
+        attributes: {
+            'data-layout': 'separate'
+        },
+
         /** @property {int} */
         requestsCount: 0,
 
@@ -50,18 +56,29 @@ define(function(require) {
         className: 'oro-datagrid',
 
         /** @property */
-        noDataTemplate: _.template('<span><%= hint %><span>'),
+        noDataTemplate: require('tpl!orodatagrid/templates/datagrid/no-data.html'),
+
+        noSearchResultsTemplate: require('tpl!orodatagrid/templates/datagrid/no-search-results.html'),
+
+        /** @property {Object} */
+        noDataTranslations: {
+            entityHint: 'oro.datagrid.entityHint',
+            noColumns: 'oro.datagrid.no.columns',
+            noEntities: 'oro.datagrid.no.entities',
+            noResults: 'oro.datagrid.no.results',
+            noResultsTitle: 'oro.datagrid.no.results_title'
+        },
 
         /** @property {Object} */
         selectors: {
-            grid:        '.grid',
-            toolbar:     '[data-grid-toolbar]',
+            grid: '.grid',
+            toolbar: '[data-grid-toolbar]',
             toolbars: {
                 top: '[data-grid-toolbar=top]',
                 bottom: '[data-grid-toolbar=bottom]'
             },
             noDataBlock: '.no-data',
-            filterBox:   '.filter-box',
+            filterBox: '.filter-box',
             loadingMaskContainer: '.other-scroll-container',
             floatTheadContainer: '.floatThead-container'
         },
@@ -99,14 +116,14 @@ define(function(require) {
          * @property {Object} Default properties values
          */
         defaults: {
-            rowClickActionClass:    'row-click-action',
-            rowClassName:           '',
-            toolbarOptions:         {
+            rowClickActionClass: 'row-click-action',
+            rowClassName: '',
+            toolbarOptions: {
                 addResetAction: true,
                 addRefreshAction: true,
-                addColumnManager: true,
+                addDatagridSettingsManager: true,
                 addSorting: false,
-                columnManager: {
+                datagridSettings: {
                     addSorting: true
                 },
                 placement: {
@@ -114,11 +131,30 @@ define(function(require) {
                     bottom: false
                 }
             },
-            rowClickAction:         undefined,
-            multipleSorting:        true,
-            rowActions:             [],
-            massActions:            new Backbone.Collection(),
-            enableFullScreenLayout: false
+            actionOptions: {
+                refreshAction: {
+                    launcherOptions: {
+                        label: __('oro_datagrid.action.refresh'),
+                        className: 'btn refresh-action',
+                        iconClassName: 'fa-repeat',
+                        launcherMode: 'icon-only'
+                    }
+                },
+                resetAction: {
+                    launcherOptions: {
+                        label: __('oro_datagrid.action.reset'),
+                        className: 'btn reset-action',
+                        iconClassName: 'fa-refresh',
+                        launcherMode: 'icon-only'
+                    }
+                }
+            },
+            rowClickAction: undefined,
+            multipleSorting: true,
+            rowActions: [],
+            massActions: new Backbone.Collection(),
+            enableFullScreenLayout: false,
+            scopeDelimiter: ':'
         },
 
         /**
@@ -131,7 +167,14 @@ define(function(require) {
         template: require('tpl!orodatagrid/templates/datagrid/grid.html'),
 
         themeOptions: {
-            optionPrefix: 'grid',
+            optionPrefix: 'grid'
+        },
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function Grid() {
+            Grid.__super__.constructor.apply(this, arguments);
         },
 
         /**
@@ -195,7 +238,7 @@ define(function(require) {
         },
 
         /**
-         * @param {Object} options
+         * @param {Object} opts
          * @private
          */
         _validateOptions: function(opts) {
@@ -225,6 +268,7 @@ define(function(require) {
 
             _.extend(this, this.defaults, opts);
             this._initToolbars(opts);
+            this._initActions(opts);
             this.exportOptions = {};
             _.extend(this.exportOptions, opts.exportOptions);
 
@@ -269,8 +313,10 @@ define(function(require) {
             }
 
             // must construct body first so it listens to backgrid:sort first
-            this.body = new this.body(bodyOptions);
-            this.subview('body', this.body);
+            if (this.body) {
+                this.body = new this.body(bodyOptions);
+                this.subview('body', this.body);
+            }
 
             if (this.header) {
                 this.header = new this.header(headerOptions);
@@ -292,7 +338,9 @@ define(function(require) {
                 if (this.header) {
                     this.header = new (this.header.remove().constructor)(headerOptions);
                 }
-                this.body = new (this.body.remove().constructor)(bodyOptions);
+                if (this.body) {
+                    this.body = new (this.body.remove().constructor)(bodyOptions);
+                }
                 if (this.footer) {
                     this.footer = new (this.footer.remove().constructor)(footerOptions);
                 }
@@ -311,8 +359,10 @@ define(function(require) {
             });
         },
 
-        onCollectionUpdateState: function() {
-            this.selectState.reset();
+        onCollectionUpdateState: function(collection, state) {
+            if (this.stateIsResettable(collection.previousState, state)) {
+                this.selectNone();
+            }
         },
 
         onCollectionModelRemove: function(model) {
@@ -338,7 +388,7 @@ define(function(require) {
             this.collection.each(function(model) {
                 model.trigger('backgrid:select', model, true);
             });
-            this.selectState.reset({'inset': false});
+            this.selectState.reset({inset: false});
         },
 
         /**
@@ -400,6 +450,20 @@ define(function(require) {
         },
 
         /**
+         * @param {*} previousState
+         * @param {*} state
+         * @returns {boolean} TRUE if values are not equal, otherwise - FALSE
+         */
+        stateIsResettable: function(previousState, state) {
+            var fields = ['filters', 'gridView', 'pageSize'];
+
+            return !tools.isEqualsLoosely(
+                _.pick(previousState, fields),
+                _.pick(state, fields)
+            );
+        },
+
+        /**
          * @param {Object} opts
          * @private
          */
@@ -407,6 +471,16 @@ define(function(require) {
             this.toolbars = {};
             this.toolbarOptions = {};
             _.extend(this.toolbarOptions, this.defaults.toolbarOptions, opts.toolbarOptions);
+        },
+
+        /**
+         * @param {Object} opts
+         * @private
+         */
+        _initActions: function(opts) {
+            if (_.isObject(opts.themeOptions)) {
+                _.extend(this.actionOptions, opts.themeOptions.actionOptions);
+            }
         },
 
         /**
@@ -419,10 +493,6 @@ define(function(require) {
             }
 
             this.pluginManager.dispose();
-
-            _.each(this.columns.models, function(column) {
-                column.dispose();
-            });
 
             this.filteredColumns.dispose();
             delete this.filteredColumns;
@@ -459,8 +529,9 @@ define(function(require) {
                 $parents = $parents.add(document);
                 $parents.on('scroll' + this.eventNamespace(), _.bind(this.trigger, this, 'scroll'));
                 this._$boundScrollHandlerParents = $parents;
-            }
 
+                this.listenTo(this.collection, 'backgrid:sort', _.debounce(this.sort, 50), this);
+            }
             return this;
         },
 
@@ -475,6 +546,8 @@ define(function(require) {
                 delete this._$boundScrollHandlerParents;
             }
 
+            this.stopListening(this.collection, 'backgrid:sort');
+
             return this;
         },
 
@@ -485,7 +558,6 @@ define(function(require) {
          * @private
          */
         _initColumns: function(options) {
-
             if (Object.keys(this.rowActions).length > 0) {
                 options.columns.push(this._createActionsColumn());
             }
@@ -530,7 +602,7 @@ define(function(require) {
             var column;
             column = new this.actionsColumn({
                 datagrid: this,
-                actions:  this.rowActions,
+                actions: this.rowActions,
                 massActions: this.massActions,
                 manageable: false,
                 order: Infinity
@@ -547,13 +619,13 @@ define(function(require) {
         _createSelectRowColumn: function() {
             var column;
             column = new Backgrid.Column({
-                name:       'massAction',
-                label:      __('Selected Rows'),
+                name: 'massAction',
+                label: __('Selected Rows'),
                 renderable: true,
-                sortable:   false,
-                editable:   false,
+                sortable: false,
+                editable: false,
                 manageable: false,
-                cell:       SelectRowCell,
+                cell: SelectRowCell,
                 headerCell: SelectAllHeaderCell,
                 order: -Infinity
             });
@@ -575,9 +647,19 @@ define(function(require) {
 
         /**
          * Resets selection state
+         *
+         * @param {Object|null} restoreState
          */
-        resetSelectionState: function() {
+        resetSelectionState: function(restoreState) {
             this.collection.trigger('backgrid:selectNone');
+
+            if (restoreState && restoreState.selectedIds) {
+                this.collection.each(function(model) {
+                    if (restoreState.selectedIds.indexOf(model) !== -1) {
+                        model.trigger('backgrid:selected', model, true);
+                    }
+                });
+            }
         },
 
         /**
@@ -587,13 +669,15 @@ define(function(require) {
          * @private
          */
         _createToolbar: function(options) {
+            var ComponentConstructor = this.collection.options.modules.datagridSettingsComponentCustom || null;
             var toolbar;
             var sortActions = this.sortActions;
             var toolbarOptions = {
-                collection:   this.collection,
-                actions:      this._getToolbarActions(),
+                collection: this.collection,
+                actions: this._getToolbarActions(),
                 extraActions: this._getToolbarExtraActions(),
-                columns:      this.columns,
+                columns: this.columns,
+                componentConstructor: ComponentConstructor,
                 addToolbarAction: function(action) {
                     toolbarOptions.actions.push(action);
                     sortActions(toolbarOptions.actions);
@@ -636,10 +720,12 @@ define(function(require) {
                 var action = new SelectDataAppearanceAction({
                     datagrid: this,
                     launcherOptions: {
-                        items: this.toolbarOptions.availableApperances,
+                        label: __('oro_datagrid.action.appearance'),
+                        items: this.toolbarOptions.availableAppearances,
                         attributes: {
-                            'data-drop-secondary-location': 'left'
-                        }
+                            'data-placement': 'bottom-end'
+                        },
+                        className: 'btn btn-icon data-appearance-selector'
                     },
                     order: 700
                 });
@@ -698,18 +784,14 @@ define(function(require) {
             if (!this.refreshAction) {
                 this.refreshAction = new RefreshCollectionAction({
                     datagrid: this,
-                    launcherOptions: {
-                        label: __('oro_datagrid.action.refresh'),
-                        className: 'btn',
-                        iconClassName: 'icon-repeat'
-                    },
+                    launcherOptions: this.actionOptions.refreshAction.launcherOptions,
                     order: 100
                 });
-                this.listenTo(mediator, 'datagrid:doRefresh:' + this.name, _.debounce(function() {
-                    if (this.$el.is(':visible')) {
+                this.listenTo(mediator, 'datagrid:doRefresh:' + this.name, _.debounce(function(ignoreVisibility) {
+                    if (ignoreVisibility || this.$el.is(':visible')) {
                         this.refreshAction.execute();
                     }
-                }, 100));
+                }, 100, true));
 
                 this.listenTo(this.refreshAction, 'preExecute', function(action, options) {
                     this.$el.trigger('preExecute:refresh:' + this.name, [action, options]);
@@ -728,11 +810,7 @@ define(function(require) {
             if (!this.resetAction) {
                 this.resetAction = new ResetCollectionAction({
                     datagrid: this,
-                    launcherOptions: {
-                        label: __('oro_datagrid.action.reset'),
-                        className: 'btn',
-                        iconClassName: 'icon-refresh'
-                    },
+                    launcherOptions: this.actionOptions.resetAction.launcherOptions,
                     order: 200
                 });
 
@@ -740,7 +818,7 @@ define(function(require) {
                     if (this.$el.is(':visible')) {
                         this.resetAction.execute();
                     }
-                }, 100));
+                }, 100, true));
 
                 this.listenTo(this.resetAction, 'preExecute', function(action, options) {
                     this.$el.trigger('preExecute:reset:' + this.name, [action, options]);
@@ -776,7 +854,7 @@ define(function(require) {
                         label: __('oro.datagrid.extension.export.label'),
                         title: __('oro.datagrid.extension.export.tooltip'),
                         className: 'btn',
-                        iconClassName: 'icon-upload-alt',
+                        iconClassName: 'fa-upload',
                         links: links
                     }
                 });
@@ -895,6 +973,31 @@ define(function(require) {
                     }
                 });
             });
+
+            this.listenTo(mediator, 'datagrid:changeColumnParam:' + this.name, function(columnName, option, value) {
+                this.changeColumnParam(columnName, option, value);
+            });
+
+            this.listenTo(mediator, 'datagrid:doRefresh:' + this.name, function() {
+                if (!this.refreshAction) {
+                    this._onDatagridRefresh();
+                }
+            });
+        },
+
+        /**
+         * Changes column`s option  if such option exist
+         *
+         * @param columnName
+         * @param option
+         * @param value
+         */
+        changeColumnParam: function(columnName, option, value) {
+            this.columns.each(function(column) {
+                if (column.get('name') === columnName && option in column) {
+                    column.set(option, value);
+                }
+            });
         },
 
         /**
@@ -949,7 +1052,9 @@ define(function(require) {
             if (this.footer) {
                 this.$grid.append(this.footer.render().$el);
             }
-            this.$grid.append(this.body.render().$el);
+            if (this.body) {
+                this.$grid.append(this.body.render().$el);
+            }
 
             mediator.trigger('grid_load:complete', this.collection, this.$grid);
         },
@@ -1008,16 +1113,26 @@ define(function(require) {
          * Define no data block.
          */
         _defineNoDataBlock: function() {
+            var messageHTML;
             var placeholders = {
-                entityHint: (this.entityHint || __('oro.datagrid.entityHint')).toLowerCase()
+                entityHint: (this.entityHint || __(this.noDataTranslations.entityHint)).toLowerCase()
             };
-            var message = _.isEmpty(this.collection.state.filters) ?
-                'oro.datagrid.no.entities' : 'oro.datagrid.no.results';
-            message = this.noColumnsFlag ? 'oro.datagrid.no.columns' : message;
 
-            this.$(this.selectors.noDataBlock).html($(this.noDataTemplate({
-                hint: __(message, placeholders).replace('\n', '<br />')
-            })));
+            if (this.noColumnsFlag || _.isEmpty(this.collection.state.filters)) {
+                var translation = this.noColumnsFlag
+                    ? this.noDataTranslations.noColumns : this.noDataTranslations.noEntities;
+
+                messageHTML = this.noDataTemplate({
+                    text: __(translation, placeholders)
+                });
+            } else {
+                messageHTML = this.noSearchResultsTemplate({
+                    title: __(this.noDataTranslations.noResultsTitle),
+                    text: __(this.noDataTranslations.noResults, placeholders)
+                });
+            }
+
+            this.$(this.selectors.noDataBlock).html(messageHTML);
         },
 
         /**
@@ -1061,6 +1176,8 @@ define(function(require) {
         _processLoadedMetadata: function(metadata) {
             _.extend(this.metadata, metadata);
             this.metadataModel.set(metadata);
+
+            mediator.trigger('datagrid:metadata-loaded', this);
         },
 
         /**
@@ -1088,7 +1205,7 @@ define(function(require) {
          */
         renderNoDataBlock: function() {
             this._defineNoDataBlock();
-            this.$el.toggleClass('no-data-visible', this.collection.models.length <= 0  || this.noColumnsFlag);
+            this.$el.toggleClass('no-data-visible', this.collection.models.length <= 0 || this.noColumnsFlag);
         },
 
         /**
@@ -1096,12 +1213,20 @@ define(function(require) {
          *
          * @private
          */
-        _onRemove: function(model) {
+        _onRemove: function(model, reset) {
             mediator.trigger('datagrid:beforeRemoveRow:' + this.name, model);
 
-            this.collection.fetch({reset: true});
+            if (reset !== false) {
+                this.collection.fetch({reset: true});
+            }
 
             mediator.trigger('datagrid:afterRemoveRow:' + this.name);
+        },
+
+        _onDatagridRefresh: function() {
+            this.setAdditionalParameter('refresh', true);
+            this.collection.fetch({reset: true});
+            this.removeAdditionalParameter('refresh');
         },
 
         /**
@@ -1203,6 +1328,123 @@ define(function(require) {
             } catch (e) {
                 return null;
             }
+        },
+
+        /**
+         * Create this function instead of original Body.__super__.refresh to customize options for subviews
+         */
+        backgridRefresh: function() {
+            this.render();
+            this.collection.trigger('backgrid:refresh', this);
+            return this;
+        },
+
+        makeComparator: function(attr, order, func) {
+            return function(left, right) {
+                // extract the values from the models
+                var t;
+                var l = func(left, attr);
+                var r = func(right, attr);
+                // if descending order, swap left and right
+                if (order === 1) {
+                    t = l;
+                    l = r;
+                    r = t;
+                }
+                // compare as usual
+                if (l === r) {
+                    return 0;
+                } else if (l < r) {
+                    return -1;
+                }
+                return 1;
+            };
+        },
+
+        /**
+         * @param {string} column
+         * @param {null|"ascending"|"descending"} direction
+         */
+        sort: function(column, direction) {
+            if (!_.contains(['ascending', 'descending', null], direction)) {
+                throw new RangeError('direction must be one of "ascending", "descending" or `null`');
+            }
+            if (_.isString(column) && column.length) {
+                column = this.columns.findWhere({name: column});
+            }
+
+            var columnName = null;
+            var columnSortValue = null;
+            if (_.isObject(column)) {
+                columnName = column.get('name');
+                columnSortValue = column.sortValue();
+            } else {
+                column = null;
+            }
+
+            var collection = this.collection;
+
+            var order;
+
+            if (direction === 'ascending') {
+                order = '-1';
+            } else if (direction === 'descending') {
+                order = '1';
+            } else {
+                order = null;
+            }
+
+            var extractorDelegate;
+            if (order) {
+                extractorDelegate = columnSortValue;
+            } else {
+                extractorDelegate = function(model) {
+                    return model.cid.replace('c', '') * 1;
+                };
+            }
+            var comparator = this.makeComparator(columnName, order, extractorDelegate);
+
+            if (collection instanceof PageableCollection) {
+                collection.setSorting(columnName, order, {sortValue: columnSortValue});
+
+                if (collection.fullCollection) {
+                    if (collection.fullCollection.comparator === null ||
+                        collection.fullCollection.comparator === undefined) {
+                        collection.fullCollection.comparator = comparator;
+                    }
+                    collection.fullCollection.sort();
+                    collection.trigger('backgrid:sorted', column, direction, collection);
+                } else {
+                    collection.fetch({reset: true, success: function() {
+                        collection.trigger('backgrid:sorted', column, direction, collection);
+                    }});
+                }
+            } else {
+                collection.comparator = comparator;
+                collection.sort();
+                collection.trigger('backgrid:sorted', column, direction, collection);
+            }
+
+            if (column) {
+                column.set('direction', direction);
+            }
+
+            return this;
+        },
+
+        /**
+         * @return {String|null}
+         */
+        getGridScope: function() {
+            var nameParts = this.name.split(this.scopeDelimiter);
+            if (nameParts.length > 2) {
+                throw new Error(
+                    'Grid name is invalid, it should not contain more than one occurrence of "' +
+                    this.scopeDelimiter + '"'
+                );
+            }
+
+            return nameParts.length === 2 ? nameParts[1] : null;
         }
     });
 

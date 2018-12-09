@@ -2,15 +2,19 @@
 
 namespace Oro\Bundle\SearchBundle\Engine;
 
-use Symfony\Component\Security\Core\Util\ClassUtils;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-
-use Oro\Bundle\SearchBundle\Query\Criteria\Criteria;
-use Oro\Bundle\SearchBundle\Query\Query;
-use Oro\Bundle\SearchBundle\Query\Mode;
 use Oro\Bundle\SearchBundle\Event\PrepareEntityMapEvent;
 use Oro\Bundle\SearchBundle\Exception\InvalidConfigurationException;
+use Oro\Bundle\SearchBundle\Query\Criteria\Criteria;
+use Oro\Bundle\SearchBundle\Query\Mode;
+use Oro\Bundle\SearchBundle\Query\Query;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Security\Acl\Util\ClassUtils;
 
+/**
+ * Preparing storable index data from entities.
+ *
+ * @package Oro\Bundle\SearchBundle\Engine
+ */
 class ObjectMapper extends AbstractMapper
 {
     /**
@@ -108,7 +112,7 @@ class ObjectMapper extends AbstractMapper
     {
         $objectData  = [];
         $objectClass = ClassUtils::getRealClass($object);
-        if (is_object($object) && $this->mappingProvider->isFieldsMappingExists($objectClass)) {
+        if (is_object($object) && $this->mappingProvider->hasFieldsMapping($objectClass)) {
             $alias = $this->getEntityMapParameter($objectClass, 'alias', $objectClass);
             foreach ($this->getEntityMapParameter($objectClass, 'fields', []) as $field) {
                 $objectData = $this->processField($alias, $objectData, $field, $object);
@@ -139,8 +143,8 @@ class ObjectMapper extends AbstractMapper
      */
     public function getRegisteredDescendants($entityName)
     {
-        $config = $this->getEntityConfig($entityName);
-        if ($config['mode'] !== Mode::NORMAL) {
+        $mode = $this->getEntityModeConfig($entityName);
+        if ($mode !== Mode::NORMAL) {
             return array_filter(
                 $this->getEntities(),
                 function ($className) use ($entityName) {
@@ -157,32 +161,45 @@ class ObjectMapper extends AbstractMapper
      * into an output array.
      *
      * @param Query $query
-     * @param array $item
-     * @return array|null
+     * @param array $resultItem
+     * @return array
      */
-    public function mapSelectedData(Query $query, $item)
+    public function mapSelectedData(Query $query, $resultItem)
     {
-        $selects = $query->getSelect();
+        $dataFields = $query->getSelectDataFields();
 
-        if (empty($selects)) {
-            return null;
+        if (empty($dataFields)) {
+            return [];
         }
 
         $result = [];
 
-        foreach ($selects as $select) {
-            list ($type, $name) = Criteria::explodeFieldTypeName($select);
+        foreach ($dataFields as $column => $dataField) {
+            list($type, $columnName) = Criteria::explodeFieldTypeName($column);
 
-            $result[$name] = '';
+            $value = '';
 
-            if (isset($item[$name])) {
-                $value = $item[$name];
-                if (is_array($value)) {
-                    $value = array_shift($value);
-                }
-
-                $result[$name] = $value;
+            if (isset($resultItem[$columnName])) {
+                $value = $resultItem[$columnName];
             }
+
+            if (isset($resultItem[$dataField])) {
+                $value = $resultItem[$dataField];
+            }
+
+            if (is_array($value)) {
+                $value = array_shift($value);
+            }
+
+            if (is_numeric($value)) {
+                if ($type === Query::TYPE_INTEGER) {
+                    $value = (int)$value;
+                } elseif ($type === Query::TYPE_DECIMAL) {
+                    $value = (float)$value;
+                }
+            }
+
+            $result[$dataField] = $value;
         }
 
         return $result;
@@ -289,5 +306,20 @@ class ObjectMapper extends AbstractMapper
         }
 
         return $objectData;
+    }
+
+    /**
+     * Keep HTML in text fields except all_text* fields
+     *
+     * {@inheritdoc}
+     */
+    protected function clearTextValue($fieldName, $value)
+    {
+        if (strpos($fieldName, Indexer::TEXT_ALL_DATA_FIELD) === 0) {
+            $value = $this->htmlTagHelper->stripTags((string)$value);
+            $value = $this->htmlTagHelper->stripLongWords($value);
+        }
+
+        return $value;
     }
 }

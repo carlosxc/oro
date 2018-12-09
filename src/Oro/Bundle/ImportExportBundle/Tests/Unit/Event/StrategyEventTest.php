@@ -5,7 +5,7 @@ namespace Oro\Bundle\ImportExportBundle\Tests\Unit\Event;
 use Oro\Bundle\ImportExportBundle\Event\StrategyEvent;
 use Oro\Bundle\ImportExportBundle\Strategy\StrategyInterface;
 
-class StrategyEventTest extends \PHPUnit_Framework_TestCase
+class StrategyEventTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var StrategyInterface;
@@ -24,8 +24,8 @@ class StrategyEventTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->strategy = $this->getMock('Oro\Bundle\ImportExportBundle\Strategy\StrategyInterface');
-        $context = $this->getMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
+        $this->strategy = $this->createMock('Oro\Bundle\ImportExportBundle\Strategy\StrategyInterface');
+        $context = $this->createMock('Oro\Bundle\ImportExportBundle\Context\ContextInterface');
 
         $this->entity = new \stdClass();
         $this->entity->id = 1;

@@ -3,11 +3,12 @@
 namespace Oro\Bundle\IntegrationBundle\Tests\Unit\Manager;
 
 use Oro\Bundle\IntegrationBundle\Manager\TypesRegistry;
+use Oro\Bundle\IntegrationBundle\Provider\ConnectorInterface;
+use Oro\Bundle\IntegrationBundle\Provider\TransportInterface;
 use Oro\Bundle\IntegrationBundle\Tests\Unit\Stub\IntegrationTypeWithIcon;
 use Oro\Bundle\IntegrationBundle\Tests\Unit\Stub\IntegrationTypeWithoutIcon;
-use Oro\Bundle\IntegrationBundle\Provider\TransportInterface;
 
-class TypesRegistryTest extends \PHPUnit_Framework_TestCase
+class TypesRegistryTest extends \PHPUnit\Framework\TestCase
 {
     const CHANNEL_TYPE_ONE   = 'type1';
     const CHANNEL_TYPE_TWO   = 'type2';
@@ -53,7 +54,7 @@ class TypesRegistryTest extends \PHPUnit_Framework_TestCase
     public function testGetAvailableChannelTypesChoiceList()
     {
         $this->assertEquals(
-            [self::CHANNEL_TYPE_ONE => "oro.type1.label", self::CHANNEL_TYPE_TWO => "oro.type2.label"],
+            ['oro.type1.label' => self::CHANNEL_TYPE_ONE, 'oro.type2.label' => self::CHANNEL_TYPE_TWO],
             $this->typesRegistry->getAvailableChannelTypesChoiceList()
         );
     }
@@ -94,5 +95,23 @@ class TypesRegistryTest extends \PHPUnit_Framework_TestCase
             'Doctrine\Common\Collections\Collection',
             $this->typesRegistry->getRegisteredTransportTypes(self::CHANNEL_TYPE_ONE)
         );
+    }
+
+    public function testSupportsSyncWithConnectors()
+    {
+        $expectedIntegrationType = 'someType';
+
+        $this->typesRegistry->addConnectorType(
+            $expectedIntegrationType.'Type',
+            $expectedIntegrationType,
+            $this->createMock(ConnectorInterface::class)
+        );
+
+        $this->assertTrue($this->typesRegistry->supportsSync($expectedIntegrationType));
+    }
+
+    public function testSupportsSyncWithoutConnectors()
+    {
+        $this->assertFalse($this->typesRegistry->supportsSync('someIntegrationType'));
     }
 }

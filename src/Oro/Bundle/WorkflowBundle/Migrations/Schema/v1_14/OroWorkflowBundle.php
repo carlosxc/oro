@@ -5,13 +5,11 @@ namespace Oro\Bundle\WorkflowBundle\Migrations\Schema\v1_14;
 use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Types\Type;
-
 use Oro\Bundle\MigrationBundle\Migration\Extension\DatabasePlatformAwareInterface;
 use Oro\Bundle\MigrationBundle\Migration\Extension\DatabasePlatformAwareTrait;
 use Oro\Bundle\MigrationBundle\Migration\Migration;
 use Oro\Bundle\MigrationBundle\Migration\ParametrizedSqlMigrationQuery;
 use Oro\Bundle\MigrationBundle\Migration\QueryBag;
-
 use Oro\Bundle\WorkflowBundle\Provider\WorkflowVirtualRelationProvider;
 
 class OroWorkflowBundle implements Migration, DatabasePlatformAwareInterface
@@ -59,6 +57,8 @@ class OroWorkflowBundle implements Migration, DatabasePlatformAwareInterface
         $this->updateReportsDefinitions($queries);
         $queries->addQuery(new RemoveExtendedFieldsQuery());
         $queries->addPostQuery(new MoveActiveFromConfigToFieldQuery());
+
+        $this->removeScheduledTransitions($queries);
     }
 
     /**
@@ -92,5 +92,30 @@ class OroWorkflowBundle implements Migration, DatabasePlatformAwareInterface
         $comparator = new Comparator();
 
         return $comparator->compare($schema, $toSchema)->toSql($this->platform);
+    }
+
+    /**
+     * @param QueryBag $queries
+     */
+    protected function removeScheduledTransitions(QueryBag $queries)
+    {
+        $params = ['stpn_name' => 'stpn__%'];
+        $types = ['stpn_name' => Type::STRING];
+
+        $queries->addQuery(
+            new ParametrizedSqlMigrationQuery(
+                'DELETE FROM oro_process_trigger WHERE definition_name LIKE :stpn_name',
+                $params,
+                $types
+            )
+        );
+
+        $queries->addQuery(
+            new ParametrizedSqlMigrationQuery(
+                'DELETE FROM oro_process_definition WHERE name LIKE :stpn_name',
+                $params,
+                $types
+            )
+        );
     }
 }

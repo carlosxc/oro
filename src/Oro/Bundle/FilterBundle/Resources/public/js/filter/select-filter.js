@@ -1,14 +1,18 @@
-define([
-    'jquery',
-    'underscore',
-    'orotranslation/js/translator',
-    './abstract-filter',
-    'orofilter/js/multiselect-decorator',
-    'oroui/js/app/views/loading-mask-view'
-], function($, _, __, AbstractFilter, MultiselectDecorator, LoadingMaskView) {
+define(function(require) {
     'use strict';
 
     var SelectFilter;
+    var template = require('tpl!orofilter/templates/filter/select-filter.html');
+    var $ = require('jquery');
+    var _ = require('underscore');
+    var AbstractFilter = require('./abstract-filter');
+    var MultiselectDecorator = require('orofilter/js/multiselect-decorator');
+    var LoadingMaskView = require('oroui/js/app/views/loading-mask-view');
+    var module = require('module');
+
+    var config = _.extend({
+        populateDefault: true
+    }, module.config());
 
     /**
      * Select filter: filter value as select option
@@ -19,10 +23,17 @@ define([
      */
     SelectFilter = AbstractFilter.extend({
         /**
+         * @property
+         */
+
+        MultiselectDecorator: MultiselectDecorator,
+
+        /**
          * Filter selector template
          *
          * @property
          */
+        template: template,
         templateSelector: '#select-filter-template',
 
         /**
@@ -30,7 +41,7 @@ define([
          *
          * @property
          */
-        populateDefault: true,
+        populateDefault: config.populateDefault,
 
         /**
          * Selector for filter area
@@ -89,7 +100,7 @@ define([
          *
          * @property
          */
-        dropdownContainer: 'body',
+        dropdownContainer: null,
 
         /**
          * Select widget menu opened flag
@@ -102,6 +113,11 @@ define([
          * @property {Boolean}
          */
         contextSearch: true,
+
+        /**
+         * @property {Boolean}
+         */
+        closeAfterChose: true,
 
         /**
          * @property {Boolean}
@@ -121,13 +137,20 @@ define([
         },
 
         /**
+         * @inheritDoc
+         */
+        constructor: function SelectFilter() {
+            SelectFilter.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
          * Initialize.
          *
          * @param {Object} options
          */
         initialize: function(options) {
-            var opts = _.pick(options || {}, ['choices', 'dropdownContainer']);
-            _.extend(this, opts);
+            var opts = _.pick(options, 'choices', 'dropdownContainer', 'widgetOptions');
+            $.extend(true, this, opts);
 
             this._setChoices(this.choices);
 
@@ -170,24 +193,32 @@ define([
         },
 
         /**
-         * Render filter template
-         *
-         * @return {*}
+         * @inheritDoc
          */
-        render: function() {
+        getTemplateData: function() {
             var options = this.choices.slice(0);
             if (this.populateDefault) {
-                options.unshift({value: '', label: this.placeholder});
+                options.unshift({value: '', label: this.placeholder || this.populateDefault});
             }
 
-            var html = this.template({
+            return {
                 label: this.labelPrefix + this.label,
                 showLabel: this.showLabel,
                 options: options,
                 canDisable: this.canDisable,
                 selected: _.extend({}, this.emptyValue, this.value),
-                isEmpty: this.isEmpty()
-            });
+                isEmpty: this.isEmpty(),
+                renderMode: this.renderMode
+            };
+        },
+
+        /**
+         * Render filter template
+         *
+         * @return {*}
+         */
+        render: function() {
+            var html = this.template(this.getTemplateData());
 
             if (!this.selectWidget) {
                 this.setElement(html);
@@ -219,43 +250,71 @@ define([
         },
 
         /**
+         * @inheritDoc
+         */
+        hide: function() {
+            // when the filter has been opened and becomes invisible - close multiselect too
+            if (this.selectWidget) {
+                this.selectWidget.multiselect('close');
+            }
+
+            return SelectFilter.__super__.hide.apply(this, arguments);
+        },
+
+        /**
          * Initialize multiselect widget
          *
          * @protected
          */
         _initializeSelectWidget: function() {
-            var $dropdownContainer = this._findDropdownFitContainer(this.dropdownContainer) || this.dropdownContainer;
-            this.selectWidget = new MultiselectDecorator({
+            var position = {
+                my: 'left top',
+                at: 'left bottom',
+                of: this.$el,
+                collision: 'fit none',
+                within: this._findDropdownFitContainer(this.dropdownContainer) || this.dropdownContainer
+            };
+
+            this.selectWidget = new this.MultiselectDecorator({
                 element: this.$(this.inputSelector),
                 parameters: _.extend({
                     noneSelectedText: this.placeholder,
+                    showCheckAll: false,
+                    showUncheckAll: false,
+                    outerTrigger: this.$(this.buttonSelector),
                     selectedText: _.bind(function(numChecked, numTotal, checkedItems) {
                         return this._getSelectedText(checkedItems);
                     }, this),
-                    position: {
-                        my: 'left top',
-                        at: 'left bottom',
-                        of: this.$el,
-                        collision: 'fit flip',
-                        within: $dropdownContainer
-                    },
+                    position: position,
+                    beforeopen: _.bind(function() {
+                        this.selectWidget.onBeforeOpenDropdown();
+                    }, this),
                     open: _.bind(function() {
                         this.selectWidget.onOpenDropdown();
+                        this.trigger('showCriteria', this);
                         this._setDropdownWidth();
                         this._setButtonPressed(this.$(this.containerSelector), true);
                         this._clearChoicesStyle();
                         this.selectDropdownOpened = true;
-                        this.selectWidget.updateDropdownPosition();
+
+                        this.selectWidget.updateDropdownPosition($.extend({}, position, {
+                            within: this._findDropdownFitContainer(this.dropdownContainer) || this.dropdownContainer
+                        }));
+                    }, this),
+                    refresh: _.bind(function() {
+                        this.selectWidget.onRefresh();
+                    }, this),
+                    beforeclose: _.bind(function() {
+                        return this.closeAfterChose;
                     }, this),
                     close: _.bind(function() {
                         this._setButtonPressed(this.$(this.containerSelector), false);
-                        setTimeout(_.bind(function() {
-                            if (!this.disposed) {
-                                this.selectDropdownOpened = false;
-                            }
-                        }, this), 100);
+                        if (!this.disposed) {
+                            this.selectDropdownOpened = false;
+                        }
                     }, this),
-                    appendTo: this.dropdownContainer
+                    appendTo: this.$el,
+                    refreshNotOpened: this.templateTheme !== ''
                 }, this.widgetOptions),
                 contextSearch: this.contextSearch
             });
@@ -266,6 +325,14 @@ define([
                     this._onClickFilterArea(e);
                 }
             }, this));
+        },
+
+        /**
+         * Set container for dropdown
+         * @return {jQuery}
+         */
+        _setDropdownContainer: function() {
+            return this.dropdownContainer;
         },
 
         /**
@@ -328,7 +395,6 @@ define([
             var filterWidth = this.$(this.containerSelector).width();
             var requiredWidth = Math.max(filterWidth + 24, this.cachedMinimumWidth);
             widget.width(requiredWidth).css('min-width', requiredWidth + 'px');
-            widget.find('input[type="search"]').width(requiredWidth - 30);
         },
 
         /**
@@ -339,13 +405,9 @@ define([
          */
         _onClickFilterArea: function(e) {
             if (!this.selectDropdownOpened) {
-                setTimeout(_.bind(function() {
-                    this.selectWidget.multiselect('open');
-                }, this), 50);
+                this.selectWidget.multiselect('open');
             } else {
-                setTimeout(_.bind(function() {
-                    this.selectWidget.multiselect('close');
-                }, this), 50);
+                this.selectWidget.multiselect('close');
             }
 
             e.stopPropagation();
@@ -378,7 +440,9 @@ define([
          */
         _onValueUpdated: function(newValue, oldValue) {
             SelectFilter.__super__._onValueUpdated.apply(this, arguments);
-            this.selectWidget.multiselect('refresh');
+            if (this.selectWidget) {
+                this.selectWidget.multiselect('refresh');
+            }
         },
 
         /**
@@ -405,6 +469,18 @@ define([
             this.choices = _.map(choices, function(option, i) {
                 return _.isString(option) ? {value: i, label: option} : option;
             });
+        },
+
+        /**
+         * @inheritDoc
+         */
+        _isDOMValueChanged: function() {
+            var thisDOMValue = this._readDOMValue();
+            return (
+                !_.isUndefined(thisDOMValue.value) &&
+                !_.isNull(thisDOMValue.value) &&
+                !_.isEqual(this.value, thisDOMValue)
+            );
         }
     });
 

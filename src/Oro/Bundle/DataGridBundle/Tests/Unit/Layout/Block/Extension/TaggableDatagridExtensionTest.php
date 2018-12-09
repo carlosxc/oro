@@ -2,13 +2,13 @@
 
 namespace Oro\Bundle\DataGridBundle\Tests\Unit\Layout\Block\Extension;
 
+use Oro\Bundle\DataGridBundle\Layout\Block\Extension\TaggableDatagridExtension;
+use Oro\Component\Layout\Block\OptionsResolver\OptionsResolver;
+use Oro\Component\Layout\Block\Type\Options;
 use Oro\Component\Layout\BlockInterface;
 use Oro\Component\Layout\BlockView;
-use Oro\Component\Layout\Block\OptionsResolver\OptionsResolver;
 
-use Oro\Bundle\DataGridBundle\Layout\Block\Extension\TaggableDatagridExtension;
-
-class TaggableDatagridExtensionTest extends \PHPUnit_Framework_TestCase
+class TaggableDatagridExtensionTest extends \PHPUnit\Framework\TestCase
 {
     /** @var TaggableDatagridExtension */
     protected $extension;
@@ -28,7 +28,7 @@ class TaggableDatagridExtensionTest extends \PHPUnit_Framework_TestCase
      * @param array $options
      * @param array $expectedOptions
      */
-    public function testSetDefaultOptions(array $options, array $expectedOptions)
+    public function testConfigureOptions(array $options, array $expectedOptions)
     {
         $resolver = new OptionsResolver();
         $this->extension->configureOptions($resolver);
@@ -57,8 +57,8 @@ class TaggableDatagridExtensionTest extends \PHPUnit_Framework_TestCase
     {
         $view = new BlockView();
         /** @var BlockInterface $block */
-        $block = $this->getMock('Oro\Component\Layout\BlockInterface');
-        $this->extension->buildView($view, $block, ['enable_tagging' => true]);
+        $block = $this->createMock('Oro\Component\Layout\BlockInterface');
+        $this->extension->buildView($view, $block, new Options(['enable_tagging' => true]));
         $this->assertTrue($view->vars['enable_tagging']);
     }
 
@@ -67,8 +67,8 @@ class TaggableDatagridExtensionTest extends \PHPUnit_Framework_TestCase
         $view = new BlockView();
         $view->vars['block_prefixes'] = [];
         /** @var BlockInterface $block */
-        $block = $this->getMock('Oro\Component\Layout\BlockInterface');
-        $this->extension->finishView($view, $block, ['enable_tagging' => true]);
+        $block = $this->createMock('Oro\Component\Layout\BlockInterface');
+        $this->extension->finishView($view, $block, new Options(['enable_tagging' => true]));
         $this->assertEquals('taggable_datagrid', $view->vars['block_prefixes'][0]);
     }
 }

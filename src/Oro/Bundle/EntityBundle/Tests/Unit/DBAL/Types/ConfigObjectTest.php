@@ -2,13 +2,12 @@
 
 namespace Oro\Bundle\EntityBundle\Tests\Unit\DBAL\Types;
 
-use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-
-use Oro\Component\Config\Common\ConfigObject;
+use Doctrine\DBAL\Types\Type;
 use Oro\Bundle\EntityBundle\DBAL\Types\ConfigObjectType;
+use Oro\Component\Config\Common\ConfigObject;
 
-class ConfigObjectTest extends \PHPUnit_Framework_TestCase
+class ConfigObjectTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ConfigObjectType
@@ -41,8 +40,8 @@ class ConfigObjectTest extends \PHPUnit_Framework_TestCase
     public function testConvertToPHPValue($inputData, $expectedResult, $exception = false)
     {
         if ($exception) {
-            $this->setExpectedException(
-                'Doctrine\DBAL\Types\ConversionException',
+            $this->expectException('Doctrine\DBAL\Types\ConversionException');
+            $this->expectExceptionMessage(
                 'Could not convert database value "' . $inputData . '" to Doctrine Type config_object'
             );
         }

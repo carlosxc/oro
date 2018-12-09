@@ -9,6 +9,16 @@ define(function(require) {
     var WidgetManager = require('oroui/js/widget-manager');
 
     ActivityContextView = BaseView.extend({
+        /**
+         * @inheritDoc
+         */
+        constructor: function ActivityContextView() {
+            ActivityContextView.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function(options) {
             this.options = options;
             this.template = _.template($('#activity-context-item').html());
@@ -37,10 +47,10 @@ define(function(require) {
             var dropdown = this.$('.context-items-dropdown');
             var firstItem = this.$('.activity-context-current-item');
             this.collection.on('add', function(model) {
-                var gridUrl = self.options.params.grid_path + '/' + model.attributes.className;
+                var gridUrl = encodeURI(self.options.params.grid_path + '/' + model.attributes.className);
                 var view = self.template({
-                        entity: model
-                    });
+                    entity: model
+                });
                 var $view = $(view);
 
                 if (model.attributes.first) {
@@ -57,8 +67,8 @@ define(function(require) {
                     var item = $(this);
                     firstItem.html(item.html());
                     item.addClass('active');
-
-                    WidgetManager.getWidgetInstanceByAlias('activity-context-grid', function(widget) {
+                    var gridWidgetName = self.options.gridWidgetName || 'activity-context-grid';
+                    WidgetManager.getWidgetInstanceByAlias(gridWidgetName, function(widget) {
                         widget.setUrl(gridUrl);
                         widget.render();
                     });

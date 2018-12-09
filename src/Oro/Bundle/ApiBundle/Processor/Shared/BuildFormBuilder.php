@@ -2,31 +2,38 @@
 
 namespace Oro\Bundle\ApiBundle\Processor\Shared;
 
-use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Form\FormFactoryInterface;
-
+use Doctrine\Common\Util\ClassUtils;
+use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
+use Oro\Bundle\ApiBundle\Exception\RuntimeException;
+use Oro\Bundle\ApiBundle\Form\Extension\ValidationExtension;
+use Oro\Bundle\ApiBundle\Form\FormHelper;
+use Oro\Bundle\ApiBundle\Processor\CustomizeFormData\CustomizeFormDataHandler;
+use Oro\Bundle\ApiBundle\Processor\FormContext;
 use Oro\Component\ChainProcessor\ContextInterface;
 use Oro\Component\ChainProcessor\ProcessorInterface;
-use Oro\Bundle\ApiBundle\Config\EntityDefinitionConfig;
-use Oro\Bundle\ApiBundle\Config\EntityDefinitionFieldConfig;
-use Oro\Bundle\ApiBundle\Metadata\EntityMetadata;
-use Oro\Bundle\ApiBundle\Processor\FormContext;
+use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\FormBuilderInterface;
 
 /**
  * Builds the form builder based on the entity metadata and configuration
- * and sets it to the Context.
+ * and sets it to the context.
  */
 class BuildFormBuilder implements ProcessorInterface
 {
-    /** @var FormFactoryInterface */
-    protected $formFactory;
+    /** @var FormHelper */
+    protected $formHelper;
+
+    /** @var bool */
+    protected $enableFullValidation;
 
     /**
-     * @param FormFactoryInterface $formFactory
+     * @param FormHelper $formHelper
+     * @param bool       $enableFullValidation
      */
-    public function __construct(FormFactoryInterface $formFactory)
+    public function __construct(FormHelper $formHelper, bool $enableFullValidation = false)
     {
-        $this->formFactory = $formFactory;
+        $this->formHelper = $formHelper;
+        $this->enableFullValidation = $enableFullValidation;
     }
 
     /**
@@ -45,19 +52,48 @@ class BuildFormBuilder implements ProcessorInterface
             return;
         }
 
-        $config = $context->getConfig();
-        $formType = $config->getFormType() ?: 'form';
+        if (!$context->hasResult()) {
+            // the entity is not defined
+            throw new RuntimeException(
+                'The entity object must be added to the context before creation of the form builder.'
+            );
+        }
 
-        $formBuilder = $this->formFactory->createNamedBuilder(
-            null,
+        $formBuilder = $this->getFormBuilder($context);
+        if (null !== $formBuilder) {
+            $context->setFormBuilder($formBuilder);
+        }
+    }
+
+    /**
+     * @param FormContext $context
+     *
+     * @return FormBuilderInterface|null
+     */
+    protected function getFormBuilder(FormContext $context)
+    {
+        $config = $context->getConfig();
+        if (null === $config) {
+            return null;
+        }
+
+        $formType = $config->getFormType() ?: FormType::class;
+
+        $formBuilder = $this->formHelper->createFormBuilder(
             $formType,
             $context->getResult(),
-            $this->getFormOptions($context, $config)
+            $this->getFormOptions($context, $config),
+            $config->getFormEventSubscribers()
         );
-        if ('form' === $formType) {
-            $this->addFormFields($formBuilder, $context->getMetadata(), $config);
+
+        if (FormType::class === $formType) {
+            $metadata = $context->getMetadata();
+            if (null !== $metadata) {
+                $this->formHelper->addFormFields($formBuilder, $metadata, $config);
+            }
         }
-        $context->setFormBuilder($formBuilder);
+
+        return $formBuilder;
     }
 
     /**
@@ -72,66 +108,35 @@ class BuildFormBuilder implements ProcessorInterface
         if (null === $options) {
             $options = [];
         }
-        if (!array_key_exists('data_class', $options)) {
-            $options['data_class'] = $context->getClassName();
+        if (!\array_key_exists('data_class', $options)) {
+            $options['data_class'] = $this->getFormDataClass($context, $config);
         }
-        if (!array_key_exists('validation_groups', $options)) {
-            $options['validation_groups'] = ['Default', 'api'];
-        }
-        if (!array_key_exists('extra_fields_message', $options)) {
-            $options['extra_fields_message'] = 'This form should not contain extra fields: "{{ extra_fields }}"';
-        }
+        $options[CustomizeFormDataHandler::API_CONTEXT] = $context;
+        $options[ValidationExtension::ENABLE_FULL_VALIDATION] = $this->enableFullValidation;
 
         return $options;
     }
 
     /**
-     * @param FormBuilderInterface   $formBuilder
-     * @param EntityMetadata         $metadata
+     * @param FormContext            $context
      * @param EntityDefinitionConfig $config
-     */
-    protected function addFormFields(
-        FormBuilderInterface $formBuilder,
-        EntityMetadata $metadata,
-        EntityDefinitionConfig $config
-    ) {
-        $fields = $metadata->getFields();
-        foreach ($fields as $name => $field) {
-            $fieldConfig = $config->getField($name);
-            $formBuilder->add(
-                $name,
-                $fieldConfig->getFormType(),
-                $this->getFormFieldOptions($fieldConfig)
-            );
-        }
-        $associations = $metadata->getAssociations();
-        foreach ($associations as $name => $association) {
-            $fieldConfig = $config->getField($name);
-
-            $formBuilder->add(
-                $name,
-                $fieldConfig->getFormType(),
-                $this->getFormFieldOptions($fieldConfig)
-            );
-        }
-    }
-
-    /**
-     * @param EntityDefinitionFieldConfig $fieldConfig
      *
-     * @return array
+     * @return string
      */
-    protected function getFormFieldOptions(EntityDefinitionFieldConfig $fieldConfig)
+    protected function getFormDataClass(FormContext $context, EntityDefinitionConfig $config)
     {
-        $options = $fieldConfig->getFormOptions();
-        if (null === $options) {
-            $options = [];
-        }
-        $propertyPath = $fieldConfig->getPropertyPath();
-        if ($propertyPath) {
-            $options['property_path'] = $propertyPath;
+        $dataClass = $context->getClassName();
+        $entity = $context->getResult();
+        if (\is_object($entity)) {
+            $parentResourceClass = $config->getParentResourceClass();
+            if ($parentResourceClass) {
+                $entityClass = ClassUtils::getClass($entity);
+                if ($entityClass !== $dataClass && $entityClass === $parentResourceClass) {
+                    $dataClass = $parentResourceClass;
+                }
+            }
         }
 
-        return $options;
+        return $dataClass;
     }
 }

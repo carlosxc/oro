@@ -2,10 +2,12 @@
 
 namespace Oro\Bundle\LocaleBundle\Formatter;
 
+use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
 use Symfony\Component\Translation\TranslatorInterface;
 
-use Oro\Bundle\LocaleBundle\Model\LocaleSettings;
-
+/**
+ * Format dates based on locale settings
+ */
 class DateTimeFormatter
 {
     const DEFAULT_DATE_TYPE = \IntlDateFormatter::MEDIUM;
@@ -255,17 +257,17 @@ class DateTimeFormatter
     /**
      * Returns DateTime by $data and $timezone and false otherwise
      *
-     * @param \DateTime|string|int $date
+     * @param \DateTimeInterface|string|int $date
      *
-     * @return \DateTime|false
+     * @return \DateTimeInterface|false
      */
     public function getDateTime($date)
     {
-        if (!$date) {
+        if ($date === false || $date === null) {
             return false;
         }
 
-        if ($date instanceof \DateTime) {
+        if ($date instanceof \DateTimeInterface) {
             return $date;
         }
 

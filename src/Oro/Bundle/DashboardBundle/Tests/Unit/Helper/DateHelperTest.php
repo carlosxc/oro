@@ -3,11 +3,9 @@
 namespace Oro\Bundle\DashboardBundle\Tests\Unit\Helper;
 
 use DateTime;
-
 use Doctrine\ORM\QueryBuilder;
-
 use Oro\Bundle\DashboardBundle\Helper\DateHelper;
-use Oro\Bundle\TestFrameworkBundle\Test\Doctrine\ORM\OrmTestCase;
+use Oro\Component\TestUtils\ORM\OrmTestCase;
 
 /**
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
@@ -17,13 +15,13 @@ class DateHelperTest extends OrmTestCase
     /** @var DateHelper */
     protected $helper;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $settings;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $doctrine;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected $aclHelper;
 
     public function setUp()
@@ -395,36 +393,115 @@ class DateHelperTest extends OrmTestCase
     }
 
     /**
-     * @dataProvider getPreviousDateTimeIntervalDataProvider
-     *
-     * @param Datetime $from
-     * @param Datetime $to
-     * @param Datetime $expectedStart
-     * @param Datetime $expectedEnd
+     * @dataProvider getFormatStringsProvider
      */
-    public function testGetPreviousDateTimeInterval(
-        \Datetime $from,
-        \Datetime $to,
-        \Datetime $expectedStart,
-        \Datetime $expectedEnd
-    ) {
-        list($start, $end) = $this->helper->getPreviousDateTimeInterval($from, $to);
-
-        $this->assertEquals($start, $expectedStart);
-        $this->assertEquals($end, $expectedEnd);
+    public function testGetFormatStrings(\DateTime $start, \DateTime $end, array $expectedValue)
+    {
+        $this->assertEquals($expectedValue, $this->helper->getFormatStrings($start, $end));
     }
 
-    public function getPreviousDateTimeIntervalDataProvider()
+    public function getFormatStringsProvider()
     {
-        $timezone = new \DateTimeZone('UTC');
-
         return [
-            [
-                'from'          => new \DateTime('2014-01-01 00:00:00', $timezone),
-                'to'            => new \DateTime('2014-01-02 23:59:59', $timezone),
-                'expectedStart' => new \DateTime('2013-12-30 00:00:00', $timezone),
-                'expectedEnd'   => new \DateTime('2013-12-31 23:59:59', $timezone),
-            ]
+            'year' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2015-01-01', new \DateTimeZone('UTC')),
+                [
+                    'intervalString' => 'P1Y',
+                    'valueStringFormat' => 'Y',
+                    'viewType' => 'year',
+                ]
+            ],
+            'month' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-05-01', new \DateTimeZone('UTC')),
+                [
+                    'intervalString' => 'P1M',
+                    'valueStringFormat' => 'Y-m',
+                    'viewType' => 'month',
+                ]
+            ],
+            'date' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-03-15', new \DateTimeZone('UTC')),
+                [
+                    'intervalString' => 'P1W',
+                    'valueStringFormat' => 'Y-W',
+                    'viewType' => 'date',
+                ]
+            ],
+            'day' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-01-15', new \DateTimeZone('UTC')),
+                [
+                    'intervalString' => 'P1D',
+                    'valueStringFormat' => 'Y-m-d',
+                    'viewType' => 'day',
+                ]
+            ],
+            'time' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-01-02', new \DateTimeZone('UTC')),
+                [
+                    'intervalString' => 'PT1H',
+                    'valueStringFormat' => 'Y-m-d-H',
+                    'viewType' => 'time',
+                ]
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider getKeyGeneratesKeysFromGetDatePeriod
+     */
+    public function testGetKeyGeneratesKeysFromGetDatePeriod(
+        \DateTime $start,
+        \DateTime $end,
+        array $row,
+        $expectedViewType
+    ) {
+        $formatStrings = $this->helper->getFormatStrings($start, $end);
+        $this->assertEquals($expectedViewType, $formatStrings['viewType']);
+
+        $this->assertArrayHasKey(
+            $this->helper->getKey($start, $end, $row),
+            $this->helper->getDatePeriod($start, $end)
+        );
+    }
+
+    public function getKeyGeneratesKeysFromGetDatePeriod()
+    {
+        return [
+            'year' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2015-01-01', new \DateTimeZone('UTC')),
+                ['yearCreated' => '2010'],
+                'year',
+            ],
+            'month' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-05-01', new \DateTimeZone('UTC')),
+                ['yearCreated' => '2010', 'monthCreated' => '4'],
+                'month',
+            ],
+            'date' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-03-15', new \DateTimeZone('UTC')),
+                ['yearCreated' => '2010', 'weekCreated' => '1'],
+                'date',
+            ],
+            'time with hour having 1 digit' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-01-02', new \DateTimeZone('UTC')),
+                ['dateCreated' => '2010-01-01', 'hourCreated' => '5'],
+                'time',
+            ],
+            'time with hour having 2 digits' => [
+                new \DateTime('2010-01-01', new \DateTimeZone('UTC')),
+                new \DateTime('2010-01-02', new \DateTimeZone('UTC')),
+                ['dateCreated' => '2010-01-01', 'hourCreated' => '11'],
+                'time',
+            ],
         ];
     }
 }

@@ -11,9 +11,20 @@ define(function(require) {
             translated_label: null,
             type: null,
             property_path: null,
-            options: null
+            options: null,
+            translateLinks: []
         },
 
+        /**
+         * @inheritDoc
+         */
+        constructor: function AttributeModel() {
+            AttributeModel.__super__.constructor.apply(this, arguments);
+        },
+
+        /**
+         * @inheritDoc
+         */
         initialize: function() {
             if (this.get('options') === null) {
                 this.set('options', {});

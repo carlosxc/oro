@@ -4,9 +4,8 @@ namespace Oro\Bundle\CronBundle\Tests\Unit\Filter;
 
 use Doctrine\DBAL\Platforms\MySqlPlatform;
 use Doctrine\DBAL\Platforms\PostgreSQL92Platform;
-use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Query;
-
+use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\CronBundle\Filter\CommandWithArgsFilter;
 use Oro\Bundle\CronBundle\ORM\CommandArgsNormalizer;
 use Oro\Bundle\CronBundle\ORM\CommandArgsTokenizer;
@@ -14,7 +13,7 @@ use Oro\Bundle\CronBundle\ORM\Pgsql92CommandArgsNormalizer;
 use Oro\Bundle\FilterBundle\Filter\FilterUtility;
 use Oro\Bundle\FilterBundle\Form\Type\Filter\TextFilterType;
 
-class CommandWithArgsFilterTest extends \PHPUnit_Framework_TestCase
+class CommandWithArgsFilterTest extends \PHPUnit\Framework\TestCase
 {
     /** @var CommandWithArgsFilter */
     protected $filter;
@@ -29,7 +28,7 @@ class CommandWithArgsFilterTest extends \PHPUnit_Framework_TestCase
         $tokenizer->addNormalizer(new Pgsql92CommandArgsNormalizer());
 
         $this->filter = new CommandWithArgsFilter(
-            $this->getMock('Symfony\Component\Form\FormFactoryInterface'),
+            $this->createMock('Symfony\Component\Form\FormFactoryInterface'),
             new FilterUtility(),
             $tokenizer
         );
@@ -43,13 +42,13 @@ class CommandWithArgsFilterTest extends \PHPUnit_Framework_TestCase
     {
         $paramCounter = 0;
 
-        $em = $this->getMock('Doctrine\ORM\EntityManagerInterface');
+        $em = $this->createMock('Doctrine\ORM\EntityManagerInterface');
         $qb = new QueryBuilder($em);
-        $ds = $this->getMock(
-            'Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter',
-            ['generateParameterName', 'getDatabasePlatform'],
-            [$qb]
-        );
+        $ds = $this->getMockBuilder('Oro\Bundle\FilterBundle\Datasource\Orm\OrmFilterDatasourceAdapter')
+            ->setMethods(['generateParameterName', 'getDatabasePlatform'])
+            ->setConstructorArgs([$qb])
+            ->getMock();
+
         $ds->expects($this->any())
             ->method('generateParameterName')
             ->willReturnCallback(

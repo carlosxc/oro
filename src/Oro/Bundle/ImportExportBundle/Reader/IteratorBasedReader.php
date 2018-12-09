@@ -31,7 +31,7 @@ abstract class IteratorBasedReader extends AbstractReader
 
         $result = null;
         if ($this->sourceIterator->valid()) {
-            $result = $this->sourceIterator->current();
+            $result  = $this->sourceIterator->current();
             $context = $this->getContext();
             $context->incrementReadOffset();
             $context->incrementReadCount();
@@ -46,10 +46,10 @@ abstract class IteratorBasedReader extends AbstractReader
      *
      * @param \Iterator $sourceIterator
      */
-    public function setSourceIterator($sourceIterator = null)
+    public function setSourceIterator(\Iterator $sourceIterator = null)
     {
         $this->sourceIterator = $sourceIterator;
-        $this->rewound = false;
+        $this->rewound        = false;
     }
 
     /**

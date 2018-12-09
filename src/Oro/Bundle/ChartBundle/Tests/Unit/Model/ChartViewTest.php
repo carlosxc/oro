@@ -4,17 +4,17 @@ namespace Oro\Bundle\ChartBundle\Tests\Unit\Model;
 
 use Oro\Bundle\ChartBundle\Model\ChartView;
 
-class ChartViewTest extends \PHPUnit_Framework_TestCase
+class ChartViewTest extends \PHPUnit\Framework\TestCase
 {
     const TEMPLATE = 'template.twig.html';
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $twig;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $data;
 
@@ -27,8 +27,8 @@ class ChartViewTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->twig = $this->getMock('Twig_Environment');
-        $this->data = $this->getMock('Oro\Bundle\ChartBundle\Model\Data\DataInterface');
+        $this->twig = $this->createMock('Twig_Environment');
+        $this->data = $this->createMock('Oro\Bundle\ChartBundle\Model\Data\DataInterface');
         $this->chartView = new ChartView(
             $this->twig,
             self::TEMPLATE,

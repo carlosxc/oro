@@ -2,19 +2,18 @@
 
 namespace Oro\Bundle\SecurityBundle\Tests\Unit\Acl\Domain;
 
+use Oro\Bundle\SecurityBundle\Acl\Domain\RootBasedAclWrapper;
 use Symfony\Component\Security\Acl\Domain\Acl;
 use Symfony\Component\Security\Acl\Domain\ObjectIdentity;
 use Symfony\Component\Security\Acl\Domain\RoleSecurityIdentity;
 use Symfony\Component\Security\Acl\Model\EntryInterface;
 
-use Oro\Bundle\SecurityBundle\Acl\Domain\RootBasedAclWrapper;
-
-class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
+class RootBasedAclWrapperTest extends \PHPUnit\Framework\TestCase
 {
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $acl;
 
-    /** @var \PHPUnit_Framework_MockObject_MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     private $rootAcl;
 
     protected function setUp()
@@ -29,8 +28,8 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
 
     public function testGetClassAces()
     {
-        $context = $this->getMock('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategyContextInterface');
-        $aclExtension = $this->getMock('Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionInterface');
+        $context = $this->createMock('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategyContextInterface');
+        $aclExtension = $this->createMock('Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionInterface');
         $permissionGrantingStrategy = $this
             ->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategy')
             ->disableOriginalConstructor()
@@ -105,8 +104,8 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
     {
         $fieldName = 'testField';
 
-        $context = $this->getMock('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategyContextInterface');
-        $aclExtension = $this->getMock('Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionInterface');
+        $context = $this->createMock('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategyContextInterface');
+        $aclExtension = $this->createMock('Oro\Bundle\SecurityBundle\Acl\Extension\AclExtensionInterface');
         $permissionGrantingStrategy = $this
             ->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Domain\PermissionGrantingStrategy')
             ->disableOriginalConstructor()
@@ -179,7 +178,7 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
 
     public function testGetObjectAces()
     {
-        $ace = $this->getMock('Symfony\Component\Security\Acl\Model\EntryInterface');
+        $ace = $this->createMock('Symfony\Component\Security\Acl\Model\EntryInterface');
 
         $obj = new RootBasedAclWrapper($this->acl, $this->rootAcl);
         $this->acl->expects($this->once())
@@ -192,7 +191,7 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
 
     public function testGetObjectFieldAces()
     {
-        $ace = $this->getMock('Symfony\Component\Security\Acl\Model\EntryInterface');
+        $ace = $this->createMock('Symfony\Component\Security\Acl\Model\EntryInterface');
 
         $obj = new RootBasedAclWrapper($this->acl, $this->rootAcl);
         $this->acl->expects($this->once())
@@ -263,7 +262,7 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
     {
         $sid = new RoleSecurityIdentity('sid1');
 
-        $strategy = $this->getMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
+        $strategy = $this->createMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
 
         $obj = $this->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Domain\RootBasedAclWrapper')
             ->setConstructorArgs(array($this->acl, $this->rootAcl))
@@ -291,7 +290,7 @@ class RootBasedAclWrapperTest extends \PHPUnit_Framework_TestCase
     {
         $sid = new RoleSecurityIdentity('sid1');
 
-        $strategy = $this->getMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
+        $strategy = $this->createMock('Symfony\Component\Security\Acl\Model\PermissionGrantingStrategyInterface');
 
         $obj = $this->getMockBuilder('Oro\Bundle\SecurityBundle\Acl\Domain\RootBasedAclWrapper')
             ->setConstructorArgs(array($this->acl, $this->rootAcl))

@@ -5,13 +5,13 @@ namespace Oro\Bundle\ReminderBundle\Tests\Unit\Entity\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
 use Oro\Bundle\ReminderBundle\Entity\Collection\RemindersPersistentCollection;
 
-class RemindersPersistentCollectionTest extends \PHPUnit_Framework_TestCase
+class RemindersPersistentCollectionTest extends \PHPUnit\Framework\TestCase
 {
     const CLASS_NAME = 'Foo\\Entity';
     const IDENTIFIER = 101;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $repository;
 
@@ -207,7 +207,7 @@ class RemindersPersistentCollectionTest extends \PHPUnit_Framework_TestCase
 
     protected function createReminder($id)
     {
-        $result = $this->getMock('Oro\\Bundle\\ReminderBundle\\Entity\\Reminder');
+        $result = $this->createMock('Oro\\Bundle\\ReminderBundle\\Entity\\Reminder');
         $result->expects($this->any())
             ->method('getId')
             ->will($this->returnValue($id));

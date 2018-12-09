@@ -2,12 +2,11 @@
 
 namespace Oro\Bundle\WorkflowBundle\Tests\Unit\Configuration;
 
-use JMS\JobQueueBundle\Entity\Job;
-
-use Oro\Bundle\WorkflowBundle\Entity\ProcessTrigger;
+use Oro\Bundle\WorkflowBundle\Configuration\ProcessPriority;
 use Oro\Bundle\WorkflowBundle\Configuration\ProcessTriggerConfiguration;
+use Oro\Bundle\WorkflowBundle\Entity\ProcessTrigger;
 
-class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
+class ProcessTriggerConfigurationTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ProcessTriggerConfiguration
@@ -39,7 +38,7 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
      */
     public function processDataProvider()
     {
-        return array(
+        return [
             'minimum data' => [
                 'input' => [
                     'event' => ProcessTrigger::EVENT_CREATE,
@@ -47,7 +46,7 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
                 'expected' => [
                     'event'      => ProcessTrigger::EVENT_CREATE,
                     'field'      => null,
-                    'priority'   => Job::PRIORITY_DEFAULT,
+                    'priority'   => ProcessPriority::PRIORITY_DEFAULT,
                     'queued'     => false,
                     'time_shift' => null,
                     'cron'       => null
@@ -57,7 +56,7 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
                 'input' => [
                     'event'      => ProcessTrigger::EVENT_UPDATE,
                     'field'      => 'status',
-                    'priority'   => Job::PRIORITY_LOW,
+                    'priority'   => ProcessPriority::PRIORITY_LOW,
                     'queued'     => true,
                     'time_shift' => 12345,
                     'cron'       => null
@@ -65,7 +64,7 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
                 'expected' => [
                     'event'      => ProcessTrigger::EVENT_UPDATE,
                     'field'      => 'status',
-                    'priority'   => Job::PRIORITY_LOW,
+                    'priority'   => ProcessPriority::PRIORITY_LOW,
                     'queued'     => true,
                     'time_shift' => 12345,
                     'cron'       => null
@@ -74,14 +73,14 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
             'date interval time shift' => [
                 'input' => [
                     'event'      => ProcessTrigger::EVENT_DELETE,
-                    'priority'   => Job::PRIORITY_HIGH,
+                    'priority'   => ProcessPriority::PRIORITY_HIGH,
                     'queued'     => true,
                     'time_shift' => 'P1D',
                     'cron'       => null
                 ],
                 'expected' => [
                     'event'      => ProcessTrigger::EVENT_DELETE,
-                    'priority'   => Job::PRIORITY_HIGH,
+                    'priority'   => ProcessPriority::PRIORITY_HIGH,
                     'queued'     => true,
                     'time_shift' => 24 * 3600,
                     'field'      => null,
@@ -95,13 +94,13 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
                 'expected' => [
                     'event'      => null,
                     'field'      => null,
-                    'priority'   => Job::PRIORITY_DEFAULT,
+                    'priority'   => ProcessPriority::PRIORITY_DEFAULT,
                     'queued'     => false,
                     'time_shift' => null,
                     'cron'       => '0 * * * *'
                 ]
             ]
-        );
+        ];
     }
 
     /**
@@ -113,7 +112,8 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
      */
     public function testProcessException(array $config, $exception, $message)
     {
-        $this->setExpectedException($exception, $message);
+        $this->expectException($exception);
+        $this->expectExceptionMessage($message);
 
         $this->configuration->processConfiguration($config);
     }
@@ -163,7 +163,7 @@ class ProcessTriggerConfigurationTest extends \PHPUnit_Framework_TestCase
                     'cron' => 'a b * * *'
                 ],
                 'exception' => 'Symfony\Component\Config\Definition\Exception\InvalidConfigurationException',
-                'message' => 'Invalid configuration for path "configuration.cron": Invalid CRON field value a as ' .
+                'message' => 'Invalid configuration for path "configuration.cron": Invalid CRON field value a at ' .
                     'position 0'
             ],
             'not allowed property "field" with cron node' => [

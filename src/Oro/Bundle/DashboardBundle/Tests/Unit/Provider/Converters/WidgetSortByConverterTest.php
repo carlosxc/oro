@@ -5,14 +5,14 @@ namespace Oro\Bundle\DashboardBundle\Tests\Unit\Provider\Converters;
 use Oro\Bundle\DashboardBundle\Provider\Converters\WidgetSortByConverter;
 use Oro\Bundle\EntityConfigBundle\Config\Config;
 
-class WidgetSortByConverterTest extends \PHPUnit_Framework_TestCase
+class WidgetSortByConverterTest extends \PHPUnit\Framework\TestCase
 {
     /** @var WidgetSortByConverter */
     protected $widgetSortByConverter;
 
     public function setUp()
     {
-        $configId = $this->getMock('Oro\Bundle\EntityConfigBundle\Config\Id\ConfigIdInterface');
+        $configId = $this->createMock('Oro\Bundle\EntityConfigBundle\Config\Id\ConfigIdInterface');
         $config = new Config($configId, ['label' => 'existingLabel']);
 
         $entityConfigProvider = $this->getMockBuilder('Oro\Bundle\EntityConfigBundle\Provider\ConfigProvider')
@@ -28,7 +28,7 @@ class WidgetSortByConverterTest extends \PHPUnit_Framework_TestCase
             ->with('TestClass', 'existing')
             ->will($this->returnValue($config));
 
-        $translator = $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        $translator = $this->createMock('Symfony\Component\Translation\TranslatorInterface');
         $translator->expects($this->any())
             ->method('trans')
             ->will($this->returnCallback(function ($id) {

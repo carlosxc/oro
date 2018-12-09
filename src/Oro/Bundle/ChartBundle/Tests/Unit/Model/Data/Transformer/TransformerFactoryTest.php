@@ -4,10 +4,10 @@ namespace Oro\Bundle\ChartBundle\Tests\Unit\Model\Data\Transformer;
 
 use Oro\Bundle\ChartBundle\Model\Data\Transformer\TransformerFactory;
 
-class TransformerFactoryTest extends \PHPUnit_Framework_TestCase
+class TransformerFactoryTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $container;
 
@@ -18,13 +18,13 @@ class TransformerFactoryTest extends \PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
+        $this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
         $this->factory = new TransformerFactory($this->container);
     }
 
     public function testCreateTransformer()
     {
-        $expected = $this->getMock('Oro\Bundle\ChartBundle\Model\Data\Transformer\TransformerInterface');
+        $expected = $this->createMock('Oro\Bundle\ChartBundle\Model\Data\Transformer\TransformerInterface');
 
         $serviceId = 'transformer_service';
         $this->container->expects($this->once())

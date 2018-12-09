@@ -2,37 +2,31 @@
 
 namespace Oro\Bundle\UserBundle\EventListener;
 
-use Symfony\Component\Security\Core\SecurityContextInterface;
-
 use Doctrine\ORM\EntityManager;
-
 use Oro\Bundle\DataGridBundle\Datagrid\Common\DatagridConfiguration;
 use Oro\Bundle\DataGridBundle\Event\BuildBefore;
-
-use Oro\Bundle\SecurityBundle\Acl\AccessLevel;
-use Oro\Bundle\SecurityBundle\Acl\Voter\AclVoter;
-use Oro\Bundle\SecurityBundle\Acl\Domain\OneShotIsGrantedObserver;
-use Oro\Bundle\SecurityBundle\Owner\OwnerTreeProvider;
-
-use Oro\Bundle\UserBundle\Entity\User;
-
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
-
-use Oro\Bundle\EntityConfigBundle\DependencyInjection\Utils\ServiceLink;
+use Oro\Bundle\SecurityBundle\Acl\AccessLevel;
+use Oro\Bundle\SecurityBundle\Acl\Domain\OneShotIsGrantedObserver;
+use Oro\Bundle\SecurityBundle\Acl\Voter\AclVoter;
+use Oro\Bundle\SecurityBundle\Authentication\TokenAccessorInterface;
+use Oro\Bundle\SecurityBundle\Owner\OwnerTreeProvider;
+use Oro\Bundle\UserBundle\Entity\User;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 /**
  * Owner users select grid. This grid does not use search index or an ACL helper to limit data.
- *
- * Class OwnerUserGridListener
- * @package Oro\Bundle\UserBundle\EventListener
  */
 class OwnerUserGridListener
 {
     /** @var EntityManager */
     protected $em;
 
-    /** @var ServiceLink */
-    protected $securityContextLink;
+    /** @var AuthorizationCheckerInterface */
+    protected $authorizationChecker;
+
+    /** @var TokenAccessorInterface */
+    protected $tokenAccessor;
 
     /** @var AclVoter */
     protected $aclVoter;
@@ -41,21 +35,24 @@ class OwnerUserGridListener
     protected $treeProvider;
 
     /**
-     * @param EntityManager     $em
-     * @param ServiceLink       $securityContextLink
-     * @param OwnerTreeProvider $treeProvider
-     * @param AclVoter          $aclVoter
+     * @param EntityManager                 $em
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @param TokenAccessorInterface        $tokenAccessor
+     * @param OwnerTreeProvider             $treeProvider
+     * @param AclVoter                      $aclVoter
      */
     public function __construct(
         EntityManager $em,
-        ServiceLink $securityContextLink,
+        AuthorizationCheckerInterface $authorizationChecker,
+        TokenAccessorInterface $tokenAccessor,
         OwnerTreeProvider $treeProvider,
         AclVoter $aclVoter = null
     ) {
-        $this->em                  = $em;
-        $this->aclVoter            = $aclVoter;
-        $this->securityContextLink = $securityContextLink;
-        $this->treeProvider        = $treeProvider;
+        $this->em = $em;
+        $this->aclVoter = $aclVoter;
+        $this->authorizationChecker = $authorizationChecker;
+        $this->tokenAccessor = $tokenAccessor;
+        $this->treeProvider = $treeProvider;
     }
 
     /**
@@ -81,12 +78,12 @@ class OwnerUserGridListener
 
         $observer = new OneShotIsGrantedObserver();
         $this->aclVoter->addOneShotIsGrantedObserver($observer);
-        $this->getSecurityContext()->isGranted($permission, $object);
+        $this->authorizationChecker->isGranted($permission, $object);
         $accessLevel = $observer->getAccessLevel();
 
-        $config       = $event->getConfig();
-        $user         = $this->getSecurityContext()->getToken()->getUser();
-        $organization = $this->getSecurityContext()->getToken()->getOrganizationContext();
+        $config = $event->getConfig();
+        $user = $this->tokenAccessor->getUser();
+        $organization = $this->tokenAccessor->getOrganization();
 
         $this->applyACL($config, $accessLevel, $user, $organization);
     }
@@ -103,60 +100,35 @@ class OwnerUserGridListener
      */
     protected function applyACL(DatagridConfiguration $config, $accessLevel, User $user, Organization $organization)
     {
-        $where = $config->offsetGetByPath('[source][query][where][and]', []);
+        $query = $config->getOrmQuery();
         /** todo: refactor this check usages */
-        if ($accessLevel == AccessLevel::BASIC_LEVEL) {
-            $where = array_merge(
-                $where,
-                ['u.id = ' . $user->getId()]
-            );
-        } elseif ($accessLevel == AccessLevel::GLOBAL_LEVEL) {
-            $leftJoins   = $config->offsetGetByPath('[source][query][join][inner]', []);
-            $leftJoins[] = ['join' => 'u.organizations', 'alias' => 'org'];
-            $config->offsetSetByPath('[source][query][join][inner]', $leftJoins);
-
-            $where = array_merge(
-                $where,
-                ['org.id in (' . $organization->getId() . ')']
-            );
-        } elseif ($accessLevel !== AccessLevel::SYSTEM_LEVEL) {
+        if (AccessLevel::BASIC_LEVEL === $accessLevel) {
+            $query->addAndWhere('u.id = ' . $user->getId());
+        } elseif (AccessLevel::GLOBAL_LEVEL === $accessLevel) {
+            $query->addInnerJoin('u.organizations', 'org');
+            $query->addAndWhere('org.id in (' . $organization->getId() . ')');
+        } elseif (AccessLevel::SYSTEM_LEVEL !== $accessLevel) {
             $resultBuIds = [];
-            if ($accessLevel == AccessLevel::LOCAL_LEVEL) {
+            if (AccessLevel::LOCAL_LEVEL === $accessLevel) {
                 $resultBuIds = $this->treeProvider->getTree()->getUserBusinessUnitIds(
                     $user->getId(),
                     $organization->getId()
                 );
-            } elseif ($accessLevel == AccessLevel::DEEP_LEVEL) {
+            } elseif (AccessLevel::DEEP_LEVEL === $accessLevel) {
                 $resultBuIds = $this->treeProvider->getTree()->getUserSubordinateBusinessUnitIds(
                     $user->getId(),
                     $organization->getId()
                 );
             }
 
-            $leftJoins   = $config->offsetGetByPath('[source][query][join][inner]', []);
-            $leftJoins[] = ['join' => 'u.businessUnits', 'alias' => 'bu'];
-            $config->offsetSetByPath('[source][query][join][inner]', $leftJoins);
+            $query->addInnerJoin('u.businessUnits', 'bu');
 
             if ($resultBuIds) {
-                $where = array_merge(
-                    $where,
-                    ['bu.id in (' . implode(', ', $resultBuIds) . ')']
-                );
+                $query->addAndWhere('bu.id in (' . implode(', ', $resultBuIds) . ')');
             } else {
                 // There are no records to show, make query to return empty result
-                $where = array_merge($where, ['1 = 0']);
+                $query->addAndWhere('1 = 0');
             }
         }
-        if (count($where)) {
-            $config->offsetSetByPath('[source][query][where][and]', $where);
-        }
-    }
-
-    /**
-     * @return SecurityContextInterface
-     */
-    protected function getSecurityContext()
-    {
-        return $this->securityContextLink->getService();
     }
 }

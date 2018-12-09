@@ -5,7 +5,7 @@ namespace Oro\Bundle\SoapBundle\Tests\Unit\Provider;
 use Oro\Bundle\SoapBundle\Provider\ChainMetadataProvider;
 use Oro\Bundle\SoapBundle\Tests\Unit\Provider\Stub\StubMetadataProvider;
 
-class ChainMetadataProviderTest extends \PHPUnit_Framework_TestCase
+class ChainMetadataProviderTest extends \PHPUnit\Framework\TestCase
 {
     public function testConstructionWithoutProviders()
     {
@@ -14,14 +14,14 @@ class ChainMetadataProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testPassProviderThroughConstuctor()
     {
-        $provider = $this->getMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
+        $provider = $this->createMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
         $chain    = $this->createChain([$provider]);
         $this->assertAttributeContains($provider, 'providers', $chain);
     }
 
     public function testPassProvidersThoughAdder()
     {
-        $provider = $this->getMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
+        $provider = $this->createMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
         $chain    = $this->createChain();
         $chain->addProvider($provider);
 
@@ -35,7 +35,7 @@ class ChainMetadataProviderTest extends \PHPUnit_Framework_TestCase
 
         $object = new \stdClass();
 
-        $provider = $this->getMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
+        $provider = $this->createMock('Oro\Bundle\SoapBundle\Provider\MetadataProviderInterface');
         $provider->expects($this->once())->method('getMetadataFor')->with($this->equalTo($object))
             ->willReturn($metadataFromMockProvider);
         $provider2 = new StubMetadataProvider($metadataFromStubProvider);

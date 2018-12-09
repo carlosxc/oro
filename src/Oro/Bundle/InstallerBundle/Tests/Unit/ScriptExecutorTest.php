@@ -4,7 +4,7 @@ namespace Oro\Bundle\InstallerBundle\Tests\Unit;
 
 use Oro\Bundle\InstallerBundle\ScriptExecutor;
 
-class ScriptExecutorTest extends \PHPUnit_Framework_TestCase
+class ScriptExecutorTest extends \PHPUnit\Framework\TestCase
 {
     public function testRunScript()
     {
@@ -19,7 +19,7 @@ class ScriptExecutorTest extends \PHPUnit_Framework_TestCase
         $output->expects($this->at(1))
             ->method('writeln')
             ->with('Test Package Installer data');
-        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container = $this->createMock('Symfony\Component\DependencyInjection\ContainerBuilder');
 
         $commandExecutor = $this->getMockBuilder('Oro\Bundle\InstallerBundle\CommandExecutor')
             ->disableOriginalConstructor()

@@ -4,10 +4,9 @@ namespace Oro\Bundle\ConfigBundle\Tests\Unit\Entity\Repository;
 
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadata;
-
 use Oro\Bundle\ConfigBundle\Entity\Repository\ConfigValueRepository;
 
-class ConfigValueRepositoryTest extends \PHPUnit_Framework_TestCase
+class ConfigValueRepositoryTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var ConfigValueRepository
@@ -83,7 +82,7 @@ class ConfigValueRepositoryTest extends \PHPUnit_Framework_TestCase
             array('oro_user', 'level')
         );
 
-        $configMock = $this->getMock('Oro\Bundle\ConfigBundle\Entity\Config');
+        $configMock = $this->createMock('Oro\Bundle\ConfigBundle\Entity\Config');
 
         $this->repository->removeValues($configMock, $removed);
     }

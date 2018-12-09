@@ -2,21 +2,21 @@
 
 namespace Oro\Bundle\SegmentBundle\Tests\Functional;
 
-use Symfony\Component\DomCrawler\Form;
-
+use Oro\Bundle\DataGridBundle\Async\Topics;
+use Oro\Bundle\MessageQueueBundle\Test\Functional\MessageQueueExtension;
 use Oro\Bundle\SegmentBundle\Entity\Segment;
 use Oro\Bundle\TestFrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Form;
 
-/**
- * @dbIsolation
- */
 class ControllersTest extends WebTestCase
 {
+    use MessageQueueExtension;
+
     protected function setUp()
     {
         $this->initClient(
-            array(),
-            array_merge($this->generateBasicAuthHeader(), array('HTTP_X-CSRF-Header' => 1))
+            [],
+            array_merge($this->generateBasicAuthHeader(), ['HTTP_X-CSRF-Header' => 1])
         );
         $this->client->useHashNavigation(true);
     }
@@ -57,20 +57,20 @@ class ControllersTest extends WebTestCase
     {
         $response = $this->client->requestGrid(
             'oro_segments-grid',
-            array('oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'],)
+            ['oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'], ]
         );
 
         $result = $this->getJsonResponseContent($response, 200);
         $result = reset($result['data']);
         $id = $result['id'];
-        $this->client->request('GET', $this->getUrl('oro_segment_view', array('id' => $id)));
+        $this->client->request('GET', $this->getUrl('oro_segment_view', ['id' => $id]));
         $result = $this->client->getResponse();
         $this->assertHtmlResponseStatusCodeEquals($result, 200);
 
         if ($report['oro_segment_form[type]'] == 'static') {
             $this->client->request(
                 'POST',
-                $this->getUrl('oro_api_post_segment_run', array('id' => $id))
+                $this->getUrl('oro_api_post_segment_run', ['id' => $id])
             );
             $result = $this->client->getResponse();
             $this->assertEmptyResponseStatusCodeEquals($result, 204);
@@ -81,6 +81,7 @@ class ControllersTest extends WebTestCase
         $result = $this->getJsonResponseContent($response, 200);
         $data = $result['data'];
         $options = $result['options'];
+        $this->addOroDefaultPrefixToUrlInParameterArray($reportResult, 'view_link');
         $this->verifyReport($reportResult, $data, $options['totalRecords']);
     }
 
@@ -94,14 +95,14 @@ class ControllersTest extends WebTestCase
     {
         $response = $this->client->requestGrid(
             'oro_segments-grid',
-            array('oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'])
+            ['oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]']]
         );
 
         $result = $this->getJsonResponseContent($response, 200);
         $result = reset($result['data']);
         $id = $result['id'];
 
-        $crawler = $this->client->request('GET', $this->getUrl('oro_segment_update', array('id' => $id)));
+        $crawler = $this->client->request('GET', $this->getUrl('oro_segment_update', ['id' => $id]));
         /** @var Form $form */
         $form = $crawler->selectButton('Save and Close')->form();
         $report['oro_segment_form[name]'] .= '_updated';
@@ -117,7 +118,7 @@ class ControllersTest extends WebTestCase
         if ($report['oro_segment_form[type]'] == 'static') {
             $this->client->request(
                 'POST',
-                $this->getUrl('oro_api_post_segment_run', array('id' => $id))
+                $this->getUrl('oro_api_post_segment_run', ['id' => $id])
             );
             $result = $this->client->getResponse();
             $this->assertEmptyResponseStatusCodeEquals($result, 204);
@@ -128,42 +129,32 @@ class ControllersTest extends WebTestCase
         $result = $this->getJsonResponseContent($response, 200);
         $data = $result['data'];
         $options = $result['options'];
+        $this->addOroDefaultPrefixToUrlInParameterArray($reportResult, 'view_link');
         $this->verifyReport($reportResult, $data, (int)$options['totalRecords']);
     }
 
-    /**
-     * @param array $report
-     * @param array $reportResult
-     * @param array $segmentExport
-     * @param array|null $segmentExportFilter
-     *
-     * @depends testView
-     * @dataProvider segmentsDataProvider
-     */
-    public function testExport(array $report, array $reportResult, array $segmentExport, $segmentExportFilter)
+    public function testExport()
     {
         $response = $this->client->requestGrid(
             'oro_segments-grid',
-            array('oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'] . '_updated')
+            ['oro_segments-grid[_filter][name][value]' => 'Users Filterd Dynamic_updated']
         );
 
         $result = $this->getJsonResponseContent($response, 200);
         $result = reset($result['data']);
         $id = $result['id'];
 
-        $keys = array_keys($segmentExportFilter);
-        $filter = array_values($segmentExportFilter);
+        $keys = ['oro_segment_grid_$id[_filter][c1][value]', 'oro_segment_grid_$id[_filter][c1][type]'];
+        $filter = ['321admin123', 1];
         $keys = str_replace('$id', $id, $keys);
         $filter = array_combine($keys, $filter);
 
-        //capture output content
-        ob_start();
         $this->client->request(
             'GET',
             $this->getUrl(
                 'oro_datagrid_export_action',
                 array_merge(
-                    array('gridName' => Segment::GRID_PREFIX . $id, "format" => 'csv'),
+                    ['gridName' => Segment::GRID_PREFIX . $id, 'format' => 'csv'],
                     $filter
                 )
             ),
@@ -172,24 +163,29 @@ class ControllersTest extends WebTestCase
             $this->generateNoHashNavigationHeader()
         );
 
-        $content = ob_get_contents();
-        // Clean the output buffer and end it
-        ob_end_clean();
+        $response = $this->getJsonResponseContent($this->client->getResponse(), 200);
+        $this->assertCount(1, $response);
+        $this->assertTrue($response['successful']);
 
-        $result = $this->client->getResponse();
-        $this->assertResponseStatusCodeEquals($result, 200);
-        $this->assertResponseContentTypeEquals($result, 'text/csv; charset=UTF-8');
-
-        //file to array
-        $content = str_getcsv($content, "\n", '"', '"');
-        //remove headers
-        unset($content[0]);
-        $content = array_values($content);
-        //row to array
-        foreach ($content as &$row) {
-            $row = str_getcsv($row, ',', '"', '"');
-        }
-        $this->verifyReport($segmentExport, $content, count($content));
+        $this->assertMessageSent(
+            Topics::PRE_EXPORT,
+            [
+                'format' => 'csv',
+                'parameters' => [
+                    'gridName' => 'oro_segment_grid_' . $id,
+                    'gridParameters' => [
+                        '_filter' => [
+                            'c1' => [
+                                'value' => '321admin123',
+                                'type' => '1'
+                            ],
+                        ],
+                    ],
+                    'format_type' => 'excel'
+                ],
+                'notificationTemplate' => 'datagrid_export_result',
+            ]
+        );
     }
 
     /**
@@ -201,7 +197,7 @@ class ControllersTest extends WebTestCase
     {
         $response = $this->client->requestGrid(
             'oro_segments-grid',
-            array('oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'] . '_updated')
+            ['oro_segments-grid[_filter][name][value]' => $report['oro_segment_form[name]'] . '_updated']
         );
 
         $result = $this->getJsonResponseContent($response, 200);
@@ -210,13 +206,13 @@ class ControllersTest extends WebTestCase
 
         $this->client->request(
             'DELETE',
-            $this->getUrl('oro_api_delete_segment', array('id' => $id))
+            $this->getUrl('oro_api_delete_segment', ['id' => $id])
         );
 
         $result = $this->client->getResponse();
         $this->assertEmptyResponseStatusCodeEquals($result, 204);
 
-        $this->client->request('GET', $this->getUrl('oro_segment_update', array('id' => $id)));
+        $this->client->request('GET', $this->getUrl('oro_segment_update', ['id' => $id]));
 
         $result = $this->client->getResponse();
         $this->assertHtmlResponseStatusCodeEquals($result, 404);

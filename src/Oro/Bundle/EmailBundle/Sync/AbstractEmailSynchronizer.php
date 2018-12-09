@@ -4,38 +4,34 @@ namespace Oro\Bundle\EmailBundle\Sync;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\EntityManager;
-
-use JMS\JobQueueBundle\Entity\Job;
-
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
-use Psr\Log\NullLogger;
-
-use Oro\Bundle\CronBundle\Entity\Manager\JobManager;
+use Doctrine\ORM\ORMException;
+use Doctrine\ORM\QueryBuilder;
 use Oro\Bundle\EmailBundle\Entity\EmailOrigin;
 use Oro\Bundle\EmailBundle\Exception\SyncFolderTimeoutException;
 use Oro\Bundle\EmailBundle\Sync\Model\SynchronizationProcessorSettings;
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
 use Oro\Bundle\SecurityBundle\Authentication\Token\OrganizationToken;
+use Oro\Component\MessageQueue\Client\MessageProducerInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\NullLogger;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 
 /**
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
-abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
+abstract class AbstractEmailSynchronizer implements EmailSynchronizerInterface, LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
     const SYNC_CODE_IN_PROCESS = 1;
     const SYNC_CODE_FAILURE    = 2;
     const SYNC_CODE_SUCCESS    = 3;
-
-    const ID_OPTION = 'id';
+    const SYNC_CODE_IN_PROCESS_FORCE = 4;
 
     /** @var string */
-    static protected $jobCommand;
+    protected static $messageQueueTopic;
 
     /** @var ManagerRegistry */
     protected $doctrine;
@@ -52,8 +48,11 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
     /** @var TokenInterface */
     private $currentToken;
 
-    /** @var JobManager */
-    private $jobManager;
+    /** @var MessageProducerInterface */
+    private $producer;
+
+    /** @var string */
+    protected $clearInterval = 'P1D';
 
     /**
      * Constructor
@@ -67,14 +66,15 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
     ) {
         $this->doctrine                        = $doctrine;
         $this->knownEmailAddressCheckerFactory = $knownEmailAddressCheckerFactory;
+        $this->logger = new NullLogger();
     }
 
     /**
-     * @param JobManager $jobManager
+     * @param MessageProducerInterface $producer
      */
-    public function setJobManager(JobManager $jobManager)
+    public function setMessageProducer(MessageProducerInterface $producer)
     {
-        $this->jobManager = $jobManager;
+        $this->producer = $producer;
     }
 
     /**
@@ -116,16 +116,13 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
      */
     public function sync($maxConcurrentTasks, $minExecIntervalInMin, $maxExecTimeInMin = -1, $maxTasks = 1)
     {
-        if ($this->logger === null) {
-            $this->logger = new NullLogger();
-        }
-
         if (!$this->checkConfiguration()) {
             $this->logger->info('Exit because synchronization was not configured or disabled.');
             return 0;
         }
 
         $startTime = $this->getCurrentUtcDateTime();
+        $this->calculateClearInterval($maxExecTimeInMin);
         $this->resetHangedOrigins();
 
         $maxExecTimeout = $maxExecTimeInMin > 0
@@ -157,6 +154,9 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
             try {
                 $this->doSyncOrigin($origin, new SynchronizationProcessorSettings());
             } catch (SyncFolderTimeoutException $ex) {
+                break;
+            } catch (ORMException $ex) {
+                $failedOriginIds[] = $origin->getId();
                 break;
             } catch (\Exception $ex) {
                 $failedOriginIds[] = $origin->getId();
@@ -225,26 +225,17 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
      */
     public function scheduleSyncOriginsJob(array $originIds)
     {
-        // todo: order ids to correct check in queue
-        if (static::$jobCommand && $this->jobManager) {
-            $jobArgs = array_map(
-                function ($id) {
-                    return sprintf(
-                        '--%s=%s',
-                        self::ID_OPTION,
-                        $id
-                    );
-                },
-                $originIds
-            );
-
-            if (!$this->jobManager->hasJobInQueue(static::$jobCommand, json_encode($jobArgs))) {
-                $job = new Job(static::$jobCommand, $jobArgs);
-                $em = $this->getEntityManager();
-                $em->persist($job);
-                $em->flush();
-            }
+        if (! static::$messageQueueTopic) {
+            throw new \LogicException('Message queue topic is not set');
         }
+
+        if (! $this->producer) {
+            throw new \LogicException('Message producer is not set');
+        }
+
+        $this->producer->send(static::$messageQueueTopic, [
+            'ids' => $originIds,
+        ]);
     }
 
     /**
@@ -283,16 +274,7 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
         }
 
         try {
-            if ($this->changeOriginSyncState($origin, self::SYNC_CODE_IN_PROCESS)) {
-                $syncStartTime = $this->getCurrentUtcDateTime();
-                if ($settings) {
-                    $processor->setSettings($settings);
-                }
-                $processor->process($origin, $syncStartTime);
-                $this->changeOriginSyncState($origin, self::SYNC_CODE_SUCCESS, $syncStartTime);
-            } else {
-                $this->logger->info('Skip because it is already in process.');
-            }
+            $this->delegateToProcessor($origin, $processor, $settings);
         } catch (SyncFolderTimeoutException $ex) {
             $this->logger->info($ex->getMessage());
             $this->changeOriginSyncState($origin, self::SYNC_CODE_SUCCESS);
@@ -307,6 +289,30 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
             );
 
             throw $ex;
+        }
+    }
+
+    /**
+     * @param EmailOrigin $origin
+     * @param AbstractEmailSynchronizationProcessor $processor
+     * @param SynchronizationProcessorSettings|null $settings
+     */
+    protected function delegateToProcessor(
+        EmailOrigin $origin,
+        AbstractEmailSynchronizationProcessor $processor,
+        SynchronizationProcessorSettings $settings = null
+    ) {
+        $inProcessCode = $settings && $settings->isForceMode()
+            ? self::SYNC_CODE_IN_PROCESS_FORCE : self::SYNC_CODE_IN_PROCESS;
+        if ($this->changeOriginSyncState($origin, $inProcessCode)) {
+            $syncStartTime = $this->getCurrentUtcDateTime();
+            if ($settings) {
+                $processor->setSettings($settings);
+            }
+            $processor->process($origin, $syncStartTime);
+            $this->changeOriginSyncState($origin, self::SYNC_CODE_SUCCESS, $syncStartTime);
+        } else {
+            $this->logger->info('Skip because it is already in process.');
         }
     }
 
@@ -396,7 +402,7 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
                 ->setParameter('synchronized', $synchronizedAt);
         }
 
-        if ($syncCode === self::SYNC_CODE_IN_PROCESS) {
+        if ($syncCode === self::SYNC_CODE_IN_PROCESS || $syncCode === self::SYNC_CODE_IN_PROCESS_FORCE) {
             $qb->andWhere('(o.syncCode IS NULL OR o.syncCode <> :code)');
         }
 
@@ -447,36 +453,42 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
         $min = clone $now;
         $min->sub(new \DateInterval('P1Y'));
 
+        // time shift in minutes for fails origins
+        $timeShift = 30;
+
         // rules:
         // - items with earlier sync code modification dates have higher priority
         // - previously failed items are shifted at 30 minutes back (it means that if sync failed
         //   the next sync is performed only after 30 minutes)
         // - "In Process" items are moved at the end
         $repo   = $this->getEntityManager()->getRepository($this->getEmailOriginClass());
-        $query = $repo->createQueryBuilder('o')
+        $queryBuilder = $repo->createQueryBuilder('o')
             ->select(
                 'o'
-                . ', CASE WHEN o.syncCode = :inProcess THEN 0 ELSE 1 END AS HIDDEN p1'
-                . ', (COALESCE(o.syncCode, 1000) * 30'
-                . ' + TIMESTAMPDIFF(MINUTE, COALESCE(o.syncCodeUpdatedAt, :min), :now)'
-                . ' / (CASE o.syncCode WHEN :success THEN 100 ELSE 1 END)) AS HIDDEN p2'
+                . ', CASE WHEN o.syncCode = :inProcess OR o.syncCode = :inProcessForce THEN 0 ELSE 1 END AS HIDDEN p1'
+                . ', (TIMESTAMPDIFF(MINUTE, COALESCE(o.syncCodeUpdatedAt, :min), :now)'
+                . ' - (CASE o.syncCode WHEN :success THEN 0 ELSE :timeShift END)) AS HIDDEN p2'
             )
             ->where('o.isActive = :isActive AND (o.syncCodeUpdatedAt IS NULL OR o.syncCodeUpdatedAt <= :border)')
             ->orderBy('p1, p2 DESC, o.syncCodeUpdatedAt')
             ->setParameter('inProcess', self::SYNC_CODE_IN_PROCESS)
+            ->setParameter('inProcessForce', self::SYNC_CODE_IN_PROCESS_FORCE)
             ->setParameter('success', self::SYNC_CODE_SUCCESS)
             ->setParameter('isActive', true)
             ->setParameter('now', $now)
             ->setParameter('min', $min)
             ->setParameter('border', $border)
-            ->setMaxResults($maxConcurrentTasks + 1)
-            ->getQuery();
+            ->setParameter('timeShift', $timeShift)
+            ->setMaxResults($maxConcurrentTasks + 1);
+
+        $this->addOwnerFilter($queryBuilder);
 
         /** @var EmailOrigin[] $origins */
-        $origins = $query->getResult();
+        $origins = $queryBuilder->getQuery()->getResult();
         $result = null;
         foreach ($origins as $origin) {
-            if ($origin->getSyncCode() !== self::SYNC_CODE_IN_PROCESS) {
+            $syncCode = $origin->getSyncCode();
+            if ($syncCode !== self::SYNC_CODE_IN_PROCESS && $syncCode !== self::SYNC_CODE_IN_PROCESS_FORCE) {
                 $result = $origin;
                 break;
             }
@@ -495,6 +507,30 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
     }
 
     /**
+     * Modifies QueryBuilder to filter origins by enabled owner
+     *
+     * @param QueryBuilder $queryBuilder
+     */
+    protected function addOwnerFilter(QueryBuilder $queryBuilder)
+    {
+        $expr = $queryBuilder->expr();
+
+        $queryBuilder->leftJoin('o.owner', 'owner')
+            ->andWhere(
+                $expr->orX(
+                    $expr->andX(
+                        $expr->isNull('owner.id')
+                    ),
+                    $expr->andX(
+                        $expr->isNotNull('owner.id'),
+                        $expr->eq('owner.enabled', ':isOwnerEnabled')
+                    )
+                )
+            )
+            ->setParameter('isOwnerEnabled', true);
+    }
+
+    /**
      * Finds active email origin by its id
      *
      * @param int $originId
@@ -505,13 +541,15 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
         $this->logger->info(sprintf('Finding an email origin (id: %d) ...', $originId));
 
         $repo  = $this->getEntityManager()->getRepository($this->getEmailOriginClass());
-        $query = $repo->createQueryBuilder('o')
+        $queryBuilder = $repo->createQueryBuilder('o')
             ->where('o.isActive = :isActive AND o.id = :id')
             ->setParameter('isActive', true)
             ->setParameter('id', $originId)
-            ->setMaxResults(1)
-            ->getQuery();
-        $origins = $query->getResult();
+            ->setMaxResults(1);
+
+        $this->addOwnerFilter($queryBuilder);
+
+        $origins = $queryBuilder->getQuery()->getResult();
 
         /** @var EmailOrigin $result */
         $result = !empty($origins) ? $origins[0] : null;
@@ -534,7 +572,7 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
 
         $now = $this->getCurrentUtcDateTime();
         $border = clone $now;
-        $border->sub(new \DateInterval('P1D'));
+        $border->sub(new \DateInterval($this->clearInterval));
 
         $repo  = $this->getEntityManager()->getRepository($this->getEmailOriginClass());
         $query = $repo->createQueryBuilder('o')
@@ -558,6 +596,16 @@ abstract class AbstractEmailSynchronizer implements LoggerAwareInterface
     protected function getCurrentUtcDateTime()
     {
         return new \DateTime('now', new \DateTimeZone('UTC'));
+    }
+
+    /**
+     * @param $maxExecTimeInMin
+     */
+    protected function calculateClearInterval($maxExecTimeInMin)
+    {
+        if ($maxExecTimeInMin > 5) {
+            $this->clearInterval = 'PT' . ($maxExecTimeInMin * 5) . 'M';
+        }
     }
 
     /**

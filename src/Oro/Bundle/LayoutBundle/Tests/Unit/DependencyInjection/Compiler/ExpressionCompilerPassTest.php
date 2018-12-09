@@ -2,17 +2,18 @@
 
 namespace Oro\Bundle\LayoutBundle\Tests\Unit\DependencyInjection\Compiler;
 
+use Oro\Bundle\LayoutBundle\DependencyInjection\Compiler\ExpressionCompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
-use Oro\Bundle\LayoutBundle\DependencyInjection\Compiler\ExpressionCompilerPass;
-
-class ExpressionCompilerPassTest extends \PHPUnit_Framework_TestCase
+class ExpressionCompilerPassTest extends \PHPUnit\Framework\TestCase
 {
     public function testProcess()
     {
+        /** @var ContainerBuilder|\PHPUnit\Framework\MockObject\MockObject $container */
         $container = $this->getMockBuilder(ContainerBuilder::class)->getMock();
+
         $encodingServiceDef = $this->getMockBuilder(Definition::class)->getMock();
         $languageServiceDef = $this->getMockBuilder(Definition::class)->getMock();
 
@@ -43,10 +44,10 @@ class ExpressionCompilerPassTest extends \PHPUnit_Framework_TestCase
         $encodingServiceDef->expects($this->once())
             ->method('replaceArgument')
             ->with(
-                1,
+                0,
                 [
-                    'json' => 'json_encoder',
-                    'xml'  => 'xml_encoder'
+                    'json' => new Reference('json_encoder'),
+                    'xml'  => new Reference('xml_encoder')
                 ]
             );
 

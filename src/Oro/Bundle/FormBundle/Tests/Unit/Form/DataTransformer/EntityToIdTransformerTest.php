@@ -4,10 +4,10 @@ namespace Oro\Bundle\FormBundle\Tests\Unit\Form\Type;
 
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
-use Oro\Bundle\FormBundle\Form\DataTransformer\EntityToIdTransformer;
 use Doctrine\ORM\Mapping\MappingException;
+use Oro\Bundle\FormBundle\Form\DataTransformer\EntityToIdTransformer;
 
-class EntityToIdTransformerTest extends \PHPUnit_Framework_TestCase
+class EntityToIdTransformerTest extends \PHPUnit\Framework\TestCase
 {
     protected $entityManager;
 
@@ -283,7 +283,7 @@ class EntityToIdTransformerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return EntityManager|\PHPUnit_Framework_MockObject_MockObject
+     * @return EntityManager|\PHPUnit\Framework\MockObject\MockObject
      */
     protected function getMockEntityManager()
     {
@@ -302,12 +302,12 @@ class EntityToIdTransformerTest extends \PHPUnit_Framework_TestCase
      *
      * @param string $property
      * @param mixed $value
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     private function createMockEntity($property, $value)
     {
         $getter = 'get' . ucfirst($property);
-        $result = $this->getMock('MockEntity', array($getter));
+        $result = $this->getMockBuilder(\stdClass::class)->setMethods(array($getter))->getMock();
         $result->expects($this->any())->method($getter)->will($this->returnValue($value));
 
         return $result;

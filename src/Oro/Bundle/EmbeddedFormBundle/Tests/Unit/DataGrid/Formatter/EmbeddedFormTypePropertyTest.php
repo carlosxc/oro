@@ -4,7 +4,7 @@ namespace Oro\Bundle\EmbeddedFormBundle\Tests\Unit\Grid\Formatter;
 
 use Oro\Bundle\EmbeddedFormBundle\DataGrid\Formatter\EmbeddedFormTypeProperty;
 
-class EmbeddedFormTypePropertyTest extends \PHPUnit_Framework_TestCase
+class EmbeddedFormTypePropertyTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @test
@@ -21,7 +21,7 @@ class EmbeddedFormTypePropertyTest extends \PHPUnit_Framework_TestCase
     {
         $manager = $this->createEmbeddedFormManagerMock();
         $translator = $this->createTranslatorMock();
-        $record = $this->getMock('Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface');
+        $record = $this->createMock('Oro\Bundle\DataGridBundle\Datasource\ResultRecordInterface');
 
         $formatter = new EmbeddedFormTypeProperty($manager, $translator);
 
@@ -44,7 +44,7 @@ class EmbeddedFormTypePropertyTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function createEmbeddedFormManagerMock()
     {
@@ -57,10 +57,10 @@ class EmbeddedFormTypePropertyTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit\Framework\MockObject\MockObject
      */
     protected function createTranslatorMock()
     {
-        return $this->getMock('Symfony\Component\Translation\TranslatorInterface');
+        return $this->createMock('Symfony\Component\Translation\TranslatorInterface');
     }
 }

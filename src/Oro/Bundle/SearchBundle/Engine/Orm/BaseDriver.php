@@ -20,9 +20,11 @@ use Oro\Bundle\SearchBundle\Query\Query;
 use Oro\Component\DoctrineUtils\ORM\QueryBuilderUtil;
 
 /**
+ * Abstract DB driver used to run search queries for ORM search engine
+ *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity)
  */
-abstract class BaseDriver
+abstract class BaseDriver implements DBALPersisterInterface
 {
     const EXPRESSION_TYPE_OR  = 'OR';
     const EXPRESSION_TYPE_AND = 'AND';
@@ -139,25 +141,16 @@ abstract class BaseDriver
      */
     public function initRepo(EntityManagerInterface $em, ClassMetadata $class)
     {
-//        if (!is_a($class->name, AbstractItem::class, true)) {
-//            throw new \InvalidArgumentException(
-//                'ClassMetadata doesn\'t represent Oro\Bundle\SearchBundle\Entity\Item class or its descendant'
-//            );
-//        }
+        if (!is_a($class->name, AbstractItem::class, true)) {
+            throw new \InvalidArgumentException(
+                'ClassMetadata doesn\'t represent Oro\Bundle\SearchBundle\Entity\Item class or its descendant'
+            );
+        }
 
         $this->associationMappings = $class->associationMappings;
         $this->entityName          = $class->name;
         $this->em                  = $em;
         $this->entityManager       = $em;
-    }
-    /**
-     * Returns an unique ID hash, used for SQL aliases
-     *
-     * @return string
-     */
-    public function getUniqueId()
-    {
-        return str_replace('.', '_', uniqid('', true));
     }
 
     /**
@@ -641,6 +634,9 @@ abstract class BaseDriver
                 ->orderBy('orderTable.value', QueryBuilderUtil::getSortOrder($direction))
                 ->setParameter('orderField', $fieldName);
             $qb->addSelect('orderTable.value');
+        } else {
+            $qb->orderBy('search.weight', Criteria::DESC)
+                ->addOrderBy('search.id', Criteria::DESC);
         }
     }
 
@@ -846,6 +842,7 @@ abstract class BaseDriver
                     Type::STRING,
                     Type::INTEGER,
                     Type::STRING,
+                    Type::DECIMAL,
                     Type::BOOLEAN,
                     Type::DATETIME,
                     Type::DATETIME,
@@ -856,6 +853,7 @@ abstract class BaseDriver
                     Type::STRING,
                     Type::INTEGER,
                     Type::STRING,
+                    Type::DECIMAL,
                     Type::BOOLEAN,
                     Type::DATETIME,
                     Type::DATETIME,
@@ -870,6 +868,7 @@ abstract class BaseDriver
                 'alias' => $item->getAlias(),
                 'record_id' => $item->getRecordId(),
                 'title' => $item->getTitle(),
+                'weight' => $item->getWeight(),
                 'changed' => $item->getChanged(),
                 'created_at' => $item->getCreatedAt(),
                 'updated_at' => $item->getUpdatedAt(),
@@ -880,6 +879,7 @@ abstract class BaseDriver
                 'alias' => $item->getAlias(),
                 'record_id' => $item->getRecordId(),
                 'title' => $item->getTitle(),
+                'weight' => $item->getWeight(),
                 'changed' => $item->getChanged(),
                 'created_at' => $item->getCreatedAt(),
                 'updated_at' => $item->getUpdatedAt(),

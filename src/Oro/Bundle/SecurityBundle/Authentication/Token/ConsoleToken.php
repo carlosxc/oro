@@ -2,16 +2,22 @@
 
 namespace Oro\Bundle\SecurityBundle\Authentication\Token;
 
-use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
-
 use Oro\Bundle\OrganizationBundle\Entity\Organization;
+use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 
 class ConsoleToken extends AbstractToken implements OrganizationContextTokenInterface
 {
+    use OrganizationContextTokenTrait;
+
     /**
-     * @var Organization
+     * {@inheritdoc}
      */
-    private $organization;
+    public function __construct(array $roles = array())
+    {
+        parent::__construct($roles);
+
+        parent::setAuthenticated(true);
+    }
 
     /**
      * {@inheritdoc}
@@ -19,21 +25,5 @@ class ConsoleToken extends AbstractToken implements OrganizationContextTokenInte
     public function getCredentials()
     {
         return ''; // anonymous credentials
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getOrganizationContext()
-    {
-        return $this->organization;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function setOrganizationContext(Organization $organization)
-    {
-        $this->organization = $organization;
     }
 }

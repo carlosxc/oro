@@ -1,5 +1,5 @@
-define(['jquery', 'orotranslation/js/translator', 'oroui/js/modal', 'oroui/js/messenger', 'oroui/js/error'],
-function($, __, Modal, Messenger, Error) {
+define(['jquery', 'orotranslation/js/translator', 'oroui/js/modal', 'oroui/js/messenger'
+], function($, __, Modal, Messenger) {
     'use strict';
 
     /**
@@ -11,9 +11,9 @@ function($, __, Modal, Messenger, Error) {
     return function(url, label, hideNotifications) {
         var el = this;
         var confirmDeactivation = new Modal({
-            title:   __('oro.workflow.workflowdefinition.deactivate', {label: label}),
+            title: __('oro.workflow.workflowdefinition.deactivate', {label: label}),
             content: __('oro.workflow.workflowdefinition.reset_workflow_data_message'),
-            okText:  __('oro.workflow.workflowdefinition.deactivate_button_text')
+            okText: __('oro.workflow.workflowdefinition.deactivate_button_text')
         });
 
         confirmDeactivation.on('ok', function() {
@@ -28,7 +28,6 @@ function($, __, Modal, Messenger, Error) {
                     el.trigger('deactivation_success', [response]);
                 },
                 error: function(xhr, textStatus, error) {
-                    Error.handle({}, xhr, {enforce: true});
                     el.trigger('deactivation_error', [xhr, textStatus, error]);
                 }
             });

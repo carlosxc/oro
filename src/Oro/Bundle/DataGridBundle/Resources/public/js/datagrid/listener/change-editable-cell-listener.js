@@ -15,8 +15,15 @@ define([
      */
     ChangeEditableCellListener = AbstractGridChangeListener.extend({
 
-        /** @param {Object} */
-        $selector: null,
+        /** @type {string|null} */
+        selector: null,
+
+        /**
+         * @inheritDoc
+         */
+        constructor: function ChangeEditableCellListener() {
+            ChangeEditableCellListener.__super__.constructor.apply(this, arguments);
+        },
 
         /**
          * @inheritDoc
@@ -25,9 +32,9 @@ define([
             if (!_.has(options, 'selector')) {
                 throw new Error('Parameter selector is not specified');
             }
-            this.$selector = $(options.selector);
+            this.selector = options.selector;
 
-            if (!this.$selector.length) {
+            if (!$(this.selector).length) {
                 throw new Error('DOM element for selector not found');
             }
 
@@ -100,7 +107,7 @@ define([
          * @inheritDoc
          */
         _synchronizeState: function() {
-            this.$selector.val(JSON.stringify(this.get('changeset')));
+            $(this.selector).val(JSON.stringify(this.get('changeset')));
         },
 
         /**
@@ -122,8 +129,9 @@ define([
          */
         _restoreState: function() {
             var changeset = {};
-            if (this.$selector.length) {
-                changeset = this._toObject(this.$selector.val());
+            var $selector = $(this.selector);
+            if ($selector.length) {
+                changeset = this._toObject($selector.val());
                 this.set('changeset', changeset);
             }
             if (!_.isEmpty(changeset)) {

@@ -4,9 +4,11 @@ namespace Oro\Bundle\EntityMergeBundle\Tests\Validator\Constraints;
 
 use Oro\Bundle\EntityMergeBundle\Metadata\FieldData;
 use Oro\Bundle\EntityMergeBundle\Tests\Unit\Stub\EntityStub;
+use Oro\Bundle\EntityMergeBundle\Validator\Constraints\UniqueEntity;
 use Oro\Bundle\EntityMergeBundle\Validator\Constraints\UniqueEntityValidator;
+use Symfony\Component\Validator\Context\ExecutionContext;
 
-class UniqueEntityValidatorTest extends \PHPUnit_Framework_TestCase
+class UniqueEntityValidatorTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var UniqueEntityValidator
@@ -39,13 +41,11 @@ class UniqueEntityValidatorTest extends \PHPUnit_Framework_TestCase
      */
     public function testInvalidArgument($value, $expectedExceptionMessage)
     {
-        $this->setExpectedException(
-            'Oro\Bundle\EntityMergeBundle\Exception\InvalidArgumentException',
-            $expectedExceptionMessage
-        );
+        $this->expectException('Oro\Bundle\EntityMergeBundle\Exception\InvalidArgumentException');
+        $this->expectExceptionMessage($expectedExceptionMessage);
 
         $constraint = $this
-            ->getMock('Oro\Bundle\EntityMergeBundle\Validator\Constraints\UniqueEntity');
+            ->createMock('Oro\Bundle\EntityMergeBundle\Validator\Constraints\UniqueEntity');
         $this->validator->validate($value, $constraint);
     }
 
@@ -90,15 +90,12 @@ class UniqueEntityValidatorTest extends \PHPUnit_Framework_TestCase
      */
     public function testValidate($entityData, $addViolation)
     {
-        $context = $this->getMockBuilder('Symfony\Component\Validator\ExecutionContext')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $context = $this->createMock(ExecutionContext::class);
 
         $context->expects($this->$addViolation())
             ->method('addViolation');
 
-        $constraint = $this
-            ->getMock('Oro\Bundle\EntityMergeBundle\Validator\Constraints\UniqueEntity');
+        $constraint = $this->createMock(UniqueEntity::class);
         $this->validator->initialize($context);
 
         $this->validator->validate($entityData, $constraint);
