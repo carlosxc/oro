@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/ororeminder/css/scss/main.scss'

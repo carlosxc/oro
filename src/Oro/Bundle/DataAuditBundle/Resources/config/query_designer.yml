@@ -1,5 +1,0 @@
-query_designer:
-    filters:
-        audit:
-            type: audit
-            query_type: [all]

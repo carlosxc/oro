@@ -1,0 +1,83 @@
+parameters:
+    # the time in seconds determines how often a database ping service being called
+    oro_sync.db_ping.interval: 20
+    # the time in seconds determines how often a websocket ping service being called
+    oro_sync.websocket_ping.interval: 50
+
+services:
+    oro_sync.periodic.db_ping:
+        class: Oro\Bundle\SyncBundle\Periodic\DbPingPeriodic
+        arguments:
+            - '@doctrine'
+            - '%oro_sync.db_ping.interval%'
+        calls:
+            - [ setLogger, [ '@logger' ] ]
+        tags:
+            - { name: gos_web_socket.periodic }
+            - { name: monolog.logger, channel: oro_websocket }
+
+    oro_sync.topic.websocket_ping:
+        class: Oro\Bundle\SyncBundle\Topic\WebsocketPingTopic
+        arguments:
+            - 'oro_sync.ping'
+            - '%oro_sync.websocket_ping.interval%'
+        calls:
+            - [ setLogger, [ '@logger' ] ]
+        tags:
+            - { name: gos_web_socket.topic }
+            - { name: monolog.logger, channel: oro_websocket }
+
+    oro_sync.twig.sync_extension:
+        class: Oro\Bundle\SyncBundle\Twig\OroSyncExtension
+        public: false
+        arguments:
+            - '@service_container'
+        tags:
+            - { name: twig.extension }
+
+    oro_sync.client.connection_checker:
+        class: Oro\Bundle\SyncBundle\Client\ConnectionChecker
+        arguments:
+            - '@oro_sync.websocket_client.basic'
+
+    oro_sync.event_listener.maintenance:
+        class: Oro\Bundle\SyncBundle\EventListener\MaintenanceListener
+        arguments:
+            - '@oro_sync.websocket_client'
+            - '@oro_sync.client.connection_checker'
+            - '@oro_security.token_accessor'
+        tags:
+            - { name: kernel.event_listener, event: maintenance.on, method: onModeOn }
+            - { name: kernel.event_listener, event: maintenance.off, method: onModeOff }
+
+    oro_sync.topic.maintenance:
+        class: Oro\Bundle\SyncBundle\Topic\BroadcastTopic
+        arguments:
+            - 'oro_sync.maintenance'
+        tags:
+            - { name: gos_web_socket.topic }
+
+    oro_sync.authentication.origin.origin_provider_chain:
+        class: Oro\Bundle\SyncBundle\Authentication\Origin\OriginProviderChain
+        public: false
+
+    oro_sync.authentication.origin.application_origin_provider:
+        class: Oro\Bundle\SyncBundle\Authentication\Origin\ApplicationOriginProvider
+        public: false
+        arguments:
+            - '@oro_config.global'
+            - '@oro_sync.authentication.origin.extractor'
+        tags:
+            - { name: oro_sync.origin_provider }
+
+    oro_sync.authentication.origin.origin_registry_decorator:
+        decorates: gos_web_socket.origins.registry
+        class: Oro\Bundle\SyncBundle\Authentication\Origin\OriginRegistryDecorator
+        public: false
+        arguments:
+            - '@oro_sync.authentication.origin.origin_registry_decorator.inner'
+            - '@oro_sync.authentication.origin.origin_provider_chain'
+
+    oro_sync.authentication.origin.extractor:
+        class: Oro\Bundle\SyncBundle\Authentication\Origin\OriginExtractor
+        public: false

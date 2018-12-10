@@ -1,0 +1,28 @@
+<?php
+
+namespace Oro\Bundle\ImapBundle\DependencyInjection;
+
+use Oro\Bundle\ConfigBundle\DependencyInjection\SettingsBuilder;
+use Symfony\Component\Config\Definition\Builder\TreeBuilder;
+use Symfony\Component\Config\Definition\ConfigurationInterface;
+
+class Configuration implements ConfigurationInterface
+{
+    /**
+     * {@inheritDoc}
+     */
+    public function getConfigTreeBuilder()
+    {
+        $treeBuilder = new TreeBuilder();
+        $rootNode = $treeBuilder->root('oro_imap');
+
+        SettingsBuilder::append($rootNode, [
+            'enable_google_imap' => [
+                'value' => false,
+                'type' => 'boolean',
+            ],
+        ]);
+
+        return $treeBuilder;
+    }
+}

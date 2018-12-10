@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+            - 'bundles/orocurrency/css/scss/main.scss'

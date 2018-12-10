@@ -1,0 +1,4 @@
+assets:
+    css:
+        inputs:
+          - 'bundles/orowindows/css/jquery.dialog.extended.css'
