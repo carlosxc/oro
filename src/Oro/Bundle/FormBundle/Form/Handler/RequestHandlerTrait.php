@@ -22,13 +22,9 @@ trait RequestHandlerTrait
      */
     private function submitPostPutRequest(FormInterface $form, Request $request, bool $clearMissing = true)
     {
-        $requestData = $form->getName()
-            ? $request->request->get($form->getName(), [])
-            : $request->request->all();
+        $requestData = $request->request->all();
 
-        $filesData = $form->getName()
-            ? $request->files->get($form->getName(), [])
-            : $request->files->all();
+        $filesData = $request->files->all();
 
         $form->submit(array_replace_recursive($requestData, $filesData), $clearMissing);
     }
