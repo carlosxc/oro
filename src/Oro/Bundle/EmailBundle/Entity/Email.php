@@ -39,6 +39,9 @@ use Symfony\Component\HttpFoundation\AcceptHeader;
  *              "action_button_widget"="oro_send_email_button",
  *              "action_link_widget"="oro_send_email_link"
  *          },
+ *          "form"={
+ *              "form_entity"="Oro\Bundle\EmailBundle\Form\Type\EmailApiType",
+ *          },
  *          "grid"={
  *              "default"="email-grid",
  *              "context"="email-for-context-grid"

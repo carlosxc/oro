@@ -34,6 +34,9 @@ use Symfony\Component\Security\Core\User\UserInterface;
  *              "group_name"="",
  *              "category"="account_management"
  *          },
+ *          "form"={
+ *              "form_entity"="Oro\Bundle\NoteBundle\Form\Type\NoteApiType",
+ *          },
  *          "grouping"={
  *              "groups"={"activity"}
  *          },
